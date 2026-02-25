@@ -113,10 +113,10 @@ object PdfReportGenerator {
         }
 
         fun sectionHeader(title: String) {
-            ensureSpace(22f)
+            ensureSpace(28f)
             c.drawRoundRect(RectF(ML, y, MR, y + 16f), 3f, 3f, bgHeader)
             c.drawText(title, ML + 8f, y + 11.5f, pSectionHeader)
-            y += 22f
+            y += 28f
         }
 
         // Fixed-offset label:value - label column is fixed width so values align
@@ -153,10 +153,13 @@ object PdfReportGenerator {
         c.drawRect(0f, 0f, PAGE_WIDTH.toFloat(), 5f, bgAccent)
         y = MT + 5f
 
-        // Logo from mipmap (the real Servielecar logo)
-        val logo = getLogoBitmap(context, 56)
+        // Logo from drawable (high-res Servielecar logo)
+        val logo = getLogoBitmap(context, 128)
         if (logo != null) {
-            c.drawBitmap(logo, ML, y - 4f, null)
+            // Draw at 56x56 on the PDF but decoded at 128px for sharpness
+            val logoRect = RectF(ML, y - 4f, ML + 56f, y + 52f)
+            val logoPaint = Paint().apply { isFilterBitmap = true; isAntiAlias = true }
+            c.drawBitmap(logo, null, logoRect, logoPaint)
         }
         val lOff = if (logo != null) 64f else 0f
 
@@ -190,6 +193,7 @@ object PdfReportGenerator {
         // ══════════════════════════════════════════
         val halfW = CW / 2f - 6f
         val rightCol = ML + CW / 2f + 6f
+        val pad = 10f  // internal padding for section content
 
         // Client header
         c.drawRoundRect(RectF(ML, y, ML + halfW, y + 16f), 3f, 3f, bgHeader)
@@ -197,25 +201,25 @@ object PdfReportGenerator {
         // Vehicle header
         c.drawRoundRect(RectF(rightCol, y, rightCol + halfW, y + 16f), 3f, 3f, bgHeader)
         c.drawText("DATOS DEL VEHÍCULO", rightCol + 8f, y + 11.5f, pSectionHeader)
-        y += 22f
+        y += 28f
 
         val clientLabelW = 68f  // enough for "Dirección: "
         val vehicleLabelW = 55f  // enough for "Modelo: "
 
         val ySnap = y
-        labelVal("Nombre:", data.customerName, ML, halfW, clientLabelW)
-        labelVal("Teléfono:", data.customerPhone, ML, halfW, clientLabelW)
-        data.customerEmail?.let { if (it.isNotBlank()) labelVal("Email:", it, ML, halfW, clientLabelW) }
-        data.customerAddress?.let { if (it.isNotBlank()) labelVal("Dirección:", it, ML, halfW, clientLabelW) }
+        labelVal("Nombre:", data.customerName, ML + pad, halfW - pad, clientLabelW)
+        labelVal("Teléfono:", data.customerPhone, ML + pad, halfW - pad, clientLabelW)
+        data.customerEmail?.let { if (it.isNotBlank()) labelVal("Email:", it, ML + pad, halfW - pad, clientLabelW) }
+        data.customerAddress?.let { if (it.isNotBlank()) labelVal("Dirección:", it, ML + pad, halfW - pad, clientLabelW) }
         val yLeft = y
 
         y = ySnap
-        labelVal("Placa:", data.vehiclePlate, rightCol, halfW, vehicleLabelW)
-        labelVal("Marca:", data.vehicleBrand, rightCol, halfW, vehicleLabelW)
-        labelVal("Modelo:", data.vehicleModel, rightCol, halfW, vehicleLabelW)
-        data.vehicleYear?.let { labelVal("Año:", it.toString(), rightCol, halfW, vehicleLabelW) }
-        data.vehicleColor?.let { if (it.isNotBlank()) labelVal("Color:", it, rightCol, halfW, vehicleLabelW) }
-        data.vehicleVin?.let { if (it.isNotBlank()) labelVal("VIN:", it, rightCol, halfW, vehicleLabelW) }
+        labelVal("Placa:", data.vehiclePlate, rightCol + pad, halfW - pad, vehicleLabelW)
+        labelVal("Marca:", data.vehicleBrand, rightCol + pad, halfW - pad, vehicleLabelW)
+        labelVal("Modelo:", data.vehicleModel, rightCol + pad, halfW - pad, vehicleLabelW)
+        data.vehicleYear?.let { labelVal("Año:", it.toString(), rightCol + pad, halfW - pad, vehicleLabelW) }
+        data.vehicleColor?.let { if (it.isNotBlank()) labelVal("Color:", it, rightCol + pad, halfW - pad, vehicleLabelW) }
+        data.vehicleVin?.let { if (it.isNotBlank()) labelVal("VIN:", it, rightCol + pad, halfW - pad, vehicleLabelW) }
         val yRight = y
 
         y = maxOf(yLeft, yRight) + 2f
@@ -229,25 +233,25 @@ object PdfReportGenerator {
         val infoLabelW = 72f  // enough for "Kilometraje:"
 
         val yInfo = y
-        labelVal("Estado:", data.order.status.displayName, ML, halfW, infoLabelW)
-        labelVal("Prioridad:", data.order.priority.displayName, ML, halfW, infoLabelW)
-        data.mechanicName?.let { labelVal("Mecánico:", it, ML, halfW, infoLabelW) }
+        labelVal("Estado:", data.order.status.displayName, ML + pad, halfW - pad, infoLabelW)
+        labelVal("Prioridad:", data.order.priority.displayName, ML + pad, halfW - pad, infoLabelW)
+        data.mechanicName?.let { labelVal("Mecánico:", it, ML + pad, halfW - pad, infoLabelW) }
         val yInfoL = y
 
         y = yInfo
-        data.order.entryMileage?.let { labelVal("Kilometraje:", "$it km", rightCol, halfW, infoLabelW) }
-        data.order.fuelLevel?.let { if (it.isNotBlank()) labelVal("Combustible:", it, rightCol, halfW, infoLabelW) }
+        data.order.entryMileage?.let { labelVal("Kilometraje:", "$it km", rightCol + pad, halfW - pad, infoLabelW) }
+        data.order.fuelLevel?.let { if (it.isNotBlank()) labelVal("Combustible:", it, rightCol + pad, halfW - pad, infoLabelW) }
         val yInfoR = y
 
         y = maxOf(yInfoL, yInfoR) + 2f
 
         if (data.order.customerComplaint.isNotBlank()) {
             ensureSpace(24f)
-            c.drawText("Queja del cliente:", ML, y, pBodyBold)
+            c.drawText("Queja del cliente:", ML + pad, y, pBodyBold)
             y += 12f
-            wrapText(data.order.customerComplaint, pBody, CW - 10f).forEach { line ->
+            wrapText(data.order.customerComplaint, pBody, CW - pad * 2).forEach { line ->
                 ensureSpace(12f)
-                c.drawText(line, ML + 8f, y, pBody)
+                c.drawText(line, ML + pad + 8f, y, pBody)
                 y += 11f
             }
             y += 2f
@@ -255,11 +259,11 @@ object PdfReportGenerator {
         data.order.initialDiagnosis?.let { d ->
             if (d.isNotBlank()) {
                 ensureSpace(24f)
-                c.drawText("Diagnóstico:", ML, y, pBodyBold)
+                c.drawText("Diagnóstico:", ML + pad, y, pBodyBold)
                 y += 12f
-                wrapText(d, pBody, CW - 10f).forEach { line ->
+                wrapText(d, pBody, CW - pad * 2).forEach { line ->
                     ensureSpace(12f)
-                    c.drawText(line, ML + 8f, y, pBody)
+                    c.drawText(line, ML + pad + 8f, y, pBody)
                     y += 11f
                 }
                 y += 2f
@@ -493,9 +497,10 @@ object PdfReportGenerator {
 
     private fun getLogoBitmap(context: Context, sizePx: Int): Bitmap? {
         return try {
-            // Use the real app icon (mipmap) - the Servielecar branded logo
-            val options = BitmapFactory.Options().apply { inSampleSize = 1 }
-            val bmp = BitmapFactory.decodeResource(context.resources, R.mipmap.ic_launcher, options)
+            // Decode at high resolution then scale down for quality
+            val opts = BitmapFactory.Options().apply { inScaled = false }
+            val bmp = BitmapFactory.decodeResource(context.resources, R.drawable.servielecar_logo, opts)
+                ?: BitmapFactory.decodeResource(context.resources, R.mipmap.ic_launcher, opts)
                 ?: return null
             Bitmap.createScaledBitmap(bmp, sizePx, sizePx, true)
         } catch (_: Exception) {

@@ -28,7 +28,7 @@ Serviaux is an Android app for automotive workshop management built with Kotlin,
 
 - `data/entity/` - Room entities and enums (includes CatalogService for predefined services)
 - `data/dao/` - Room DAOs
-- `data/ServiauxDatabase.kt` - Database singleton with seed callback (version 5)
+- `data/ServiauxDatabase.kt` - Database singleton with seed callback (version 6)
 - `repository/` - Business logic repositories
 - `di/AppContainer.kt` - Manual dependency injection
 - `util/` - SecurityUtils, SessionManager, PhotoUtils
