@@ -23,6 +23,9 @@ interface WorkOrderPartDao {
 
     @Query("SELECT partId, SUM(quantity) as totalQty FROM work_order_parts wop INNER JOIN work_orders wo ON wop.workOrderId = wo.id WHERE wo.createdAt BETWEEN :from AND :to GROUP BY partId ORDER BY totalQty DESC LIMIT :limit")
     suspend fun getTopParts(from: Long, to: Long, limit: Int = 10): List<TopPartResult>
+
+    @Query("SELECT * FROM work_order_parts")
+    suspend fun getAllDirect(): List<WorkOrderPart>
 }
 
 data class TopPartResult(

@@ -4,6 +4,8 @@ import androidx.room.*
 import com.example.serviaux.data.entity.CatalogBrand
 import com.example.serviaux.data.entity.CatalogModel
 import com.example.serviaux.data.entity.CatalogColor
+import com.example.serviaux.data.entity.CatalogPartBrand
+import com.example.serviaux.data.entity.CatalogService
 import kotlinx.coroutines.flow.Flow
 
 @Dao
@@ -64,4 +66,36 @@ interface CatalogDao {
 
     @Query("DELETE FROM catalog_colors")
     suspend fun deleteAllColors()
+
+    // Part Brands
+    @Query("SELECT * FROM catalog_part_brands ORDER BY name")
+    fun getAllPartBrands(): Flow<List<CatalogPartBrand>>
+
+    @Query("SELECT * FROM catalog_part_brands ORDER BY name")
+    suspend fun getAllPartBrandsDirect(): List<CatalogPartBrand>
+
+    @Insert
+    suspend fun insertPartBrand(partBrand: CatalogPartBrand): Long
+
+    @Update
+    suspend fun updatePartBrand(partBrand: CatalogPartBrand)
+
+    @Delete
+    suspend fun deletePartBrand(partBrand: CatalogPartBrand)
+
+    @Query("DELETE FROM catalog_part_brands")
+    suspend fun deleteAllPartBrands()
+
+    // Services
+    @Query("SELECT * FROM catalog_services ORDER BY category, name")
+    fun getAllServices(): Flow<List<CatalogService>>
+
+    @Query("SELECT * FROM catalog_services ORDER BY category, name")
+    suspend fun getAllServicesDirect(): List<CatalogService>
+
+    @Query("SELECT DISTINCT category FROM catalog_services ORDER BY category")
+    fun getServiceCategories(): Flow<List<String>>
+
+    @Insert
+    suspend fun insertService(service: CatalogService): Long
 }

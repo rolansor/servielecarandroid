@@ -18,6 +18,7 @@ object Routes {
     const val USER_FORM = "users/form?userId={userId}"
     const val REPORTS = "reports"
     const val CATALOG_SETTINGS = "catalog_settings"
+    const val BACKUP = "backup"
 
     fun customerDetail(id: Long) = "customers/$id"
     fun customerForm(id: Long? = null) = if (id != null) "customers/form?customerId=$id" else "customers/form"

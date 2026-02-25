@@ -26,9 +26,11 @@ import kotlinx.coroutines.launch
         WorkOrderStatusLog::class,
         CatalogBrand::class,
         CatalogModel::class,
-        CatalogColor::class
+        CatalogColor::class,
+        CatalogPartBrand::class,
+        CatalogService::class
     ],
-    version = 3,
+    version = 5,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -92,8 +94,8 @@ abstract class ServiauxDatabase : RoomDatabase() {
             // ── Users ──────────────────────────────────────────────
             val adminId = userDao.insert(
                 User(
-                    name = "Carlos Martínez",
-                    username = "admin",
+                    name = "Andrés Sornoza",
+                    username = "servielecar",
                     role = UserRole.ADMIN,
                     passwordHash = hashedPassword,
                     active = true
@@ -102,8 +104,8 @@ abstract class ServiauxDatabase : RoomDatabase() {
 
             val receptionistId = userDao.insert(
                 User(
-                    name = "María López",
-                    username = "maria",
+                    name = "Nicole Plaza",
+                    username = "nicopla",
                     role = UserRole.RECEPCIONISTA,
                     passwordHash = hashedPassword
                 )
@@ -111,8 +113,8 @@ abstract class ServiauxDatabase : RoomDatabase() {
 
             val mechanic1Id = userDao.insert(
                 User(
-                    name = "José Hernández",
-                    username = "jose",
+                    name = "Smith Mosquera",
+                    username = "smimos",
                     role = UserRole.MECANICO,
                     passwordHash = hashedPassword
                 )
@@ -120,8 +122,8 @@ abstract class ServiauxDatabase : RoomDatabase() {
 
             val mechanic2Id = userDao.insert(
                 User(
-                    name = "Pedro Ramírez",
-                    username = "pedro",
+                    name = "Ronny Mosquera",
+                    username = "marciano",
                     role = UserRole.MECANICO,
                     passwordHash = hashedPassword
                 )
@@ -501,7 +503,7 @@ abstract class ServiauxDatabase : RoomDatabase() {
                 ServiceLine(
                     workOrderId = wo1Id,
                     description = "Cambio de aceite y filtro",
-                    hours = 0.5,
+
                     laborCost = 8000.0
                 )
             )
@@ -509,7 +511,7 @@ abstract class ServiauxDatabase : RoomDatabase() {
                 ServiceLine(
                     workOrderId = wo1Id,
                     description = "Revisión de frenos",
-                    hours = 1.0,
+
                     laborCost = 12000.0
                 )
             )
@@ -517,7 +519,7 @@ abstract class ServiauxDatabase : RoomDatabase() {
                 ServiceLine(
                     workOrderId = wo1Id,
                     description = "Alineación y balanceo",
-                    hours = 1.0,
+
                     laborCost = 10000.0
                 )
             )
@@ -525,7 +527,7 @@ abstract class ServiauxDatabase : RoomDatabase() {
                 ServiceLine(
                     workOrderId = wo1Id,
                     description = "Rotación de llantas",
-                    hours = 0.5,
+
                     laborCost = 5000.0
                 )
             )
@@ -628,7 +630,7 @@ abstract class ServiauxDatabase : RoomDatabase() {
                 ServiceLine(
                     workOrderId = wo2Id,
                     description = "Diagnóstico computarizado",
-                    hours = 1.0,
+
                     laborCost = 15000.0
                 )
             )
@@ -636,7 +638,7 @@ abstract class ServiauxDatabase : RoomDatabase() {
                 ServiceLine(
                     workOrderId = wo2Id,
                     description = "Revisión de amortiguadores",
-                    hours = 0.5,
+
                     laborCost = 8000.0
                 )
             )
@@ -735,22 +737,99 @@ abstract class ServiauxDatabase : RoomDatabase() {
 
             // ── Catalog: Colors ──────────────────────────────────────
             val colors = listOf(
-                "Blanco","Negro","Gris","Plateado","Rojo","Azul","Verde","Amarillo","Naranja","Caf\u00e9","Beige","Dorado","Bronce","Cobre",
-                "Azul Marino","Azul Celeste","Azul Turquesa","Azul Petr\u00f3leo","Azul \u00cdndigo","Azul Cobalto",
-                "Rojo Vino","Rojo Carmes\u00ed","Rojo Burdeos","Rojo Coral","Rojo Escarlata",
-                "Verde Oliva","Verde Esmeralda","Verde Lima","Verde Militar","Verde Pistacho","Verde Menta",
-                "Amarillo Lim\u00f3n","Amarillo Mostaza","Amarillo Oro","Amarillo \u00c1mbar",
-                "Naranja Mandarina","Naranja Coral","Naranja Calabaza",
-                "Caf\u00e9 Chocolate","Caf\u00e9 Oscuro","Caf\u00e9 Claro","Caf\u00e9 Arena","Caf\u00e9 Caramelo",
-                "Beige Arena","Beige Marfil","Beige Crema",
-                "Morado","Morado Oscuro","Morado Lavanda","Morado Violeta",
-                "Rosa","Rosa Palo","Rosa Fucsia",
-                "Gris Grafito","Gris Claro","Gris Oscuro","Gris Plomo","Gris Ceniza",
-                "Turquesa","Celeste","\u00cdndigo","Violeta","Lavanda","Fucsia","Coral","Caramelo","Arena","Marfil","Crema","Champagne","Perla"
+                // Primarios y secundarios
+                "Rojo", "Azul", "Amarillo", "Verde", "Naranja", "Morado", "Rosa", "Marrón",
+                // Neutros
+                "Blanco", "Negro", "Gris", "Beige", "Crema", "Marfil",
+                // Variaciones comunes
+                "Celeste", "Azul Oscuro", "Verde Claro", "Verde Oscuro",
+                "Turquesa", "Cian", "Magenta", "Violeta",
+                // Otros conocidos
+                "Dorado", "Plateado", "Azul Marino", "Lima", "Oliva"
             )
 
             for (colorName in colors) {
                 catalogDao.insertColor(CatalogColor(name = colorName))
+            }
+
+            // ── Catalog: Part Brands ───────────────────────────────────
+            val partBrands = listOf(
+                "Bosch", "Denso", "NGK", "Monroe", "KYB", "Gates", "SKF",
+                "Valeo", "Hella", "Brembo", "TRW", "Dayco", "Continental",
+                "Mann-Filter", "Mahle", "ACDelco", "Motorcraft", "Mopar",
+                "Delphi", "Aisin", "NTN", "Koyo", "Timken", "Wagner",
+                "Champion", "Febi Bilstein", "Sachs", "LuK", "INA",
+                "Fram", "Wix", "Castrol", "Mobil", "Shell", "Total"
+            )
+
+            for (brandName in partBrands) {
+                catalogDao.insertPartBrand(CatalogPartBrand(name = brandName))
+            }
+
+            // ── Catalog: Predefined Services ──────────────────────────
+            val servicesMap = mapOf(
+                "Mantenimiento Preventivo" to listOf(
+                    "Cambio de aceite y filtro",
+                    "Cambio de filtro de aire",
+                    "Cambio de filtro de gasolina",
+                    "Revisión y cambio de bujías",
+                    "Revisión de niveles (refrigerante, frenos, dirección hidráulica)",
+                    "Rotación de llantas",
+                    "Balanceo y alineación",
+                    "Cambio de batería",
+                    "Revisión general de luces"
+                ),
+                "Sistema de Frenos" to listOf(
+                    "Cambio de pastillas de freno",
+                    "Rectificación o cambio de discos",
+                    "Cambio de líquido de frenos",
+                    "Revisión de frenos delanteros y traseros",
+                    "Ajuste de freno de mano"
+                ),
+                "Motor y Sistema de Combustible" to listOf(
+                    "Afinación de motor",
+                    "Limpieza de inyectores",
+                    "Limpieza de cuerpo de aceleración",
+                    "Diagnóstico con escáner",
+                    "Cambio de correas",
+                    "Cambio de bomba de agua",
+                    "Limpieza o cambio de radiador"
+                ),
+                "Suspensión y Dirección" to listOf(
+                    "Cambio de amortiguadores",
+                    "Cambio de rótulas",
+                    "Cambio de terminales de dirección",
+                    "Revisión de cremallera",
+                    "Reparación de dirección hidráulica"
+                ),
+                "Sistema Eléctrico y Aire Acondicionado" to listOf(
+                    "Recarga de aire acondicionado",
+                    "Reparación de alternador",
+                    "Reparación de motor de arranque",
+                    "Revisión de sistema eléctrico",
+                    "Cambio de fusibles y relés"
+                ),
+                "Otros Servicios" to listOf(
+                    "Cambio de embrague",
+                    "Reparación de transmisión",
+                    "Enderezado de chasis",
+                    "Pintura automotriz",
+                    "Lavado de inyectores",
+                    "Escaneo y borrado de códigos",
+                    "Revisión pre-compra de vehículo"
+                )
+            )
+
+            for ((category, services) in servicesMap) {
+                for (serviceName in services) {
+                    catalogDao.insertService(
+                        CatalogService(
+                            category = category,
+                            name = serviceName,
+                            defaultPrice = 10.0
+                        )
+                    )
+                }
             }
         }
     }

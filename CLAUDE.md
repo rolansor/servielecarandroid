@@ -6,12 +6,13 @@ Serviaux is an Android app for automotive workshop management built with Kotlin,
 
 ## Tech Stack
 
-- Kotlin 2.0.21 + Jetpack Compose + Material 3
+- Kotlin 2.1.20 + Jetpack Compose + Material 3
 - Room Database with KSP (NOT kapt)
 - Navigation Compose for routing
 - Manual DI via AppContainer (NOT Hilt - due to AGP 9.x compatibility)
 - MVVM with AndroidViewModel + StateFlow
-- AGP 9.0.1, compileSdk 35, minSdk 26
+- Coil 3 for image loading
+- AGP 9.0.1, compileSdk 36, minSdk 26
 
 ## Key Conventions
 
@@ -25,12 +26,12 @@ Serviaux is an Android app for automotive workshop management built with Kotlin,
 
 ## Project Structure
 
-- `data/entity/` - Room entities and enums
+- `data/entity/` - Room entities and enums (includes CatalogService for predefined services)
 - `data/dao/` - Room DAOs
-- `data/ServiauxDatabase.kt` - Database singleton with seed callback
+- `data/ServiauxDatabase.kt` - Database singleton with seed callback (version 5)
 - `repository/` - Business logic repositories
 - `di/AppContainer.kt` - Manual dependency injection
-- `util/` - SecurityUtils, SessionManager
+- `util/` - SecurityUtils, SessionManager, PhotoUtils
 - `ui/` - Compose screens organized by feature module
 
 ## Important Patterns
@@ -40,9 +41,13 @@ Serviaux is an Android app for automotive workshop management built with Kotlin,
 - Status transitions for work orders follow strict flow: RECIBIDO -> EN_DIAGNOSTICO -> COTIZADO -> APROBADO -> EN_PROGRESO -> COMPLETADO -> ENTREGADO
 - Stock adjustments happen automatically when adding/removing WorkOrderParts
 - Session management uses `SessionManager` singleton with `StateFlow<User?>` for current user state
+- Photos stored as files in app internal storage (`vehicle_photos/` dir), paths saved as comma-separated string in `photoPaths` field on Vehicle and WorkOrder entities (max 6 per entity)
+- Camera access via `ActivityResultContracts.TakePicture()` with FileProvider
+- Predefined service catalog (`CatalogService`) with categories and default prices, selectable when adding service lines to work orders
 
 ## Build & Run
 
 - Build: `./gradlew assembleDebug`
 - No tests currently configured
 - Run on API 26+ device/emulator
+- Default admin: `servielecar` / `f4d3s2a1`

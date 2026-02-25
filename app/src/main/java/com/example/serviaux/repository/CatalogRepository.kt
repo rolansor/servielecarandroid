@@ -4,6 +4,8 @@ import com.example.serviaux.data.dao.CatalogDao
 import com.example.serviaux.data.entity.CatalogBrand
 import com.example.serviaux.data.entity.CatalogModel
 import com.example.serviaux.data.entity.CatalogColor
+import com.example.serviaux.data.entity.CatalogPartBrand
+import com.example.serviaux.data.entity.CatalogService
 import kotlinx.coroutines.flow.Flow
 import org.json.JSONObject
 import org.json.JSONArray
@@ -28,11 +30,23 @@ class CatalogRepository(private val dao: CatalogDao) {
     suspend fun updateColor(color: CatalogColor) = dao.updateColor(color)
     suspend fun deleteColor(color: CatalogColor) = dao.deleteColor(color)
 
+    // Part Brands
+    fun getAllPartBrands(): Flow<List<CatalogPartBrand>> = dao.getAllPartBrands()
+    suspend fun insertPartBrand(name: String): Long = dao.insertPartBrand(CatalogPartBrand(name = name))
+    suspend fun updatePartBrand(partBrand: CatalogPartBrand) = dao.updatePartBrand(partBrand)
+    suspend fun deletePartBrand(partBrand: CatalogPartBrand) = dao.deletePartBrand(partBrand)
+
+    // Services
+    fun getAllServices(): Flow<List<CatalogService>> = dao.getAllServices()
+    suspend fun getAllServicesDirect(): List<CatalogService> = dao.getAllServicesDirect()
+    fun getServiceCategories(): Flow<List<String>> = dao.getServiceCategories()
+
     // Export all catalogs as JSON string
     suspend fun exportToJson(): String {
         val brands = dao.getAllBrandsDirect()
         val models = dao.getAllModelsDirect()
         val colors = dao.getAllColorsDirect()
+        val partBrands = dao.getAllPartBrandsDirect()
 
         val json = JSONObject()
 
@@ -47,6 +61,9 @@ class CatalogRepository(private val dao: CatalogDao) {
         // Colors
         json.put("colores", JSONArray(colors.map { it.name }))
 
+        // Part brands
+        json.put("marcas_repuestos", JSONArray(partBrands.map { it.name }))
+
         return json.toString(2)
     }
 
@@ -58,6 +75,7 @@ class CatalogRepository(private val dao: CatalogDao) {
         dao.deleteAllModels()
         dao.deleteAllBrands()
         dao.deleteAllColors()
+        dao.deleteAllPartBrands()
 
         // Import brands and models
         if (json.has("marcas")) {
@@ -76,6 +94,14 @@ class CatalogRepository(private val dao: CatalogDao) {
             val colorsArray = json.getJSONArray("colores")
             for (i in 0 until colorsArray.length()) {
                 dao.insertColor(CatalogColor(name = colorsArray.getString(i)))
+            }
+        }
+
+        // Import part brands
+        if (json.has("marcas_repuestos")) {
+            val partBrandsArray = json.getJSONArray("marcas_repuestos")
+            for (i in 0 until partBrandsArray.length()) {
+                dao.insertPartBrand(CatalogPartBrand(name = partBrandsArray.getString(i)))
             }
         }
     }

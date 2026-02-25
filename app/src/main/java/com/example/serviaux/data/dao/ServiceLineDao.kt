@@ -20,4 +20,7 @@ interface ServiceLineDao {
 
     @Query("SELECT COALESCE(SUM(laborCost), 0.0) FROM service_lines WHERE workOrderId = :workOrderId")
     suspend fun getTotalLabor(workOrderId: Long): Double
+
+    @Query("SELECT * FROM service_lines")
+    suspend fun getAllDirect(): List<ServiceLine>
 }

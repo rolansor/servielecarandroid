@@ -71,7 +71,7 @@ fun CatalogSettingsScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     var selectedTab by remember { mutableIntStateOf(0) }
     val context = LocalContext.current
-    val tabs = listOf("Marcas", "Colores")
+    val tabs = listOf("Marcas", "Colores", "Marcas Repuesto")
 
     LaunchedEffect(uiState.error) {
         uiState.error?.let {
@@ -115,7 +115,7 @@ fun CatalogSettingsScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Configuraci\u00f3n de Cat\u00e1logos") },
+                title = { Text("Mantenimiento Cat\u00e1logos") },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Volver")
@@ -130,6 +130,7 @@ fun CatalogSettingsScreen(
                     when (selectedTab) {
                         0 -> viewModel.showAddBrandDialog()
                         1 -> viewModel.showAddColorDialog()
+                        2 -> viewModel.showAddPartBrandDialog()
                     }
                 }
             ) {
@@ -181,6 +182,7 @@ fun CatalogSettingsScreen(
             when (selectedTab) {
                 0 -> BrandsTab(uiState = uiState, viewModel = viewModel)
                 1 -> ColorsTab(uiState = uiState, viewModel = viewModel)
+                2 -> PartBrandsTab(uiState = uiState, viewModel = viewModel)
             }
         }
     }
@@ -368,6 +370,52 @@ private fun ColorsTab(uiState: CatalogUiState, viewModel: CatalogViewModel) {
 }
 
 @Composable
+private fun PartBrandsTab(uiState: CatalogUiState, viewModel: CatalogViewModel) {
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 80.dp)
+    ) {
+        items(uiState.partBrands, key = { it.id }) { partBrand ->
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 2.dp)
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = partBrand.name,
+                        style = MaterialTheme.typography.bodyLarge,
+                        modifier = Modifier.weight(1f)
+                    )
+                    IconButton(
+                        onClick = { viewModel.showEditPartBrandDialog(partBrand) },
+                        modifier = Modifier.size(36.dp)
+                    ) {
+                        Icon(Icons.Default.Edit, contentDescription = "Editar", modifier = Modifier.size(18.dp))
+                    }
+                    IconButton(
+                        onClick = { viewModel.showDeleteConfirmation("partBrand", partBrand.id, partBrand.name) },
+                        modifier = Modifier.size(36.dp)
+                    ) {
+                        Icon(
+                            Icons.Default.Delete,
+                            contentDescription = "Eliminar",
+                            tint = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
 private fun CatalogDialogs(uiState: CatalogUiState, viewModel: CatalogViewModel) {
     when (val dialog = uiState.dialogState) {
         is CatalogDialogState.None -> {}
@@ -434,6 +482,28 @@ private fun CatalogDialogs(uiState: CatalogUiState, viewModel: CatalogViewModel)
                 value = dialog.name,
                 onValueChange = { viewModel.updateDialogText(it) },
                 onConfirm = { viewModel.confirmEditColor(dialog.color, dialog.name) },
+                onDismiss = { viewModel.dismissDialog() }
+            )
+        }
+
+        is CatalogDialogState.AddPartBrand -> {
+            TextInputDialog(
+                title = "Agregar Marca de Repuesto",
+                label = "Nombre de la marca",
+                value = dialog.name,
+                onValueChange = { viewModel.updateDialogText(it) },
+                onConfirm = { viewModel.confirmAddPartBrand(dialog.name) },
+                onDismiss = { viewModel.dismissDialog() }
+            )
+        }
+
+        is CatalogDialogState.EditPartBrand -> {
+            TextInputDialog(
+                title = "Editar Marca de Repuesto",
+                label = "Nombre de la marca",
+                value = dialog.name,
+                onValueChange = { viewModel.updateDialogText(it) },
+                onConfirm = { viewModel.confirmEditPartBrand(dialog.partBrand, dialog.name) },
                 onDismiss = { viewModel.dismissDialog() }
             )
         }

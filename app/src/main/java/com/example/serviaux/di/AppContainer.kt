@@ -22,4 +22,5 @@ class AppContainer(context: Context) {
         workOrderStatusLogDao = database.workOrderStatusLogDao(),
         partDao = database.partDao()
     )
+    val backupRepository = BackupRepository(database)
 }

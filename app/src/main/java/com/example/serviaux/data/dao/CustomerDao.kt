@@ -23,4 +23,7 @@ interface CustomerDao {
 
     @Query("SELECT * FROM customers WHERE fullName LIKE '%' || :query || '%' OR phone LIKE '%' || :query || '%' OR idNumber LIKE '%' || :query || '%'")
     fun search(query: String): Flow<List<Customer>>
+
+    @Query("SELECT * FROM customers")
+    suspend fun getAllDirect(): List<Customer>
 }

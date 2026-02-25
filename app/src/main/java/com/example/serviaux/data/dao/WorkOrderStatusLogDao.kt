@@ -11,4 +11,7 @@ interface WorkOrderStatusLogDao {
 
     @Query("SELECT * FROM work_order_status_log WHERE workOrderId = :workOrderId ORDER BY changedAt DESC")
     fun getByWorkOrder(workOrderId: Long): Flow<List<WorkOrderStatusLog>>
+
+    @Query("SELECT * FROM work_order_status_log")
+    suspend fun getAllDirect(): List<WorkOrderStatusLog>
 }

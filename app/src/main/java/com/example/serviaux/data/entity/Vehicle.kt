@@ -36,6 +36,7 @@ data class Vehicle(
     val drivetrain: String = "4x2",
     val transmission: String = "Manual",
     val notes: String? = null,
+    val photoPaths: String? = null,
     val createdAt: Long = System.currentTimeMillis(),
     val updatedAt: Long = System.currentTimeMillis()
 )

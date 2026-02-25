@@ -26,4 +26,7 @@ interface VehicleDao {
 
     @Query("SELECT * FROM vehicles WHERE plate LIKE '%' || :query || '%' OR brand LIKE '%' || :query || '%' OR model LIKE '%' || :query || '%'")
     fun search(query: String): Flow<List<Vehicle>>
+
+    @Query("SELECT * FROM vehicles")
+    suspend fun getAllDirect(): List<Vehicle>
 }

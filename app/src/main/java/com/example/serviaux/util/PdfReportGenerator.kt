@@ -1,0 +1,570 @@
+package com.example.serviaux.util
+
+import android.content.Context
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.graphics.Canvas
+import android.graphics.Paint
+import android.graphics.RectF
+import android.graphics.Typeface
+import android.graphics.pdf.PdfDocument
+import com.example.serviaux.R
+import com.example.serviaux.data.entity.*
+import java.io.File
+import java.io.FileOutputStream
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+
+data class WorkOrderReportData(
+    val order: WorkOrder,
+    val customerName: String,
+    val customerPhone: String,
+    val customerEmail: String?,
+    val customerAddress: String?,
+    val vehiclePlate: String,
+    val vehicleBrand: String,
+    val vehicleModel: String,
+    val vehicleYear: Int?,
+    val vehicleColor: String?,
+    val vehicleVin: String?,
+    val serviceLines: List<ServiceLine>,
+    val orderParts: List<WorkOrderPart>,
+    val availableParts: List<Part>,
+    val payments: List<WorkOrderPayment>,
+    val mechanicName: String?,
+    val photoPaths: List<String> = emptyList()
+)
+
+object PdfReportGenerator {
+
+    private const val PAGE_WIDTH = 595
+    private const val PAGE_HEIGHT = 842
+    private const val ML = 36f          // margin left
+    private const val MR = 559f         // margin right
+    private const val MT = 36f          // margin top
+    private const val MB = 806f         // margin bottom
+    private const val CW = MR - ML     // content width
+
+    // Row heights
+    private const val ROW_H = 16f
+    private const val SECTION_GAP = 10f
+    private const val TABLE_HEADER_H = 18f
+
+    private val dateFmt = SimpleDateFormat("dd/MM/yyyy", Locale("es"))
+    private val dateTimeFmt = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale("es"))
+
+    // Colors
+    private const val COL_ACCENT = 0xFFE65100.toInt()
+    private const val COL_HEADER_BG = 0xFF37474F.toInt()
+    private const val COL_HEADER_TEXT = 0xFFFFFFFF.toInt()
+    private const val COL_TABLE_HEADER_BG = 0xFFECEFF1.toInt()
+    private const val COL_ALT_ROW = 0xFFF5F5F5.toInt()
+    private const val COL_TEXT = 0xFF333333.toInt()
+    private const val COL_TEXT_BOLD = 0xFF1A1A1A.toInt()
+    private const val COL_MUTED = 0xFF666666.toInt()
+    private const val COL_TOTAL_BG = 0xFFE8F5E9.toInt()
+    private const val COL_TOTAL_TEXT = 0xFF1B5E20.toInt()
+    private const val COL_DIVIDER = 0xFFBDBDBD.toInt()
+
+    fun generateWorkOrderPdf(context: Context, data: WorkOrderReportData): File {
+        val doc = PdfDocument()
+        var pageNum = 1
+        var page = doc.startPage(PdfDocument.PageInfo.Builder(PAGE_WIDTH, PAGE_HEIGHT, pageNum).create())
+        var c = page.canvas
+        var y = MT
+
+        // ── Paints ──
+        val pTitle = paint(20f, COL_TEXT_BOLD, bold = true)
+        val pSubtitle = paint(10f, COL_MUTED)
+        val pSectionHeader = paint(10f, COL_HEADER_TEXT, bold = true)
+        val pBody = paint(9f, COL_TEXT)
+        val pBodyBold = paint(9f, COL_TEXT, bold = true)
+        val pSmall = paint(7.5f, COL_MUTED)
+        val pTableHeader = paint(8.5f, COL_TEXT_BOLD, bold = true)
+        val pMoney = paint(9f, COL_TEXT)
+        val pMoneyBold = paint(9f, COL_TEXT, bold = true)
+        val pTotalLabel = paint(11f, COL_TEXT_BOLD, bold = true)
+        val pTotal = paint(14f, COL_TOTAL_TEXT, bold = true)
+
+        val bgAccent = fill(COL_ACCENT)
+        val bgHeader = fill(COL_HEADER_BG)
+        val bgTableHead = fill(COL_TABLE_HEADER_BG)
+        val bgAltRow = fill(COL_ALT_ROW)
+        val bgTotal = fill(COL_TOTAL_BG)
+        val pLine = Paint().apply { color = COL_DIVIDER; strokeWidth = 0.6f; isAntiAlias = true }
+
+        // ── Helpers ──
+        fun newPage() {
+            doc.finishPage(page)
+            pageNum++
+            page = doc.startPage(PdfDocument.PageInfo.Builder(PAGE_WIDTH, PAGE_HEIGHT, pageNum).create())
+            c = page.canvas
+            y = MT
+        }
+
+        fun ensureSpace(need: Float) {
+            if (y + need > MB) newPage()
+        }
+
+        fun hLine() {
+            c.drawLine(ML, y, MR, y, pLine)
+            y += 1f
+        }
+
+        fun sectionHeader(title: String) {
+            ensureSpace(22f)
+            c.drawRoundRect(RectF(ML, y, MR, y + 16f), 3f, 3f, bgHeader)
+            c.drawText(title, ML + 8f, y + 11.5f, pSectionHeader)
+            y += 22f
+        }
+
+        // Fixed-offset label:value - label column is fixed width so values align
+        fun labelVal(label: String, value: String, x: Float, maxW: Float, labelW: Float = 75f) {
+            ensureSpace(14f)
+            c.drawText(label, x, y, pBodyBold)
+            val valX = x + labelW
+            val valMaxW = maxW - labelW
+            val wrapped = wrapText(value, pBody, valMaxW)
+            wrapped.forEachIndexed { i, line ->
+                if (i > 0) y += 11f
+                c.drawText(line, valX, y, pBody)
+            }
+            y += 14f
+        }
+
+        fun drawTableHeaderBg() {
+            c.drawRect(ML, y, MR, y + TABLE_HEADER_H, bgTableHead)
+        }
+
+        fun drawRowBg(index: Int) {
+            if (index % 2 == 1) {
+                c.drawRect(ML, y - 1f, MR, y + ROW_H - 3f, bgAltRow)
+            }
+        }
+
+        fun rightAlignText(text: String, rightX: Float, paint: Paint) {
+            c.drawText(text, rightX - paint.measureText(text), y, paint)
+        }
+
+        // ══════════════════════════════════════════
+        //  HEADER
+        // ══════════════════════════════════════════
+        c.drawRect(0f, 0f, PAGE_WIDTH.toFloat(), 5f, bgAccent)
+        y = MT + 5f
+
+        // Logo from mipmap (the real Servielecar logo)
+        val logo = getLogoBitmap(context, 56)
+        if (logo != null) {
+            c.drawBitmap(logo, ML, y - 4f, null)
+        }
+        val lOff = if (logo != null) 64f else 0f
+
+        c.drawText("SERVIELECAR", ML + lOff, y + 16f, pTitle)
+        c.drawText("Taller Automotriz", ML + lOff, y + 28f, pSubtitle)
+
+        // Order number right-aligned
+        val pOrderNum = paint(14f, COL_ACCENT, bold = true)
+        val orderTxt = "ORDEN #${data.order.id}"
+        rightAlignText(orderTxt, MR, pOrderNum)
+        y += 14f // align date below order number  (y is now ~MT+19)
+
+        val dateTxt = dateFmt.format(Date(data.order.entryDate))
+        val dateX = MR - pSubtitle.measureText(dateTxt)
+        c.drawText(dateTxt, dateX, y, pSubtitle)
+
+        // Status badge
+        val statusTxt = data.order.status.displayName
+        val pStatus = paint(8f, COL_HEADER_TEXT, bold = true)
+        val statusW = pStatus.measureText(statusTxt) + 14f
+        val statusBg = fill(statusColor(data.order.status))
+        c.drawRoundRect(RectF(MR - statusW, y + 5f, MR, y + 18f), 3f, 3f, statusBg)
+        c.drawText(statusTxt, MR - statusW + 7f, y + 15f, pStatus)
+
+        y += 32f
+        c.drawRect(ML, y, MR, y + 2f, bgAccent)
+        y += SECTION_GAP
+
+        // ══════════════════════════════════════════
+        //  CLIENT + VEHICLE (two columns)
+        // ══════════════════════════════════════════
+        val halfW = CW / 2f - 6f
+        val rightCol = ML + CW / 2f + 6f
+
+        // Client header
+        c.drawRoundRect(RectF(ML, y, ML + halfW, y + 16f), 3f, 3f, bgHeader)
+        c.drawText("DATOS DEL CLIENTE", ML + 8f, y + 11.5f, pSectionHeader)
+        // Vehicle header
+        c.drawRoundRect(RectF(rightCol, y, rightCol + halfW, y + 16f), 3f, 3f, bgHeader)
+        c.drawText("DATOS DEL VEHÍCULO", rightCol + 8f, y + 11.5f, pSectionHeader)
+        y += 22f
+
+        val clientLabelW = 68f  // enough for "Dirección: "
+        val vehicleLabelW = 55f  // enough for "Modelo: "
+
+        val ySnap = y
+        labelVal("Nombre:", data.customerName, ML, halfW, clientLabelW)
+        labelVal("Teléfono:", data.customerPhone, ML, halfW, clientLabelW)
+        data.customerEmail?.let { if (it.isNotBlank()) labelVal("Email:", it, ML, halfW, clientLabelW) }
+        data.customerAddress?.let { if (it.isNotBlank()) labelVal("Dirección:", it, ML, halfW, clientLabelW) }
+        val yLeft = y
+
+        y = ySnap
+        labelVal("Placa:", data.vehiclePlate, rightCol, halfW, vehicleLabelW)
+        labelVal("Marca:", data.vehicleBrand, rightCol, halfW, vehicleLabelW)
+        labelVal("Modelo:", data.vehicleModel, rightCol, halfW, vehicleLabelW)
+        data.vehicleYear?.let { labelVal("Año:", it.toString(), rightCol, halfW, vehicleLabelW) }
+        data.vehicleColor?.let { if (it.isNotBlank()) labelVal("Color:", it, rightCol, halfW, vehicleLabelW) }
+        data.vehicleVin?.let { if (it.isNotBlank()) labelVal("VIN:", it, rightCol, halfW, vehicleLabelW) }
+        val yRight = y
+
+        y = maxOf(yLeft, yRight) + 2f
+        hLine()
+        y += SECTION_GAP
+
+        // ══════════════════════════════════════════
+        //  ORDER INFO
+        // ══════════════════════════════════════════
+        sectionHeader("INFORMACIÓN DE LA ORDEN")
+        val infoLabelW = 72f  // enough for "Kilometraje:"
+
+        val yInfo = y
+        labelVal("Estado:", data.order.status.displayName, ML, halfW, infoLabelW)
+        labelVal("Prioridad:", data.order.priority.displayName, ML, halfW, infoLabelW)
+        data.mechanicName?.let { labelVal("Mecánico:", it, ML, halfW, infoLabelW) }
+        val yInfoL = y
+
+        y = yInfo
+        data.order.entryMileage?.let { labelVal("Kilometraje:", "$it km", rightCol, halfW, infoLabelW) }
+        data.order.fuelLevel?.let { if (it.isNotBlank()) labelVal("Combustible:", it, rightCol, halfW, infoLabelW) }
+        val yInfoR = y
+
+        y = maxOf(yInfoL, yInfoR) + 2f
+
+        if (data.order.customerComplaint.isNotBlank()) {
+            ensureSpace(24f)
+            c.drawText("Queja del cliente:", ML, y, pBodyBold)
+            y += 12f
+            wrapText(data.order.customerComplaint, pBody, CW - 10f).forEach { line ->
+                ensureSpace(12f)
+                c.drawText(line, ML + 8f, y, pBody)
+                y += 11f
+            }
+            y += 2f
+        }
+        data.order.initialDiagnosis?.let { d ->
+            if (d.isNotBlank()) {
+                ensureSpace(24f)
+                c.drawText("Diagnóstico:", ML, y, pBodyBold)
+                y += 12f
+                wrapText(d, pBody, CW - 10f).forEach { line ->
+                    ensureSpace(12f)
+                    c.drawText(line, ML + 8f, y, pBody)
+                    y += 11f
+                }
+                y += 2f
+            }
+        }
+
+        hLine()
+        y += SECTION_GAP
+
+        // ══════════════════════════════════════════
+        //  SERVICES TABLE
+        // ══════════════════════════════════════════
+        if (data.serviceLines.isNotEmpty()) {
+            sectionHeader("SERVICIOS (MANO DE OBRA)")
+
+            // Column positions
+            val sNum = ML + 4f
+            val sDesc = ML + 30f
+            val sCost = MR - 70f
+
+            // Table header row
+            drawTableHeaderBg()
+            c.drawText("#", sNum, y + 12f, pTableHeader)
+            c.drawText("Descripción", sDesc, y + 12f, pTableHeader)
+            c.drawText("Costo", sCost + 4f, y + 12f, pTableHeader)
+            y += TABLE_HEADER_H + 2f
+
+            data.serviceLines.forEachIndexed { i, sl ->
+                ensureSpace(ROW_H)
+                drawRowBg(i)
+                c.drawText("${i + 1}", sNum, y + 10f, pBody)
+                val maxDescW = sCost - sDesc - 8f
+                c.drawText(truncate(sl.description, pBody, maxDescW), sDesc, y + 10f, pBody)
+                c.drawText(money(sl.laborCost), sCost + 4f, y + 10f, pMoney)
+                y += ROW_H
+            }
+
+            // Subtotal
+            y += 4f
+            ensureSpace(16f)
+            c.drawLine(sCost, y, MR, y, pLine)
+            y += 12f
+            c.drawText("Subtotal Mano de Obra:", sCost - 120f, y, pMoneyBold)
+            c.drawText(money(data.order.totalLabor), sCost + 4f, y, pMoneyBold)
+            y += 6f
+            hLine()
+            y += SECTION_GAP
+        }
+
+        // ══════════════════════════════════════════
+        //  PARTS TABLE
+        // ══════════════════════════════════════════
+        if (data.orderParts.isNotEmpty()) {
+            sectionHeader("REPUESTOS")
+
+            val pNum = ML + 4f
+            val pName = ML + 30f
+            val pQty = MR - 180f
+            val pUnit = MR - 125f
+            val pSub = MR - 65f
+
+            drawTableHeaderBg()
+            c.drawText("#", pNum, y + 12f, pTableHeader)
+            c.drawText("Repuesto", pName, y + 12f, pTableHeader)
+            c.drawText("Cant.", pQty, y + 12f, pTableHeader)
+            c.drawText("P. Unit.", pUnit, y + 12f, pTableHeader)
+            c.drawText("Subtotal", pSub, y + 12f, pTableHeader)
+            y += TABLE_HEADER_H + 2f
+
+            data.orderParts.forEachIndexed { i, wp ->
+                ensureSpace(ROW_H)
+                drawRowBg(i)
+                val part = data.availableParts.find { it.id == wp.partId }
+                val name = part?.let { "${it.code ?: ""} ${it.name}".trim() } ?: "Repuesto #${wp.partId}"
+                c.drawText("${i + 1}", pNum, y + 10f, pBody)
+                c.drawText(truncate(name, pBody, pQty - pName - 8f), pName, y + 10f, pBody)
+                c.drawText("${wp.quantity}", pQty, y + 10f, pBody)
+                c.drawText(money(wp.appliedUnitPrice), pUnit, y + 10f, pMoney)
+                c.drawText(money(wp.subtotal), pSub, y + 10f, pMoney)
+                y += ROW_H
+            }
+
+            y += 4f
+            ensureSpace(16f)
+            c.drawLine(pSub, y, MR, y, pLine)
+            y += 12f
+            c.drawText("Subtotal Repuestos:", pUnit - 80f, y, pMoneyBold)
+            c.drawText(money(data.order.totalParts), pSub, y, pMoneyBold)
+            y += 6f
+            hLine()
+            y += SECTION_GAP
+        }
+
+        // ══════════════════════════════════════════
+        //  PAYMENTS TABLE
+        // ══════════════════════════════════════════
+        if (data.payments.isNotEmpty()) {
+            sectionHeader("PAGOS REGISTRADOS")
+
+            val pyDate = ML + 4f
+            val pyMethod = ML + 100f
+            val pyNotes = ML + 210f
+            val pyAmount = MR - 65f
+
+            drawTableHeaderBg()
+            c.drawText("Fecha", pyDate, y + 12f, pTableHeader)
+            c.drawText("Método", pyMethod, y + 12f, pTableHeader)
+            c.drawText("Notas", pyNotes, y + 12f, pTableHeader)
+            c.drawText("Monto", pyAmount, y + 12f, pTableHeader)
+            y += TABLE_HEADER_H + 2f
+
+            data.payments.forEachIndexed { i, pay ->
+                ensureSpace(ROW_H)
+                drawRowBg(i)
+                c.drawText(dateFmt.format(Date(pay.date)), pyDate, y + 10f, pBody)
+                c.drawText(pay.method.displayName, pyMethod, y + 10f, pBody)
+                c.drawText(truncate(pay.notes ?: "", pBody, pyAmount - pyNotes - 8f), pyNotes, y + 10f, pBody)
+                c.drawText(money(pay.amount), pyAmount, y + 10f, pMoney)
+                y += ROW_H
+            }
+
+            val totalPaid = data.payments.sumOf { it.amount }
+            y += 4f
+            ensureSpace(16f)
+            c.drawLine(pyAmount, y, MR, y, pLine)
+            y += 12f
+            c.drawText("Total Pagado:", pyAmount - 80f, y, pMoneyBold)
+            c.drawText(money(totalPaid), pyAmount, y, pMoneyBold)
+            y += 6f
+            hLine()
+            y += SECTION_GAP
+        }
+
+        // ══════════════════════════════════════════
+        //  TOTALS BOX
+        // ══════════════════════════════════════════
+        ensureSpace(65f)
+        val totalPaid = data.payments.sumOf { it.amount }
+        val balance = data.order.total - totalPaid
+
+        c.drawRoundRect(RectF(ML, y, MR, y + 58f), 6f, 6f, bgTotal)
+        y += 16f
+
+        c.drawText("Mano de Obra:", ML + 14f, y, pTotalLabel)
+        c.drawText(money(data.order.totalLabor), ML + 140f, y, pTotalLabel)
+        c.drawText("Repuestos:", MR - 200f, y, pTotalLabel)
+        c.drawText(money(data.order.totalParts), MR - 70f, y, pTotalLabel)
+
+        y += 22f
+        c.drawText("TOTAL GENERAL:", ML + 14f, y, pTotal)
+        c.drawText(money(data.order.total), ML + 180f, y, pTotal)
+
+        if (data.payments.isNotEmpty()) {
+            val balColor = if (balance > 0.01) 0xFFD32F2F.toInt() else 0xFF388E3C.toInt()
+            val pBal = paint(11f, balColor, bold = true)
+            val balLabel = if (balance > 0.01) "Saldo Pendiente:" else "Pagado:"
+            c.drawText(balLabel, MR - 200f, y, pBal)
+            c.drawText(money(balance), MR - 70f, y, pBal)
+        }
+
+        y += 28f
+
+        // ══════════════════════════════════════════
+        //  PHOTOS (thumbnails)
+        // ══════════════════════════════════════════
+        if (data.photoPaths.isNotEmpty()) {
+            ensureSpace(100f)
+            sectionHeader("FOTOS DE LA ORDEN")
+
+            val thumbSize = 80f
+            val thumbGap = 8f
+            var thumbX = ML
+
+            data.photoPaths.forEach { path ->
+                val file = File(path)
+                if (!file.exists()) return@forEach
+
+                // Check if we need to wrap to next row
+                if (thumbX + thumbSize > MR) {
+                    thumbX = ML
+                    y += thumbSize + thumbGap
+                    ensureSpace(thumbSize + thumbGap)
+                }
+
+                val bmp = decodeThumbnail(file, thumbSize.toInt())
+                if (bmp != null) {
+                    // Draw border
+                    val borderPaint = Paint().apply {
+                        color = COL_DIVIDER
+                        style = Paint.Style.STROKE
+                        strokeWidth = 0.8f
+                        isAntiAlias = true
+                    }
+                    c.drawRoundRect(RectF(thumbX - 1f, y - 1f, thumbX + thumbSize + 1f, y + thumbSize + 1f), 4f, 4f, borderPaint)
+                    // Draw image
+                    c.drawBitmap(bmp, null, RectF(thumbX, y, thumbX + thumbSize, y + thumbSize), null)
+                    bmp.recycle()
+                }
+                thumbX += thumbSize + thumbGap
+            }
+
+            y += thumbSize + SECTION_GAP
+        }
+
+        // ══════════════════════════════════════════
+        //  FOOTER
+        // ══════════════════════════════════════════
+        ensureSpace(24f)
+        hLine()
+        y += 8f
+        c.drawText("Generado: ${dateTimeFmt.format(Date())}", ML, y, pSmall)
+        val footerRight = "SERVIELECAR - Taller Automotriz"
+        c.drawText(footerRight, MR - pSmall.measureText(footerRight), y, pSmall)
+
+        // Bottom accent bar
+        c.drawRect(0f, PAGE_HEIGHT - 4f, PAGE_WIDTH.toFloat(), PAGE_HEIGHT.toFloat(), bgAccent)
+
+        doc.finishPage(page)
+
+        // ── Save file ──
+        val dir = File(context.filesDir, "reports")
+        if (!dir.exists()) dir.mkdirs()
+        val file = File(dir, "OT_${data.order.id}.pdf")
+        FileOutputStream(file).use { doc.writeTo(it) }
+        doc.close()
+
+        return file
+    }
+
+    // ── Utility functions ──
+
+    private fun getLogoBitmap(context: Context, sizePx: Int): Bitmap? {
+        return try {
+            // Use the real app icon (mipmap) - the Servielecar branded logo
+            val options = BitmapFactory.Options().apply { inSampleSize = 1 }
+            val bmp = BitmapFactory.decodeResource(context.resources, R.mipmap.ic_launcher, options)
+                ?: return null
+            Bitmap.createScaledBitmap(bmp, sizePx, sizePx, true)
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    private fun decodeThumbnail(file: File, sizePx: Int): Bitmap? {
+        return try {
+            val opts = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+            BitmapFactory.decodeFile(file.absolutePath, opts)
+            val w = opts.outWidth
+            val h = opts.outHeight
+            var inSample = 1
+            while (w / inSample > sizePx * 2 || h / inSample > sizePx * 2) inSample *= 2
+            val decodeOpts = BitmapFactory.Options().apply { inSampleSize = inSample }
+            val bmp = BitmapFactory.decodeFile(file.absolutePath, decodeOpts) ?: return null
+            Bitmap.createScaledBitmap(bmp, sizePx, sizePx, true)
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    private fun statusColor(status: OrderStatus): Int = when (status) {
+        OrderStatus.RECIBIDO -> 0xFF2196F3.toInt()
+        OrderStatus.EN_DIAGNOSTICO -> 0xFFFF9800.toInt()
+        OrderStatus.EN_PROCESO -> 0xFF4CAF50.toInt()
+        OrderStatus.EN_ESPERA_REPUESTO -> 0xFFF44336.toInt()
+        OrderStatus.LISTO -> 0xFF8BC34A.toInt()
+        OrderStatus.ENTREGADO -> 0xFF607D8B.toInt()
+        OrderStatus.CANCELADO -> 0xFF9E9E9E.toInt()
+    }
+
+    private fun money(amount: Double): String = "$${String.format("%.2f", amount)}"
+
+    private fun paint(size: Float, color: Int, bold: Boolean = false) = Paint().apply {
+        textSize = size
+        this.color = color
+        typeface = if (bold) Typeface.create(Typeface.DEFAULT, Typeface.BOLD) else Typeface.DEFAULT
+        isAntiAlias = true
+    }
+
+    private fun fill(color: Int) = Paint().apply {
+        this.color = color
+        isAntiAlias = true
+    }
+
+    private fun wrapText(text: String, paint: Paint, maxWidth: Float): List<String> {
+        if (maxWidth <= 0 || text.isEmpty()) return listOf(text)
+        val words = text.split(" ")
+        val lines = mutableListOf<String>()
+        var cur = ""
+        for (w in words) {
+            val test = if (cur.isEmpty()) w else "$cur $w"
+            if (paint.measureText(test) <= maxWidth) {
+                cur = test
+            } else {
+                if (cur.isNotEmpty()) lines.add(cur)
+                cur = w
+            }
+        }
+        if (cur.isNotEmpty()) lines.add(cur)
+        return lines.ifEmpty { listOf(text) }
+    }
+
+    private fun truncate(text: String, paint: Paint, maxWidth: Float): String {
+        if (paint.measureText(text) <= maxWidth) return text
+        var t = text
+        while (t.length > 3 && paint.measureText("$t...") > maxWidth) t = t.dropLast(1)
+        return "$t..."
+    }
+}

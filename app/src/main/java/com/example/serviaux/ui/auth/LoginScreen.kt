@@ -31,7 +31,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -78,17 +80,11 @@ fun LoginScreen(
             verticalArrangement = Arrangement.Center
         ) {
             Image(
-                painter = painterResource(id = R.drawable.ic_serviaux_logo),
-                contentDescription = "Serviaux Logo",
-                modifier = Modifier.size(100.dp),
-                colorFilter = ColorFilter.tint(MaterialTheme.colorScheme.primary)
-            )
-            Spacer(modifier = Modifier.height(16.dp))
-            Text(
-                text = "Serviaux",
-                style = MaterialTheme.typography.headlineMedium,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.primary
+                painter = painterResource(id = R.drawable.servielecar_logo),
+                contentDescription = "Servielecar Logo",
+                modifier = Modifier
+                    .size(150.dp)
+                    .clip(RoundedCornerShape(20.dp))
             )
             Spacer(modifier = Modifier.height(24.dp))
             CircularProgressIndicator()
@@ -106,20 +102,14 @@ fun LoginScreen(
         verticalArrangement = Arrangement.Center
     ) {
         Image(
-            painter = painterResource(id = R.drawable.ic_serviaux_logo),
-            contentDescription = "Serviaux Logo",
-            modifier = Modifier.size(120.dp),
-            colorFilter = ColorFilter.tint(MaterialTheme.colorScheme.primary)
+            painter = painterResource(id = R.drawable.servielecar_logo),
+            contentDescription = "Servielecar Logo",
+            modifier = Modifier
+                .size(180.dp)
+                .clip(RoundedCornerShape(24.dp))
         )
 
-        Spacer(modifier = Modifier.height(16.dp))
-
-        Text(
-            text = "Serviaux",
-            style = MaterialTheme.typography.headlineLarge,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.primary
-        )
+        Spacer(modifier = Modifier.height(12.dp))
 
         Text(
             text = "Gesti\u00f3n de Taller Automotriz",

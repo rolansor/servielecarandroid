@@ -27,4 +27,7 @@ interface UserDao {
 
     @Query("SELECT * FROM users WHERE role = :role AND active = 1")
     fun getByRole(role: UserRole): Flow<List<User>>
+
+    @Query("SELECT * FROM users")
+    suspend fun getAllDirect(): List<User>
 }

@@ -14,10 +14,14 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.MenuAnchorType
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
@@ -28,7 +32,9 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -109,9 +115,11 @@ fun PartFormScreen(
                 value = uiState.formCode,
                 onValueChange = { viewModel.onFormCodeChange(it) },
                 label = { Text("C\u00f3digo") },
+                placeholder = { Text("5 d\u00edgitos") },
                 singleLine = true,
                 isError = uiState.formCodeError != null,
                 supportingText = uiState.formCodeError?.let { error -> { Text(error) } },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                 modifier = Modifier
                     .fillMaxWidth()
                     .onFocusChanged { if (!it.isFocused) viewModel.validateFieldOnFocusLost("code") }
@@ -119,15 +127,36 @@ fun PartFormScreen(
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            OutlinedTextField(
-                value = uiState.formBrand,
-                onValueChange = { viewModel.onFormBrandChange(it) },
-                label = { Text("Marca") },
-                singleLine = true,
-                isError = uiState.formBrandError != null,
-                supportingText = uiState.formBrandError?.let { error -> { Text(error) } },
-                modifier = Modifier.fillMaxWidth()
-            )
+            var brandDropdownExpanded by remember { mutableStateOf(false) }
+            ExposedDropdownMenuBox(
+                expanded = brandDropdownExpanded,
+                onExpandedChange = { brandDropdownExpanded = it }
+            ) {
+                OutlinedTextField(
+                    value = uiState.formBrand,
+                    onValueChange = {},
+                    readOnly = true,
+                    label = { Text("Marca") },
+                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = brandDropdownExpanded) },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .menuAnchor(MenuAnchorType.PrimaryNotEditable)
+                )
+                ExposedDropdownMenu(
+                    expanded = brandDropdownExpanded,
+                    onDismissRequest = { brandDropdownExpanded = false }
+                ) {
+                    uiState.availablePartBrands.forEach { brand ->
+                        DropdownMenuItem(
+                            text = { Text(brand) },
+                            onClick = {
+                                viewModel.onFormBrandChange(brand)
+                                brandDropdownExpanded = false
+                            }
+                        )
+                    }
+                }
+            }
 
             Spacer(modifier = Modifier.height(12.dp))
 

@@ -21,7 +21,6 @@ data class ServiceLine(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val workOrderId: Long,
     val description: String,
-    val hours: Double? = null,
     val laborCost: Double,
     val notes: String? = null,
     val createdAt: Long = System.currentTimeMillis(),

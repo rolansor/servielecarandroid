@@ -42,4 +42,7 @@ interface WorkOrderDao {
 
     @Query("SELECT COALESCE(SUM(total), 0.0) FROM work_orders WHERE createdAt BETWEEN :from AND :to AND status != 'CANCELADO'")
     fun getTotalByDateRange(from: Long, to: Long): Flow<Double>
+
+    @Query("SELECT * FROM work_orders")
+    suspend fun getAllDirect(): List<WorkOrder>
 }

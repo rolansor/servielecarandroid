@@ -15,6 +15,12 @@ interface WorkOrderPaymentDao {
     @Query("SELECT * FROM work_order_payments WHERE workOrderId = :workOrderId")
     fun getByWorkOrder(workOrderId: Long): Flow<List<WorkOrderPayment>>
 
+    @Query("SELECT * FROM work_order_payments WHERE workOrderId = :workOrderId")
+    suspend fun getByWorkOrderDirect(workOrderId: Long): List<WorkOrderPayment>
+
     @Query("SELECT COALESCE(SUM(amount), 0.0) FROM work_order_payments WHERE workOrderId = :workOrderId")
     fun getTotalPayments(workOrderId: Long): Flow<Double>
+
+    @Query("SELECT * FROM work_order_payments")
+    suspend fun getAllDirect(): List<WorkOrderPayment>
 }

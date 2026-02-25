@@ -1,6 +1,13 @@
 package com.example.serviaux.ui.workorders
 
+import android.Manifest
+import android.content.pm.PackageManager
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -12,11 +19,19 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.AddAPhoto
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -48,11 +63,17 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import coil3.compose.AsyncImage
+import coil3.request.ImageRequest
 import com.example.serviaux.data.entity.OrderStatus
 import com.example.serviaux.data.entity.PaymentMethod
 import com.example.serviaux.ui.components.ConfirmDialog
@@ -60,6 +81,9 @@ import com.example.serviaux.ui.components.InfoRow
 import com.example.serviaux.ui.components.PriorityChip
 import com.example.serviaux.ui.components.SectionTitle
 import com.example.serviaux.ui.components.StatusChip
+import com.example.serviaux.util.PhotoUtils
+import com.example.serviaux.util.ShareUtils
+import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -83,6 +107,31 @@ fun WorkOrderDetailScreen(
     var showDeleteServiceLineDialog by remember { mutableStateOf<Long?>(null) }
     var showDeletePartDialog by remember { mutableStateOf<Long?>(null) }
 
+    // Camera for order photos
+    val detailContext = LocalContext.current
+    val detailCameraLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.TakePicture()
+    ) { success -> viewModel.onDetailPhotoTaken(success) }
+
+    val detailPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (granted) {
+            viewModel.prepareDetailCameraFile()?.let { uri -> detailCameraLauncher.launch(uri) }
+        }
+    }
+
+    fun launchDetailCamera() {
+        val hasPermission = ContextCompat.checkSelfPermission(
+            detailContext, Manifest.permission.CAMERA
+        ) == PackageManager.PERMISSION_GRANTED
+        if (hasPermission) {
+            viewModel.prepareDetailCameraFile()?.let { uri -> detailCameraLauncher.launch(uri) }
+        } else {
+            detailPermissionLauncher.launch(Manifest.permission.CAMERA)
+        }
+    }
+
     LaunchedEffect(orderId) {
         viewModel.loadOrderDetail(orderId)
         viewModel.loadMechanics()
@@ -93,6 +142,13 @@ fun WorkOrderDetailScreen(
         uiState.error?.let {
             snackbarHostState.showSnackbar(it)
             viewModel.clearError()
+        }
+    }
+
+    LaunchedEffect(uiState.pdfFile) {
+        uiState.pdfFile?.let { file ->
+            ShareUtils.sharePdf(detailContext, file)
+            viewModel.clearPdf()
         }
     }
 
@@ -126,17 +182,14 @@ fun WorkOrderDetailScreen(
     if (showServiceLineDialog) {
         ServiceLineDialog(
             description = uiState.serviceLineFormDescription,
-            hours = uiState.serviceLineFormHours,
             laborCost = uiState.serviceLineFormLaborCost,
+            catalogServices = uiState.catalogServices,
             onDescriptionChange = { if (it.length <= 200) viewModel.onServiceLineDescriptionChange(it) },
-            onHoursChange = { viewModel.onServiceLineHoursChange(it) },
             onLaborCostChange = { viewModel.onServiceLineLaborCostChange(it) },
             onSave = {
                 viewModel.addServiceLine()
-                // Only dismiss if validation passed (no error set)
                 if (uiState.serviceLineFormDescription.trim().length >= 3
                     && (uiState.serviceLineFormLaborCost.toDoubleOrNull() ?: -1.0) >= 0.0
-                    && (uiState.serviceLineFormHours.isBlank() || (uiState.serviceLineFormHours.toDoubleOrNull() ?: -1.0) >= 0.0)
                 ) {
                     showServiceLineDialog = false
                 }
@@ -232,6 +285,18 @@ fun WorkOrderDetailScreen(
                     IconButton(onClick = onNavigateBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Volver")
                     }
+                },
+                actions = {
+                    if (uiState.pdfGenerating) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(24.dp).padding(end = 8.dp),
+                            strokeWidth = 2.dp
+                        )
+                    } else {
+                        IconButton(onClick = { viewModel.generatePdf(detailContext) }) {
+                            Icon(Icons.Default.Share, contentDescription = "Compartir reporte")
+                        }
+                    }
                 }
             )
         },
@@ -325,6 +390,69 @@ fun WorkOrderDetailScreen(
                     }
                 }
 
+                // Photos section
+                item {
+                    Card(modifier = Modifier.fillMaxWidth()) {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            SectionTitle("Fotos (${uiState.detailPhotoPaths.size}/${PhotoUtils.MAX_PHOTOS})")
+                            Spacer(modifier = Modifier.height(8.dp))
+                            LazyRow(
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                itemsIndexed(uiState.detailPhotoPaths) { index, path ->
+                                    Box(modifier = Modifier.size(100.dp)) {
+                                        AsyncImage(
+                                            model = ImageRequest.Builder(detailContext)
+                                                .data(File(path))
+                                                .build(),
+                                            contentDescription = "Foto ${index + 1}",
+                                            contentScale = ContentScale.Crop,
+                                            modifier = Modifier
+                                                .fillMaxSize()
+                                                .clip(RoundedCornerShape(8.dp))
+                                                .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(8.dp))
+                                        )
+                                        IconButton(
+                                            onClick = { viewModel.removeDetailPhoto(index) },
+                                            modifier = Modifier
+                                                .align(Alignment.TopEnd)
+                                                .size(24.dp)
+                                                .background(MaterialTheme.colorScheme.errorContainer, CircleShape)
+                                        ) {
+                                            Icon(
+                                                Icons.Default.Close,
+                                                contentDescription = "Eliminar foto",
+                                                modifier = Modifier.size(14.dp),
+                                                tint = MaterialTheme.colorScheme.onErrorContainer
+                                            )
+                                        }
+                                    }
+                                }
+                                if (uiState.detailPhotoPaths.size < PhotoUtils.MAX_PHOTOS) {
+                                    item {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(100.dp)
+                                                .clip(RoundedCornerShape(8.dp))
+                                                .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(8.dp)),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            IconButton(onClick = { launchDetailCamera() }) {
+                                                Icon(
+                                                    Icons.Default.AddAPhoto,
+                                                    contentDescription = "Tomar foto",
+                                                    tint = MaterialTheme.colorScheme.primary,
+                                                    modifier = Modifier.size(32.dp)
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
                 // Service Lines
                 item {
                     Card(modifier = Modifier.fillMaxWidth()) {
@@ -369,22 +497,12 @@ fun WorkOrderDetailScreen(
                                     style = MaterialTheme.typography.bodyMedium,
                                     fontWeight = FontWeight.Medium
                                 )
-                                Row {
-                                    serviceLine.hours?.let { h ->
-                                        Text(
-                                            text = "Horas: $h",
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                                        )
-                                        Spacer(modifier = Modifier.width(12.dp))
-                                    }
-                                    Text(
-                                        text = String.format("$%.2f", serviceLine.laborCost),
-                                        style = MaterialTheme.typography.bodySmall,
-                                        fontWeight = FontWeight.SemiBold,
-                                        color = MaterialTheme.colorScheme.primary
-                                    )
-                                }
+                                Text(
+                                    text = String.format("$%.2f", serviceLine.laborCost),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
                             }
                             IconButton(onClick = { showDeleteServiceLineDialog = serviceLine.id }) {
                                 Icon(
@@ -703,54 +821,90 @@ private fun MechanicAssignDialog(
     )
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ServiceLineDialog(
     description: String,
-    hours: String,
     laborCost: String,
+    catalogServices: List<com.example.serviaux.data.entity.CatalogService>,
     onDescriptionChange: (String) -> Unit,
-    onHoursChange: (String) -> Unit,
     onLaborCostChange: (String) -> Unit,
     onSave: () -> Unit,
     onDismiss: () -> Unit
 ) {
     var descriptionError by remember { mutableStateOf<String?>(null) }
-    var hoursError by remember { mutableStateOf<String?>(null) }
     var laborCostError by remember { mutableStateOf<String?>(null) }
+    var suggestionsExpanded by remember { mutableStateOf(false) }
+
+    val filteredServices = remember(description, catalogServices) {
+        if (description.isBlank()) emptyList()
+        else catalogServices.filter {
+            it.name.contains(description, ignoreCase = true)
+        }
+    }
 
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Agregar Servicio") },
         text = {
             Column {
-                OutlinedTextField(
-                    value = description,
-                    onValueChange = {
-                        onDescriptionChange(it)
-                        descriptionError = null
-                    },
-                    label = { Text("Descripci\u00f3n *") },
-                    isError = descriptionError != null,
-                    supportingText = if (descriptionError != null) {
-                        { Text(descriptionError!!, color = MaterialTheme.colorScheme.error) }
-                    } else {
-                        { Text("${description.length}/200") }
-                    },
-                    modifier = Modifier.fillMaxWidth()
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                OutlinedTextField(
-                    value = hours,
-                    onValueChange = {
-                        onHoursChange(it)
-                        hoursError = null
-                    },
-                    label = { Text("Horas") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                    isError = hoursError != null,
-                    supportingText = hoursError?.let { error -> { Text(error, color = MaterialTheme.colorScheme.error) } },
-                    modifier = Modifier.fillMaxWidth()
-                )
+                ExposedDropdownMenuBox(
+                    expanded = suggestionsExpanded && filteredServices.isNotEmpty(),
+                    onExpandedChange = { }
+                ) {
+                    OutlinedTextField(
+                        value = description,
+                        onValueChange = {
+                            onDescriptionChange(it)
+                            descriptionError = null
+                            suggestionsExpanded = it.isNotBlank()
+                        },
+                        label = { Text("Descripci\u00f3n *") },
+                        leadingIcon = {
+                            Icon(Icons.Default.Search, contentDescription = null, modifier = Modifier.size(20.dp))
+                        },
+                        trailingIcon = {
+                            if (description.isNotBlank()) {
+                                IconButton(onClick = {
+                                    onDescriptionChange("")
+                                    onLaborCostChange("")
+                                    suggestionsExpanded = false
+                                }) {
+                                    Icon(Icons.Default.Close, contentDescription = "Limpiar", modifier = Modifier.size(20.dp))
+                                }
+                            }
+                        },
+                        singleLine = true,
+                        isError = descriptionError != null,
+                        supportingText = if (descriptionError != null) {
+                            { Text(descriptionError!!, color = MaterialTheme.colorScheme.error) }
+                        } else {
+                            { Text("${description.length}/200") }
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .menuAnchor(MenuAnchorType.PrimaryEditable)
+                    )
+                    if (filteredServices.isNotEmpty()) {
+                        ExposedDropdownMenu(
+                            expanded = suggestionsExpanded,
+                            onDismissRequest = { suggestionsExpanded = false }
+                        ) {
+                            filteredServices.forEach { service ->
+                                DropdownMenuItem(
+                                    text = { Text(service.name) },
+                                    onClick = {
+                                        onDescriptionChange(service.name)
+                                        onLaborCostChange(String.format("%.2f", service.defaultPrice))
+                                        descriptionError = null
+                                        laborCostError = null
+                                        suggestionsExpanded = false
+                                    }
+                                )
+                            }
+                        }
+                    }
+                }
                 Spacer(modifier = Modifier.height(8.dp))
                 OutlinedTextField(
                     value = laborCost,
@@ -771,10 +925,6 @@ private fun ServiceLineDialog(
                 var hasError = false
                 if (description.isBlank() || description.trim().length < 3) {
                     descriptionError = if (description.isBlank()) "Descripci\u00f3n es obligatoria" else "M\u00ednimo 3 caracteres"
-                    hasError = true
-                }
-                if (hours.isNotBlank() && (hours.toDoubleOrNull() == null || hours.toDoubleOrNull()!! < 0)) {
-                    hoursError = "Debe ser un n\u00famero v\u00e1lido >= 0"
                     hasError = true
                 }
                 val parsedCost = laborCost.toDoubleOrNull()
@@ -808,10 +958,19 @@ private fun PartDialog(
     onSave: () -> Unit,
     onDismiss: () -> Unit
 ) {
-    var partDropdownExpanded by remember { mutableStateOf(false) }
-    val selectedPartName = availableParts.find { it.id == selectedPartId }?.name ?: ""
+    var searchQuery by remember { mutableStateOf("") }
+    var suggestionsExpanded by remember { mutableStateOf(false) }
+    val selectedPart = availableParts.find { it.id == selectedPartId }
     var partError by remember { mutableStateOf<String?>(null) }
     var quantityError by remember { mutableStateOf<String?>(null) }
+
+    val filteredParts = remember(searchQuery, availableParts) {
+        if (searchQuery.isBlank()) emptyList()
+        else availableParts.filter { it.active }.filter { part ->
+            part.code?.contains(searchQuery, ignoreCase = true) == true ||
+            part.name.contains(searchQuery, ignoreCase = true)
+        }
+    }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -819,45 +978,74 @@ private fun PartDialog(
         text = {
             Column {
                 ExposedDropdownMenuBox(
-                    expanded = partDropdownExpanded,
-                    onExpandedChange = { partDropdownExpanded = it }
+                    expanded = suggestionsExpanded && filteredParts.isNotEmpty(),
+                    onExpandedChange = { }
                 ) {
                     OutlinedTextField(
-                        value = selectedPartName,
-                        onValueChange = {},
-                        readOnly = true,
-                        label = { Text("Repuesto *") },
-                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = partDropdownExpanded) },
+                        value = searchQuery,
+                        onValueChange = {
+                            searchQuery = it
+                            partError = null
+                            suggestionsExpanded = it.isNotBlank()
+                            if (it.isBlank()) onPartSelected(null)
+                        },
+                        label = { Text("Buscar por c\u00f3digo o nombre *") },
+                        leadingIcon = {
+                            Icon(Icons.Default.Search, contentDescription = null, modifier = Modifier.size(20.dp))
+                        },
+                        trailingIcon = {
+                            if (searchQuery.isNotBlank()) {
+                                IconButton(onClick = {
+                                    searchQuery = ""
+                                    onPartSelected(null)
+                                    suggestionsExpanded = false
+                                }) {
+                                    Icon(Icons.Default.Close, contentDescription = "Limpiar", modifier = Modifier.size(20.dp))
+                                }
+                            }
+                        },
+                        singleLine = true,
                         isError = partError != null,
                         supportingText = partError?.let { error -> { Text(error, color = MaterialTheme.colorScheme.error) } },
                         modifier = Modifier
                             .fillMaxWidth()
-                            .menuAnchor(MenuAnchorType.PrimaryNotEditable)
+                            .menuAnchor(MenuAnchorType.PrimaryEditable)
                     )
-                    ExposedDropdownMenu(
-                        expanded = partDropdownExpanded,
-                        onDismissRequest = { partDropdownExpanded = false }
-                    ) {
-                        availableParts.filter { it.active }.forEach { part ->
-                            DropdownMenuItem(
-                                text = {
-                                    Column {
-                                        Text(part.name)
-                                        Text(
-                                            text = "Stock: ${part.currentStock} | Precio: $${part.salePrice ?: part.unitCost}",
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                                        )
+                    if (filteredParts.isNotEmpty()) {
+                        ExposedDropdownMenu(
+                            expanded = suggestionsExpanded,
+                            onDismissRequest = { suggestionsExpanded = false }
+                        ) {
+                            filteredParts.forEach { part ->
+                                DropdownMenuItem(
+                                    text = {
+                                        Column {
+                                            Text("${part.code ?: ""} - ${part.name}")
+                                            Text(
+                                                text = "Stock: ${part.currentStock} | $${String.format("%.2f", part.salePrice ?: part.unitCost)}",
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                        }
+                                    },
+                                    onClick = {
+                                        onPartSelected(part.id)
+                                        searchQuery = "${part.code ?: ""} - ${part.name}"
+                                        partError = null
+                                        suggestionsExpanded = false
                                     }
-                                },
-                                onClick = {
-                                    onPartSelected(part.id)
-                                    partError = null
-                                    partDropdownExpanded = false
-                                }
-                            )
+                                )
+                            }
                         }
                     }
+                }
+                if (selectedPart != null) {
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = "Precio: $${String.format("%.2f", selectedPart.salePrice ?: selectedPart.unitCost)} | Stock: ${selectedPart.currentStock}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.primary
+                    )
                 }
                 Spacer(modifier = Modifier.height(8.dp))
                 OutlinedTextField(

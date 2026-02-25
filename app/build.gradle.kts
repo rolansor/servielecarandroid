@@ -53,6 +53,9 @@ dependencies {
     // Biometric
     implementation(libs.androidx.biometric)
 
+    // Coil (image loading)
+    implementation(libs.coil.compose)
+
     // Room
     implementation(libs.room.runtime)
     implementation(libs.room.ktx)

@@ -1,16 +1,24 @@
 package com.example.serviaux.ui.workorders
 
 import android.app.Application
+import android.content.Context
+import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.serviaux.ServiauxApp
 import com.example.serviaux.data.entity.*
+import com.example.serviaux.util.PdfReportGenerator
+import com.example.serviaux.util.PhotoUtils
+import com.example.serviaux.util.WorkOrderReportData
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.io.File
 
 data class WorkOrderUiState(
     val orders: List<WorkOrder> = emptyList(),
@@ -39,7 +47,6 @@ data class WorkOrderUiState(
     val formChecklistNotes: String = "",
     // Service line form
     val serviceLineFormDescription: String = "",
-    val serviceLineFormHours: String = "",
     val serviceLineFormLaborCost: String = "",
     // Part form
     val partFormSelectedPartId: Long? = null,
@@ -53,7 +60,16 @@ data class WorkOrderUiState(
     val formCustomerError: String? = null,
     val formVehicleError: String? = null,
     val formComplaintError: String? = null,
-    val formMileageError: String? = null
+    val catalogServices: List<com.example.serviaux.data.entity.CatalogService> = emptyList(),
+    val formMileageError: String? = null,
+    val formPhotoPaths: List<String> = emptyList(),
+    val pendingPhotoUri: Uri? = null,
+    val detailPhotoPaths: List<String> = emptyList(),
+    val detailPendingPhotoUri: Uri? = null,
+    val selectedCustomer: Customer? = null,
+    val selectedVehicle: Vehicle? = null,
+    val pdfGenerating: Boolean = false,
+    val pdfFile: File? = null
 )
 
 class WorkOrderViewModel(application: Application) : AndroidViewModel(application) {
@@ -64,15 +80,27 @@ class WorkOrderViewModel(application: Application) : AndroidViewModel(applicatio
     private val vehicleRepo get() = app.container.vehicleRepository
     private val partRepo get() = app.container.partRepository
     private val authRepo get() = app.container.authRepository
+    private val catalogRepo get() = app.container.catalogRepository
     private val session get() = app.container.sessionManager
 
     private val _uiState = MutableStateFlow(WorkOrderUiState())
     val uiState: StateFlow<WorkOrderUiState> = _uiState.asStateFlow()
 
     private var ordersJob: Job? = null
+    private var pendingPhotoFile: File? = null
+    private var detailPendingPhotoFile: File? = null
 
     init {
         loadOrders()
+        loadCatalogServices()
+    }
+
+    private fun loadCatalogServices() {
+        viewModelScope.launch {
+            catalogRepo.getAllServices().collect { services ->
+                _uiState.update { it.copy(catalogServices = services) }
+            }
+        }
     }
 
     fun loadOrders(filter: OrderStatus? = null) {
@@ -93,14 +121,21 @@ class WorkOrderViewModel(application: Application) : AndroidViewModel(applicatio
     fun loadOrderDetail(orderId: Long) {
         viewModelScope.launch {
             workOrderRepo.getById(orderId).collect { order ->
-                _uiState.update { it.copy(selectedOrder = order) }
+                _uiState.update {
+                    it.copy(
+                        selectedOrder = order,
+                        detailPhotoPaths = PhotoUtils.parsePaths(order?.photoPaths)
+                    )
+                }
                 order?.let { o ->
                     val vehicle = vehicleRepo.getByIdDirect(o.vehicleId)
                     val customer = customerRepo.getByIdDirect(o.customerId)
                     _uiState.update {
                         it.copy(
                             vehicleName = vehicle?.let { v -> "${v.plate} - ${v.brand} ${v.model}" } ?: "",
-                            customerName = customer?.fullName ?: ""
+                            customerName = customer?.fullName ?: "",
+                            selectedCustomer = customer,
+                            selectedVehicle = vehicle
                         )
                     }
                 }
@@ -185,6 +220,7 @@ class WorkOrderViewModel(application: Application) : AndroidViewModel(applicatio
                     entryMileage = state.formEntryMileage.toIntOrNull(),
                     fuelLevel = state.formFuelLevel.trim().ifBlank { null },
                     checklistNotes = state.formChecklistNotes.trim().ifBlank { null },
+                    photoPaths = PhotoUtils.serializePaths(state.formPhotoPaths),
                     createdBy = userId,
                     updatedBy = userId
                 )
@@ -230,14 +266,12 @@ class WorkOrderViewModel(application: Application) : AndroidViewModel(applicatio
                 val serviceLine = ServiceLine(
                     workOrderId = orderId,
                     description = state.serviceLineFormDescription.trim(),
-                    hours = state.serviceLineFormHours.toDoubleOrNull(),
                     laborCost = state.serviceLineFormLaborCost.toDoubleOrNull() ?: 0.0
                 )
                 workOrderRepo.addServiceLine(serviceLine)
                 _uiState.update {
                     it.copy(
                         serviceLineFormDescription = "",
-                        serviceLineFormHours = "",
                         serviceLineFormLaborCost = ""
                     )
                 }
@@ -384,7 +418,6 @@ class WorkOrderViewModel(application: Application) : AndroidViewModel(applicatio
     fun onFormChecklistNotesChange(value: String) { _uiState.update { it.copy(formChecklistNotes = value) } }
 
     fun onServiceLineDescriptionChange(value: String) { _uiState.update { it.copy(serviceLineFormDescription = value) } }
-    fun onServiceLineHoursChange(value: String) { _uiState.update { it.copy(serviceLineFormHours = value) } }
     fun onServiceLineLaborCostChange(value: String) { _uiState.update { it.copy(serviceLineFormLaborCost = value) } }
 
     fun onPartSelectedChange(value: Long?) { _uiState.update { it.copy(partFormSelectedPartId = value) } }
@@ -393,6 +426,134 @@ class WorkOrderViewModel(application: Application) : AndroidViewModel(applicatio
     fun onPaymentAmountChange(value: String) { _uiState.update { it.copy(paymentFormAmount = value) } }
     fun onPaymentMethodChange(value: PaymentMethod) { _uiState.update { it.copy(paymentFormMethod = value) } }
     fun onPaymentNotesChange(value: String) { _uiState.update { it.copy(paymentFormNotes = value) } }
+
+    // Photo management for create form
+    fun prepareCameraFile(): Uri? {
+        if (_uiState.value.formPhotoPaths.size >= PhotoUtils.MAX_PHOTOS) return null
+        val context = getApplication<Application>()
+        val file = PhotoUtils.createTempPhotoFile(context, "WO")
+        pendingPhotoFile = file
+        val uri = PhotoUtils.getUriForFile(context, file)
+        _uiState.update { it.copy(pendingPhotoUri = uri) }
+        return uri
+    }
+
+    fun onPhotoTaken(success: Boolean) {
+        val file = pendingPhotoFile
+        if (success && file != null && file.exists() && file.length() > 0) {
+            _uiState.update {
+                it.copy(formPhotoPaths = it.formPhotoPaths + file.absolutePath, pendingPhotoUri = null)
+            }
+        } else {
+            file?.delete()
+            _uiState.update { it.copy(pendingPhotoUri = null) }
+        }
+        pendingPhotoFile = null
+    }
+
+    fun removeFormPhoto(index: Int) {
+        val paths = _uiState.value.formPhotoPaths.toMutableList()
+        if (index in paths.indices) {
+            PhotoUtils.deletePhoto(paths[index])
+            paths.removeAt(index)
+            _uiState.update { it.copy(formPhotoPaths = paths) }
+        }
+    }
+
+    // Photo management for detail screen (existing orders)
+    fun prepareDetailCameraFile(): Uri? {
+        if (_uiState.value.detailPhotoPaths.size >= PhotoUtils.MAX_PHOTOS) return null
+        val context = getApplication<Application>()
+        val file = PhotoUtils.createTempPhotoFile(context, "WO")
+        detailPendingPhotoFile = file
+        val uri = PhotoUtils.getUriForFile(context, file)
+        _uiState.update { it.copy(detailPendingPhotoUri = uri) }
+        return uri
+    }
+
+    fun onDetailPhotoTaken(success: Boolean) {
+        val file = detailPendingPhotoFile
+        if (success && file != null && file.exists() && file.length() > 0) {
+            val newPaths = _uiState.value.detailPhotoPaths + file.absolutePath
+            _uiState.update { it.copy(detailPhotoPaths = newPaths, detailPendingPhotoUri = null) }
+            saveOrderPhotos(newPaths)
+        } else {
+            file?.delete()
+            _uiState.update { it.copy(detailPendingPhotoUri = null) }
+        }
+        detailPendingPhotoFile = null
+    }
+
+    fun removeDetailPhoto(index: Int) {
+        val paths = _uiState.value.detailPhotoPaths.toMutableList()
+        if (index in paths.indices) {
+            PhotoUtils.deletePhoto(paths[index])
+            paths.removeAt(index)
+            _uiState.update { it.copy(detailPhotoPaths = paths) }
+            saveOrderPhotos(paths)
+        }
+    }
+
+    private fun saveOrderPhotos(paths: List<String>) {
+        val order = _uiState.value.selectedOrder ?: return
+        viewModelScope.launch {
+            try {
+                workOrderRepo.update(order.copy(photoPaths = PhotoUtils.serializePaths(paths)))
+            } catch (e: Exception) {
+                _uiState.update { it.copy(error = e.message ?: "Error al guardar fotos") }
+            }
+        }
+    }
+
+    fun generatePdf(context: Context) {
+        val state = _uiState.value
+        val order = state.selectedOrder ?: return
+        val customer = state.selectedCustomer
+        val vehicle = state.selectedVehicle
+        val mechanicName = state.mechanics.find { it.id == order.assignedMechanicId }?.name
+
+        _uiState.update { it.copy(pdfGenerating = true) }
+
+        viewModelScope.launch {
+            try {
+                // Fetch payments directly in case Flow hasn't emitted yet
+                val directPayments = if (state.payments.isEmpty()) {
+                    workOrderRepo.getPaymentsDirect(order.id)
+                } else {
+                    state.payments
+                }
+                val reportData = WorkOrderReportData(
+                    order = order,
+                    customerName = customer?.fullName ?: state.customerName,
+                    customerPhone = customer?.phone ?: "",
+                    customerEmail = customer?.email,
+                    customerAddress = customer?.address,
+                    vehiclePlate = vehicle?.plate ?: "",
+                    vehicleBrand = vehicle?.brand ?: "",
+                    vehicleModel = vehicle?.model ?: "",
+                    vehicleYear = vehicle?.year,
+                    vehicleColor = vehicle?.color,
+                    vehicleVin = vehicle?.vin,
+                    serviceLines = state.serviceLines,
+                    orderParts = state.orderParts,
+                    availableParts = state.availableParts,
+                    payments = directPayments,
+                    mechanicName = mechanicName,
+                    photoPaths = state.detailPhotoPaths
+                )
+                val file = withContext(Dispatchers.IO) {
+                    PdfReportGenerator.generateWorkOrderPdf(context, reportData)
+                }
+                _uiState.update { it.copy(pdfGenerating = false, pdfFile = file) }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(pdfGenerating = false, error = e.message ?: "Error al generar PDF") }
+            }
+        }
+    }
+
+    fun clearPdf() {
+        _uiState.update { it.copy(pdfFile = null) }
+    }
 
     fun clearCreatedOrderId() {
         _uiState.update { it.copy(createdOrderId = null) }

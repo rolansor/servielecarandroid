@@ -34,6 +34,7 @@ data class WorkOrder(
     val totalLabor: Double = 0.0,
     val totalParts: Double = 0.0,
     val total: Double = 0.0,
+    val photoPaths: String? = null,
     val createdBy: Long,
     val updatedBy: Long,
     val createdAt: Long = System.currentTimeMillis(),

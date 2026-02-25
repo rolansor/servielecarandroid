@@ -24,3 +24,17 @@ data class CatalogColor(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val name: String
 )
+
+@Entity(tableName = "catalog_part_brands")
+data class CatalogPartBrand(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val name: String
+)
+
+@Entity(tableName = "catalog_services")
+data class CatalogService(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val category: String,
+    val name: String,
+    val defaultPrice: Double = 10.0
+)

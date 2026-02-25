@@ -18,6 +18,7 @@ data class PartUiState(
     val selectedPart: Part? = null,
     val isLoading: Boolean = false,
     val error: String? = null,
+    val availablePartBrands: List<String> = emptyList(),
     val formName: String = "",
     val formCode: String = "",
     val formBrand: String = "",
@@ -40,6 +41,7 @@ class PartViewModel(application: Application) : AndroidViewModel(application) {
 
     private val app get() = getApplication<ServiauxApp>()
     private val partRepo get() = app.container.partRepository
+    private val catalogRepo get() = app.container.catalogRepository
 
     private val _uiState = MutableStateFlow(PartUiState())
     val uiState: StateFlow<PartUiState> = _uiState.asStateFlow()
@@ -48,6 +50,15 @@ class PartViewModel(application: Application) : AndroidViewModel(application) {
 
     init {
         loadAllParts()
+        loadPartBrands()
+    }
+
+    private fun loadPartBrands() {
+        viewModelScope.launch {
+            catalogRepo.getAllPartBrands().collect { brands ->
+                _uiState.update { it.copy(availablePartBrands = brands.map { b -> b.name }) }
+            }
+        }
     }
 
     private fun loadAllParts() {
@@ -82,15 +93,13 @@ class PartViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun onFormCodeChange(value: String) {
-        if (value.length <= 20) {
-            _uiState.update { it.copy(formCode = value.uppercase(), formCodeError = null) }
+        if (value.length <= 5 && value.all { it.isDigit() }) {
+            _uiState.update { it.copy(formCode = value, formCodeError = null) }
         }
     }
 
     fun onFormBrandChange(value: String) {
-        if (value.length <= 50) {
-            _uiState.update { it.copy(formBrand = value, formBrandError = null) }
-        }
+        _uiState.update { it.copy(formBrand = value, formBrandError = null) }
     }
 
     fun onFormUnitCostChange(value: String) {
@@ -114,8 +123,7 @@ class PartViewModel(application: Application) : AndroidViewModel(application) {
     fun onFormActiveChange(value: Boolean) { _uiState.update { it.copy(formActive = value) } }
 
     private val nameRegex = Regex("^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ0-9 \\-()/ ]*$")
-    private val codeRegex = Regex("^[a-zA-Z0-9\\-]*$")
-    private val brandRegex = Regex("^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ0-9 ]*$")
+    private val codeRegex = Regex("^[0-9]{1,5}$")
 
     private fun validateName(): String? {
         val trimmed = _uiState.value.formName.trim()
@@ -129,7 +137,7 @@ class PartViewModel(application: Application) : AndroidViewModel(application) {
 
     private fun validateCode(): String? {
         val trimmed = _uiState.value.formCode.trim()
-        return if (trimmed.isNotEmpty() && !codeRegex.matches(trimmed)) "Solo letras, números y guiones" else null
+        return if (trimmed.isNotEmpty() && !codeRegex.matches(trimmed)) "Solo números, máximo 5 dígitos" else null
     }
 
     private fun validateUnitCost(): String? {
@@ -176,8 +184,7 @@ class PartViewModel(application: Application) : AndroidViewModel(application) {
     private fun validateForm(): Boolean {
         val nameError = validateName()
         val codeError = validateCode()
-        val trimmedBrand = _uiState.value.formBrand.trim()
-        val brandError = if (trimmedBrand.isNotEmpty() && !brandRegex.matches(trimmedBrand)) "Solo letras, números y espacios" else null
+        val brandError: String? = null
         val unitCostError = validateUnitCost()
         val salePriceError = validateSalePrice()
         val currentStockError = validateCurrentStock()

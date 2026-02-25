@@ -1,6 +1,7 @@
 package com.example.serviaux.ui.vehicles
 
 import android.app.Application
+import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.serviaux.ServiauxApp
@@ -8,12 +9,14 @@ import com.example.serviaux.data.entity.CatalogBrand
 import com.example.serviaux.data.entity.Customer
 import com.example.serviaux.data.entity.Vehicle
 import com.example.serviaux.data.entity.WorkOrder
+import com.example.serviaux.util.PhotoUtils
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import java.io.File
 
 val DRIVETRAINS = listOf("4x2", "4x4")
 val TRANSMISSIONS = listOf("Manual", "Autom\u00e1tico")
@@ -35,7 +38,6 @@ data class VehicleUiState(
     val formYear: String = "",
     val formVin: String = "",
     val formColor: String = "",
-    val formCurrentMileage: String = "",
     val formVersion: String = "",
     val formEngineDisplacement: String = "",
     val formEngineNumber: String = "",
@@ -53,7 +55,9 @@ data class VehicleUiState(
     val formBrandError: String? = null,
     val formModelError: String? = null,
     val formYearError: String? = null,
-    val formVinError: String? = null
+    val formVinError: String? = null,
+    val formPhotoPaths: List<String> = emptyList(),
+    val pendingPhotoUri: Uri? = null
 )
 
 class VehicleViewModel(application: Application) : AndroidViewModel(application) {
@@ -70,6 +74,7 @@ class VehicleViewModel(application: Application) : AndroidViewModel(application)
     private var searchJob: Job? = null
     private var modelsJob: Job? = null
     private var catalogBrands: List<CatalogBrand> = emptyList()
+    private var pendingPhotoFile: File? = null
 
     init {
         loadAllVehicles()
@@ -170,11 +175,6 @@ class VehicleViewModel(application: Application) : AndroidViewModel(application)
     }
     fun onFormColorChange(value: String) {
         _uiState.update { it.copy(formColor = value) }
-    }
-    fun onFormCurrentMileageChange(value: String) {
-        if (value.length <= 7 && value.all { it.isDigit() }) {
-            _uiState.update { it.copy(formCurrentMileage = value) }
-        }
     }
     fun onFormVersionChange(value: String) {
         _uiState.update { it.copy(formVersion = value) }
@@ -291,12 +291,12 @@ class VehicleViewModel(application: Application) : AndroidViewModel(application)
                                 year = state.formYear.toIntOrNull(),
                                 vin = state.formVin.trim().ifBlank { null },
                                 color = state.formColor.trim().ifBlank { null },
-                                currentMileage = state.formCurrentMileage.toIntOrNull(),
                                 engineDisplacement = state.formEngineDisplacement.trim().ifBlank { null },
                                 engineNumber = state.formEngineNumber.trim().ifBlank { null },
                                 drivetrain = state.formDrivetrain,
                                 transmission = state.formTransmission,
                                 notes = state.formNotes.trim().ifBlank { null },
+                                photoPaths = PhotoUtils.serializePaths(state.formPhotoPaths),
                                 customerId = state.formCustomerId!!
                             )
                         )
@@ -311,12 +311,12 @@ class VehicleViewModel(application: Application) : AndroidViewModel(application)
                             year = state.formYear.toIntOrNull(),
                             vin = state.formVin.trim().ifBlank { null },
                             color = state.formColor.trim().ifBlank { null },
-                            currentMileage = state.formCurrentMileage.toIntOrNull(),
                             engineDisplacement = state.formEngineDisplacement.trim().ifBlank { null },
                             engineNumber = state.formEngineNumber.trim().ifBlank { null },
                             drivetrain = state.formDrivetrain,
                             transmission = state.formTransmission,
                             notes = state.formNotes.trim().ifBlank { null },
+                            photoPaths = PhotoUtils.serializePaths(state.formPhotoPaths),
                             customerId = state.formCustomerId!!
                         )
                     )
@@ -332,12 +332,13 @@ class VehicleViewModel(application: Application) : AndroidViewModel(application)
         _uiState.update {
             it.copy(
                 formPlate = "", formBrand = "", formModel = "", formVersion = "",
-                formYear = "", formVin = "", formColor = "", formCurrentMileage = "",
+                formYear = "", formVin = "", formColor = "",
                 formNotes = "", formEngineDisplacement = "", formEngineNumber = "",
                 formDrivetrain = "4x2", formTransmission = "Manual",
                 formCustomerId = customerId, isEditing = false, editingVehicleId = null, error = null,
                 formCustomerError = null, formPlateError = null, formBrandError = null,
-                formModelError = null, formYearError = null, formVinError = null
+                formModelError = null, formYearError = null, formVinError = null,
+                formPhotoPaths = emptyList(), pendingPhotoUri = null
             )
         }
     }
@@ -352,7 +353,6 @@ class VehicleViewModel(application: Application) : AndroidViewModel(application)
                 formYear = vehicle.year?.toString() ?: "",
                 formVin = vehicle.vin ?: "",
                 formColor = vehicle.color ?: "",
-                formCurrentMileage = vehicle.currentMileage?.toString() ?: "",
                 formEngineDisplacement = vehicle.engineDisplacement ?: "",
                 formEngineNumber = vehicle.engineNumber ?: "",
                 formDrivetrain = vehicle.drivetrain,
@@ -363,7 +363,9 @@ class VehicleViewModel(application: Application) : AndroidViewModel(application)
                 editingVehicleId = vehicle.id,
                 error = null,
                 formCustomerError = null, formPlateError = null, formBrandError = null,
-                formModelError = null, formYearError = null, formVinError = null
+                formModelError = null, formYearError = null, formVinError = null,
+                formPhotoPaths = PhotoUtils.parsePaths(vehicle.photoPaths),
+                pendingPhotoUri = null
             )
         }
         loadModelsForBrand(vehicle.brand)
@@ -382,6 +384,41 @@ class VehicleViewModel(application: Application) : AndroidViewModel(application)
             customerRepo.getAll().collect { list ->
                 _uiState.update { it.copy(customers = list) }
             }
+        }
+    }
+
+    fun prepareCameraFile(): Uri? {
+        if (_uiState.value.formPhotoPaths.size >= PhotoUtils.MAX_PHOTOS) return null
+        val context = getApplication<Application>()
+        val file = PhotoUtils.createTempPhotoFile(context)
+        pendingPhotoFile = file
+        val uri = PhotoUtils.getUriForFile(context, file)
+        _uiState.update { it.copy(pendingPhotoUri = uri) }
+        return uri
+    }
+
+    fun onPhotoTaken(success: Boolean) {
+        val file = pendingPhotoFile
+        if (success && file != null && file.exists() && file.length() > 0) {
+            _uiState.update {
+                it.copy(
+                    formPhotoPaths = it.formPhotoPaths + file.absolutePath,
+                    pendingPhotoUri = null
+                )
+            }
+        } else {
+            file?.delete()
+            _uiState.update { it.copy(pendingPhotoUri = null) }
+        }
+        pendingPhotoFile = null
+    }
+
+    fun removePhoto(index: Int) {
+        val paths = _uiState.value.formPhotoPaths.toMutableList()
+        if (index in paths.indices) {
+            PhotoUtils.deletePhoto(paths[index])
+            paths.removeAt(index)
+            _uiState.update { it.copy(formPhotoPaths = paths) }
         }
     }
 

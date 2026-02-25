@@ -25,6 +25,7 @@ import androidx.compose.material.icons.filled.Handyman
 import androidx.compose.material.icons.filled.NoteAdd
 import androidx.compose.material.icons.filled.People
 import androidx.compose.material.icons.filled.PersonAdd
+import androidx.compose.material.icons.filled.SaveAlt
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -67,6 +68,7 @@ fun DashboardScreen(
     onNavigateToCatalogSettings: () -> Unit,
     onNavigateToNewOrder: () -> Unit,
     onNavigateToNewCustomer: () -> Unit,
+    onNavigateToBackup: () -> Unit,
     onLogout: () -> Unit,
     viewModel: DashboardViewModel = viewModel()
 ) {
@@ -137,15 +139,26 @@ fun DashboardScreen(
             )
             Spacer(modifier = Modifier.height(12.dp))
 
-            FlowRow(
+            Row(
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
                 modifier = Modifier.fillMaxWidth()
             ) {
                 StatusCard("Recibido", uiState.recibido, StatusRecibido, Modifier.weight(1f))
                 StatusCard("Diagn\u00f3stico", uiState.enDiagnostico, StatusDiagnostico, Modifier.weight(1f))
+            }
+            Spacer(modifier = Modifier.height(12.dp))
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
                 StatusCard("En Proceso", uiState.enProceso, StatusEnProceso, Modifier.weight(1f))
-                StatusCard("Espera Repuesto", uiState.enEsperaRepuesto, StatusEsperaRepuesto, Modifier.weight(1f))
+                StatusCard("En Espera", uiState.enEsperaRepuesto, StatusEsperaRepuesto, Modifier.weight(1f))
+            }
+            Spacer(modifier = Modifier.height(12.dp))
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
                 StatusCard("Listo", uiState.listo, StatusListo, Modifier.weight(1f))
                 StatusCard("Entregado", uiState.entregado, StatusEntregado, Modifier.weight(1f))
             }
@@ -188,7 +201,8 @@ fun DashboardScreen(
                 if (uiState.currentUserRole == UserRole.ADMIN) {
                     ModuleCard("Usuarios", Icons.Default.Group, onNavigateToUsers, Modifier.weight(1f))
                     ModuleCard("Reportes", Icons.Default.Assessment, onNavigateToReports, Modifier.weight(1f))
-                    ModuleCard("Configuraci\u00f3n", Icons.Default.Settings, onNavigateToCatalogSettings, Modifier.weight(1f))
+                    ModuleCard("Cat\u00e1logos", Icons.Default.Settings, onNavigateToCatalogSettings, Modifier.weight(1f))
+                    ModuleCard("Respaldos", Icons.Default.SaveAlt, onNavigateToBackup, Modifier.weight(1f))
                 }
             }
 

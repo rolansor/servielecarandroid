@@ -7,6 +7,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
 import com.example.serviaux.ui.auth.LoginScreen
+import com.example.serviaux.ui.backup.BackupScreen
 import com.example.serviaux.ui.customers.CustomerDetailScreen
 import com.example.serviaux.ui.customers.CustomerFormScreen
 import com.example.serviaux.ui.customers.CustomerListScreen
@@ -49,6 +50,7 @@ fun ServiauxNavGraph(navController: NavHostController) {
                 onNavigateToCatalogSettings = { navController.navigate(Routes.CATALOG_SETTINGS) },
                 onNavigateToNewOrder = { navController.navigate(Routes.WORK_ORDER_FORM) },
                 onNavigateToNewCustomer = { navController.navigate(Routes.customerForm()) },
+                onNavigateToBackup = { navController.navigate(Routes.BACKUP) },
                 onLogout = {
                     navController.navigate(Routes.LOGIN) {
                         popUpTo(0) { inclusive = true }
@@ -237,6 +239,13 @@ fun ServiauxNavGraph(navController: NavHostController) {
         // Catalog Settings
         composable(Routes.CATALOG_SETTINGS) {
             CatalogSettingsScreen(
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
+
+        // Backup
+        composable(Routes.BACKUP) {
+            BackupScreen(
                 onNavigateBack = { navController.popBackStack() }
             )
         }

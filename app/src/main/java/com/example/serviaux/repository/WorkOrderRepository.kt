@@ -96,6 +96,7 @@ class WorkOrderRepository(
 
     // Payments
     fun getPayments(workOrderId: Long): Flow<List<WorkOrderPayment>> = workOrderPaymentDao.getByWorkOrder(workOrderId)
+    suspend fun getPaymentsDirect(workOrderId: Long): List<WorkOrderPayment> = workOrderPaymentDao.getByWorkOrderDirect(workOrderId)
     fun getTotalPayments(workOrderId: Long): Flow<Double> = workOrderPaymentDao.getTotalPayments(workOrderId)
 
     suspend fun addPayment(payment: WorkOrderPayment): Long = workOrderPaymentDao.insert(payment)

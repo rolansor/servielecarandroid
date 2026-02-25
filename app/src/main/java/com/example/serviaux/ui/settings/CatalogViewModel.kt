@@ -7,6 +7,7 @@ import com.example.serviaux.ServiauxApp
 import com.example.serviaux.data.entity.CatalogBrand
 import com.example.serviaux.data.entity.CatalogModel
 import com.example.serviaux.data.entity.CatalogColor
+import com.example.serviaux.data.entity.CatalogPartBrand
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -18,6 +19,7 @@ data class CatalogUiState(
     val brands: List<CatalogBrand> = emptyList(),
     val models: List<CatalogModel> = emptyList(),
     val colors: List<CatalogColor> = emptyList(),
+    val partBrands: List<CatalogPartBrand> = emptyList(),
     val selectedBrandId: Long? = null,
     val selectedBrandName: String = "",
     val isLoading: Boolean = false,
@@ -35,6 +37,8 @@ sealed class CatalogDialogState {
     data class EditModel(val model: CatalogModel, val name: String) : CatalogDialogState()
     data class AddColor(val name: String = "") : CatalogDialogState()
     data class EditColor(val color: CatalogColor, val name: String) : CatalogDialogState()
+    data class AddPartBrand(val name: String = "") : CatalogDialogState()
+    data class EditPartBrand(val partBrand: CatalogPartBrand, val name: String) : CatalogDialogState()
     data class ConfirmDelete(val type: String, val id: Long, val name: String) : CatalogDialogState()
     data class ImportDialog(val jsonText: String = "") : CatalogDialogState()
 }
@@ -52,6 +56,7 @@ class CatalogViewModel(application: Application) : AndroidViewModel(application)
     init {
         loadBrands()
         loadColors()
+        loadPartBrands()
     }
 
     private fun loadBrands() {
@@ -66,6 +71,14 @@ class CatalogViewModel(application: Application) : AndroidViewModel(application)
         viewModelScope.launch {
             catalogRepo.getAllColors().collect { colors ->
                 _uiState.update { it.copy(colors = colors) }
+            }
+        }
+    }
+
+    private fun loadPartBrands() {
+        viewModelScope.launch {
+            catalogRepo.getAllPartBrands().collect { partBrands ->
+                _uiState.update { it.copy(partBrands = partBrands) }
             }
         }
     }
@@ -113,6 +126,14 @@ class CatalogViewModel(application: Application) : AndroidViewModel(application)
         _uiState.update { it.copy(dialogState = CatalogDialogState.EditColor(color, color.name)) }
     }
 
+    fun showAddPartBrandDialog() {
+        _uiState.update { it.copy(dialogState = CatalogDialogState.AddPartBrand()) }
+    }
+
+    fun showEditPartBrandDialog(partBrand: CatalogPartBrand) {
+        _uiState.update { it.copy(dialogState = CatalogDialogState.EditPartBrand(partBrand, partBrand.name)) }
+    }
+
     fun showDeleteConfirmation(type: String, id: Long, name: String) {
         _uiState.update { it.copy(dialogState = CatalogDialogState.ConfirmDelete(type, id, name)) }
     }
@@ -134,6 +155,8 @@ class CatalogViewModel(application: Application) : AndroidViewModel(application)
                 is CatalogDialogState.EditModel -> d.copy(name = text)
                 is CatalogDialogState.AddColor -> d.copy(name = text)
                 is CatalogDialogState.EditColor -> d.copy(name = text)
+                is CatalogDialogState.AddPartBrand -> d.copy(name = text)
+                is CatalogDialogState.EditPartBrand -> d.copy(name = text)
                 is CatalogDialogState.ImportDialog -> d.copy(jsonText = text)
                 else -> d
             }
@@ -214,6 +237,30 @@ class CatalogViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
+    fun confirmAddPartBrand(name: String) {
+        if (name.isBlank()) return
+        viewModelScope.launch {
+            try {
+                catalogRepo.insertPartBrand(name.trim())
+                _uiState.update { it.copy(dialogState = CatalogDialogState.None, successMessage = "Marca de repuesto agregada") }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(error = e.message ?: "Error al agregar") }
+            }
+        }
+    }
+
+    fun confirmEditPartBrand(partBrand: CatalogPartBrand, newName: String) {
+        if (newName.isBlank()) return
+        viewModelScope.launch {
+            try {
+                catalogRepo.updatePartBrand(partBrand.copy(name = newName.trim()))
+                _uiState.update { it.copy(dialogState = CatalogDialogState.None, successMessage = "Marca de repuesto actualizada") }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(error = e.message ?: "Error al actualizar") }
+            }
+        }
+    }
+
     fun confirmDelete() {
         val dialog = _uiState.value.dialogState as? CatalogDialogState.ConfirmDelete ?: return
         viewModelScope.launch {
@@ -236,6 +283,10 @@ class CatalogViewModel(application: Application) : AndroidViewModel(application)
                     "color" -> {
                         val color = _uiState.value.colors.find { it.id == dialog.id }
                         if (color != null) catalogRepo.deleteColor(color)
+                    }
+                    "partBrand" -> {
+                        val partBrand = _uiState.value.partBrands.find { it.id == dialog.id }
+                        if (partBrand != null) catalogRepo.deletePartBrand(partBrand)
                     }
                 }
                 _uiState.update { it.copy(dialogState = CatalogDialogState.None, successMessage = "Eliminado correctamente") }
