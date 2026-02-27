@@ -19,6 +19,7 @@ import java.util.Locale
 data class WorkOrderReportData(
     val order: WorkOrder,
     val customerName: String,
+    val customerIdNumber: String? = null,
     val customerPhone: String,
     val customerEmail: String?,
     val customerAddress: String?,
@@ -208,6 +209,7 @@ object PdfReportGenerator {
 
         val ySnap = y
         labelVal("Nombre:", data.customerName, ML + pad, halfW - pad, clientLabelW)
+        data.customerIdNumber?.let { if (it.isNotBlank()) labelVal("Cédula:", it, ML + pad, halfW - pad, clientLabelW) }
         labelVal("Teléfono:", data.customerPhone, ML + pad, halfW - pad, clientLabelW)
         data.customerEmail?.let { if (it.isNotBlank()) labelVal("Email:", it, ML + pad, halfW - pad, clientLabelW) }
         data.customerAddress?.let { if (it.isNotBlank()) labelVal("Dirección:", it, ML + pad, halfW - pad, clientLabelW) }
@@ -282,32 +284,32 @@ object PdfReportGenerator {
             // Column positions
             val sNum = ML + 4f
             val sDesc = ML + 30f
-            val sCost = MR - 70f
+            val sCostRight = MR - 8f
 
             // Table header row
             drawTableHeaderBg()
             c.drawText("#", sNum, y + 12f, pTableHeader)
             c.drawText("Descripción", sDesc, y + 12f, pTableHeader)
-            c.drawText("Costo", sCost + 4f, y + 12f, pTableHeader)
+            rightAlignText("Costo", sCostRight, pTableHeader)
             y += TABLE_HEADER_H + 2f
 
             data.serviceLines.forEachIndexed { i, sl ->
                 ensureSpace(ROW_H)
                 drawRowBg(i)
                 c.drawText("${i + 1}", sNum, y + 10f, pBody)
-                val maxDescW = sCost - sDesc - 8f
+                val maxDescW = MR - 90f - sDesc
                 c.drawText(truncate(sl.description, pBody, maxDescW), sDesc, y + 10f, pBody)
-                c.drawText(money(sl.laborCost), sCost + 4f, y + 10f, pMoney)
+                rightAlignText(money(sl.laborCost), sCostRight, pMoney)
                 y += ROW_H
             }
 
             // Subtotal
             y += 4f
             ensureSpace(16f)
-            c.drawLine(sCost, y, MR, y, pLine)
+            c.drawLine(MR - 160f, y, MR, y, pLine)
             y += 12f
-            c.drawText("Subtotal Mano de Obra:", sCost - 120f, y, pMoneyBold)
-            c.drawText(money(data.order.totalLabor), sCost + 4f, y, pMoneyBold)
+            c.drawText("Subtotal Mano de Obra:", MR - 160f, y, pMoneyBold)
+            rightAlignText(money(data.order.totalLabor), sCostRight, pMoneyBold)
             y += 6f
             hLine()
             y += SECTION_GAP
@@ -321,16 +323,16 @@ object PdfReportGenerator {
 
             val pNum = ML + 4f
             val pName = ML + 30f
-            val pQty = MR - 180f
-            val pUnit = MR - 125f
-            val pSub = MR - 65f
+            val pQtyRight = MR - 150f
+            val pUnitRight = MR - 85f
+            val pSubRight = MR - 8f
 
             drawTableHeaderBg()
             c.drawText("#", pNum, y + 12f, pTableHeader)
             c.drawText("Repuesto", pName, y + 12f, pTableHeader)
-            c.drawText("Cant.", pQty, y + 12f, pTableHeader)
-            c.drawText("P. Unit.", pUnit, y + 12f, pTableHeader)
-            c.drawText("Subtotal", pSub, y + 12f, pTableHeader)
+            rightAlignText("Cant.", pQtyRight, pTableHeader)
+            rightAlignText("P. Unit.", pUnitRight, pTableHeader)
+            rightAlignText("Subtotal", pSubRight, pTableHeader)
             y += TABLE_HEADER_H + 2f
 
             data.orderParts.forEachIndexed { i, wp ->
@@ -339,19 +341,19 @@ object PdfReportGenerator {
                 val part = data.availableParts.find { it.id == wp.partId }
                 val name = part?.let { "${it.code ?: ""} ${it.name}".trim() } ?: "Repuesto #${wp.partId}"
                 c.drawText("${i + 1}", pNum, y + 10f, pBody)
-                c.drawText(truncate(name, pBody, pQty - pName - 8f), pName, y + 10f, pBody)
-                c.drawText("${wp.quantity}", pQty, y + 10f, pBody)
-                c.drawText(money(wp.appliedUnitPrice), pUnit, y + 10f, pMoney)
-                c.drawText(money(wp.subtotal), pSub, y + 10f, pMoney)
+                c.drawText(truncate(name, pBody, pQtyRight - 50f - pName), pName, y + 10f, pBody)
+                rightAlignText("${wp.quantity}", pQtyRight, pBody)
+                rightAlignText(money(wp.appliedUnitPrice), pUnitRight, pMoney)
+                rightAlignText(money(wp.subtotal), pSubRight, pMoney)
                 y += ROW_H
             }
 
             y += 4f
             ensureSpace(16f)
-            c.drawLine(pSub, y, MR, y, pLine)
+            c.drawLine(MR - 160f, y, MR, y, pLine)
             y += 12f
-            c.drawText("Subtotal Repuestos:", pUnit - 80f, y, pMoneyBold)
-            c.drawText(money(data.order.totalParts), pSub, y, pMoneyBold)
+            c.drawText("Subtotal Repuestos:", MR - 160f, y, pMoneyBold)
+            rightAlignText(money(data.order.totalParts), pSubRight, pMoneyBold)
             y += 6f
             hLine()
             y += SECTION_GAP
@@ -366,13 +368,13 @@ object PdfReportGenerator {
             val pyDate = ML + 4f
             val pyMethod = ML + 100f
             val pyNotes = ML + 210f
-            val pyAmount = MR - 65f
+            val pyAmountRight = MR - 8f
 
             drawTableHeaderBg()
             c.drawText("Fecha", pyDate, y + 12f, pTableHeader)
             c.drawText("Método", pyMethod, y + 12f, pTableHeader)
             c.drawText("Notas", pyNotes, y + 12f, pTableHeader)
-            c.drawText("Monto", pyAmount, y + 12f, pTableHeader)
+            rightAlignText("Monto", pyAmountRight, pTableHeader)
             y += TABLE_HEADER_H + 2f
 
             data.payments.forEachIndexed { i, pay ->
@@ -380,18 +382,18 @@ object PdfReportGenerator {
                 drawRowBg(i)
                 c.drawText(dateFmt.format(Date(pay.date)), pyDate, y + 10f, pBody)
                 c.drawText(pay.method.displayName, pyMethod, y + 10f, pBody)
-                c.drawText(truncate(pay.notes ?: "", pBody, pyAmount - pyNotes - 8f), pyNotes, y + 10f, pBody)
-                c.drawText(money(pay.amount), pyAmount, y + 10f, pMoney)
+                c.drawText(truncate(pay.notes ?: "", pBody, MR - 90f - pyNotes), pyNotes, y + 10f, pBody)
+                rightAlignText(money(pay.amount), pyAmountRight, pMoney)
                 y += ROW_H
             }
 
             val totalPaid = data.payments.sumOf { it.amount }
             y += 4f
             ensureSpace(16f)
-            c.drawLine(pyAmount, y, MR, y, pLine)
+            c.drawLine(MR - 160f, y, MR, y, pLine)
             y += 12f
-            c.drawText("Total Pagado:", pyAmount - 80f, y, pMoneyBold)
-            c.drawText(money(totalPaid), pyAmount, y, pMoneyBold)
+            c.drawText("Total Pagado:", MR - 160f, y, pMoneyBold)
+            rightAlignText(money(totalPaid), pyAmountRight, pMoneyBold)
             y += 6f
             hLine()
             y += SECTION_GAP
@@ -400,31 +402,45 @@ object PdfReportGenerator {
         // ══════════════════════════════════════════
         //  TOTALS BOX
         // ══════════════════════════════════════════
-        ensureSpace(65f)
         val totalPaid = data.payments.sumOf { it.amount }
         val balance = data.order.total - totalPaid
+        val hasPayments = data.payments.isNotEmpty()
+        val boxH = if (hasPayments) 80f else 60f
 
-        c.drawRoundRect(RectF(ML, y, MR, y + 58f), 6f, 6f, bgTotal)
+        ensureSpace(boxH + 8f)
+
+        // Right-aligned totals box (half width)
+        val boxLeft = MR - 260f
+        c.drawRoundRect(RectF(boxLeft, y, MR, y + boxH), 6f, 6f, bgTotal)
+
+        val labelX = boxLeft + 14f
+        val valueX = MR - 14f  // right edge for right-aligned values
+
         y += 16f
+        c.drawText("Mano de Obra:", labelX, y, pTotalLabel)
+        rightAlignText(money(data.order.totalLabor), valueX, pTotalLabel)
 
-        c.drawText("Mano de Obra:", ML + 14f, y, pTotalLabel)
-        c.drawText(money(data.order.totalLabor), ML + 140f, y, pTotalLabel)
-        c.drawText("Repuestos:", MR - 200f, y, pTotalLabel)
-        c.drawText(money(data.order.totalParts), MR - 70f, y, pTotalLabel)
+        y += 16f
+        c.drawText("Repuestos:", labelX, y, pTotalLabel)
+        rightAlignText(money(data.order.totalParts), valueX, pTotalLabel)
 
-        y += 22f
-        c.drawText("TOTAL GENERAL:", ML + 14f, y, pTotal)
-        c.drawText(money(data.order.total), ML + 180f, y, pTotal)
+        y += 4f
+        c.drawLine(labelX, y, valueX, y, pLine)
+        y += 14f
 
-        if (data.payments.isNotEmpty()) {
+        c.drawText("TOTAL:", labelX, y, pTotal)
+        rightAlignText(money(data.order.total), valueX, pTotal)
+
+        if (hasPayments) {
+            y += 16f
             val balColor = if (balance > 0.01) 0xFFD32F2F.toInt() else 0xFF388E3C.toInt()
             val pBal = paint(11f, balColor, bold = true)
             val balLabel = if (balance > 0.01) "Saldo Pendiente:" else "Pagado:"
-            c.drawText(balLabel, MR - 200f, y, pBal)
-            c.drawText(money(balance), MR - 70f, y, pBal)
+            c.drawText(balLabel, labelX, y, pBal)
+            rightAlignText(money(balance), valueX, pBal)
         }
 
-        y += 28f
+        y += 20f
 
         // ══════════════════════════════════════════
         //  PHOTOS (thumbnails)

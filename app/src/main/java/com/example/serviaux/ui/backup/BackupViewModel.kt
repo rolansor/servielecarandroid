@@ -24,7 +24,10 @@ data class BackupUiState(
     val recordCounts: Map<String, Int> = emptyMap(),
     val showConfirmDialog: Boolean = false,
     val pendingImportUri: Uri? = null,
-    val importResult: Map<String, Int>? = null
+    val importResult: Map<String, Int>? = null,
+    val availableYears: List<Int> = emptyList(),
+    val selectedYear: Int? = null,
+    val showYearPicker: Boolean = false
 )
 
 class BackupViewModel(application: Application) : AndroidViewModel(application) {
@@ -36,6 +39,7 @@ class BackupViewModel(application: Application) : AndroidViewModel(application) 
 
     init {
         loadRecordCounts()
+        loadAvailableYears()
     }
 
     fun loadRecordCounts() {
@@ -44,6 +48,40 @@ class BackupViewModel(application: Application) : AndroidViewModel(application) 
                 val counts = backupRepository.getRecordCounts()
                 _uiState.update { it.copy(recordCounts = counts) }
             } catch (_: Exception) { }
+        }
+    }
+
+    private fun loadAvailableYears() {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val years = backupRepository.getAvailableYears()
+                _uiState.update { it.copy(availableYears = years) }
+            } catch (_: Exception) { }
+        }
+    }
+
+    fun showYearPicker() {
+        _uiState.update { it.copy(showYearPicker = true) }
+    }
+
+    fun dismissYearPicker() {
+        _uiState.update { it.copy(showYearPicker = false) }
+    }
+
+    fun exportByYear(context: Context, year: Int) {
+        _uiState.update { it.copy(showYearPicker = false, exporting = true, message = null) }
+        viewModelScope.launch(Dispatchers.IO) {
+            val result = backupRepository.exportByYear(context, year)
+            _uiState.update {
+                it.copy(
+                    exporting = false,
+                    message = result.message,
+                    exportedFile = result.file
+                )
+            }
+            if (result.success && result.file != null) {
+                shareBackupFile(context, result.file)
+            }
         }
     }
 

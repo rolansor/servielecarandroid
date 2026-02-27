@@ -72,6 +72,39 @@ fun BackupScreen(
         }
     }
 
+    // Year picker dialog
+    if (uiState.showYearPicker) {
+        AlertDialog(
+            onDismissRequest = { viewModel.dismissYearPicker() },
+            title = { Text("Seleccionar Año") },
+            text = {
+                Column {
+                    Text(
+                        text = "Seleccione el año a exportar:",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                    uiState.availableYears.forEach { year ->
+                        OutlinedButton(
+                            onClick = { viewModel.exportByYear(context, year) },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 4.dp)
+                        ) {
+                            Text(year.toString())
+                        }
+                    }
+                }
+            },
+            confirmButton = {},
+            dismissButton = {
+                TextButton(onClick = { viewModel.dismissYearPicker() }) {
+                    Text("Cancelar")
+                }
+            }
+        )
+    }
+
     // Confirm dialog
     if (uiState.showConfirmDialog) {
         AlertDialog(
@@ -218,8 +251,16 @@ fun BackupScreen(
                             Spacer(modifier = Modifier.width(8.dp))
                             Text("Exportando...")
                         } else {
-                            Text("Exportar Respaldo")
+                            Text("Exportar Todo")
                         }
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
+                    OutlinedButton(
+                        onClick = { viewModel.showYearPicker() },
+                        enabled = !uiState.exporting && !uiState.importing && uiState.availableYears.isNotEmpty(),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("Exportar por Año")
                     }
                 }
             }

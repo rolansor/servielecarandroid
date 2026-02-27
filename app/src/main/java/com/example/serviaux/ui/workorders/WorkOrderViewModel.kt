@@ -66,6 +66,7 @@ data class WorkOrderUiState(
     // Part form
     val partFormSelectedPartId: Long? = null,
     val partFormQuantity: String = "",
+    val partFormPrice: String = "",
     // Payment form
     val paymentFormAmount: String = "",
     val paymentFormMethod: PaymentMethod = PaymentMethod.EFECTIVO,
@@ -487,13 +488,12 @@ class WorkOrderViewModel(application: Application) : AndroidViewModel(applicatio
             _uiState.update { it.copy(error = "Ingrese cantidad valida") }
             return
         }
+        val unitPrice = state.partFormPrice.toDoubleOrNull() ?: run {
+            _uiState.update { it.copy(error = "Ingrese precio valido") }
+            return
+        }
         viewModelScope.launch {
             try {
-                val part = partRepo.getByIdDirect(partId) ?: run {
-                    _uiState.update { it.copy(error = "Repuesto no encontrado") }
-                    return@launch
-                }
-                val unitPrice = part.salePrice ?: 0.0
                 val workOrderPart = WorkOrderPart(
                     workOrderId = orderId,
                     partId = partId,
@@ -503,7 +503,7 @@ class WorkOrderViewModel(application: Application) : AndroidViewModel(applicatio
                 )
                 workOrderRepo.addWorkOrderPart(workOrderPart)
                 _uiState.update {
-                    it.copy(partFormSelectedPartId = null, partFormQuantity = "")
+                    it.copy(partFormSelectedPartId = null, partFormQuantity = "", partFormPrice = "")
                 }
             } catch (e: Exception) {
                 _uiState.update { it.copy(error = e.message ?: "Error al agregar repuesto") }
@@ -651,8 +651,28 @@ class WorkOrderViewModel(application: Application) : AndroidViewModel(applicatio
         _uiState.update { it.copy(serviceLineFormLaborCost = sanitized) }
     }
 
-    fun onPartSelectedChange(value: Long?) { _uiState.update { it.copy(partFormSelectedPartId = value) } }
+    fun onPartSelectedChange(value: Long?) {
+        _uiState.update { it.copy(partFormSelectedPartId = value) }
+        if (value != null) {
+            viewModelScope.launch {
+                val part = partRepo.getByIdDirect(value)
+                val price = part?.salePrice ?: part?.unitCost ?: 0.0
+                _uiState.update { it.copy(partFormPrice = String.format("%.2f", price), partFormQuantity = "1") }
+            }
+        } else {
+            _uiState.update { it.copy(partFormPrice = "") }
+        }
+    }
     fun onPartQuantityChange(value: String) { _uiState.update { it.copy(partFormQuantity = value) } }
+    fun onPartPriceChange(value: String) {
+        val filtered = value.filter { it.isDigit() || it == '.' }
+        val dotCount = filtered.count { it == '.' }
+        val sanitized = if (dotCount > 1) {
+            val firstDot = filtered.indexOf('.')
+            filtered.substring(0, firstDot + 1) + filtered.substring(firstDot + 1).replace(".", "")
+        } else filtered
+        _uiState.update { it.copy(partFormPrice = sanitized) }
+    }
 
     fun onPaymentAmountChange(value: String) { _uiState.update { it.copy(paymentFormAmount = value) } }
     fun onPaymentMethodChange(value: PaymentMethod) { _uiState.update { it.copy(paymentFormMethod = value) } }
@@ -771,6 +791,7 @@ class WorkOrderViewModel(application: Application) : AndroidViewModel(applicatio
                 val reportData = WorkOrderReportData(
                     order = order,
                     customerName = customer?.fullName ?: state.customerName,
+                    customerIdNumber = customer?.idNumber,
                     customerPhone = customer?.phone ?: "",
                     customerEmail = customer?.email,
                     customerAddress = customer?.address,

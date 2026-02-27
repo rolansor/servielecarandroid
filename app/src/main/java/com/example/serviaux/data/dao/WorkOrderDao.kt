@@ -48,4 +48,7 @@ interface WorkOrderDao {
 
     @Query("SELECT * FROM work_orders")
     suspend fun getAllDirect(): List<WorkOrder>
+
+    @Query("SELECT * FROM work_orders WHERE entryDate BETWEEN :fromMs AND :toMs ORDER BY entryDate DESC")
+    suspend fun getByDateRangeDirect(fromMs: Long, toMs: Long): List<WorkOrder>
 }

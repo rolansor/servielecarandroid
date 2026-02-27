@@ -5,6 +5,7 @@ import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -221,11 +222,13 @@ fun WorkOrderDetailScreen(
             availableParts = uiState.availableParts,
             selectedPartId = uiState.partFormSelectedPartId,
             quantity = uiState.partFormQuantity,
+            price = uiState.partFormPrice,
             onPartSelected = { viewModel.onPartSelectedChange(it) },
             onQuantityChange = { newVal ->
                 val filtered = newVal.filter { it.isDigit() }
                 viewModel.onPartQuantityChange(filtered)
             },
+            onPriceChange = { viewModel.onPartPriceChange(it) },
             onSave = {
                 if (uiState.partFormSelectedPartId != null && (uiState.partFormQuantity.toIntOrNull() ?: 0) >= 1) {
                     viewModel.addPart()
@@ -1017,8 +1020,10 @@ private fun PartDialog(
     availableParts: List<com.example.serviaux.data.entity.Part>,
     selectedPartId: Long?,
     quantity: String,
+    price: String,
     onPartSelected: (Long?) -> Unit,
     onQuantityChange: (String) -> Unit,
+    onPriceChange: (String) -> Unit,
     onSave: () -> Unit,
     onDismiss: () -> Unit
 ) {
@@ -1029,10 +1034,24 @@ private fun PartDialog(
     var quantityError by remember { mutableStateOf<String?>(null) }
 
     val filteredParts = remember(searchQuery, availableParts) {
-        if (searchQuery.isBlank()) emptyList()
-        else availableParts.filter { it.active }.filter { part ->
-            part.code?.contains(searchQuery, ignoreCase = true) == true ||
-            part.name.contains(searchQuery, ignoreCase = true)
+        if (searchQuery.length < 3) {
+            availableParts.take(0)
+        } else {
+            val query = searchQuery.trim()
+            availableParts.filter { it.active }
+                .filter { part ->
+                    part.code?.contains(query, ignoreCase = true) == true ||
+                    part.name.contains(query, ignoreCase = true)
+                }
+                .sortedWith(compareBy<com.example.serviaux.data.entity.Part> { part ->
+                    when {
+                        part.code.equals(query, ignoreCase = true) -> 0
+                        part.code?.startsWith(query, ignoreCase = true) == true -> 1
+                        part.name.startsWith(query, ignoreCase = true) -> 2
+                        else -> 3
+                    }
+                })
+                .take(10)
         }
     }
 
@@ -1050,10 +1069,10 @@ private fun PartDialog(
                         onValueChange = {
                             searchQuery = it
                             partError = null
-                            suggestionsExpanded = it.isNotBlank()
+                            suggestionsExpanded = it.length >= 3
                             if (it.isBlank()) onPartSelected(null)
                         },
-                        label = { Text("Buscar por c\u00f3digo o nombre *") },
+                        label = { Text("Buscar (min. 3 caracteres) *") },
                         leadingIcon = {
                             Icon(Icons.Default.Search, contentDescription = null, modifier = Modifier.size(20.dp))
                         },
@@ -1106,24 +1125,43 @@ private fun PartDialog(
                 if (selectedPart != null) {
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = "Precio: $${String.format("%.2f", selectedPart.salePrice ?: selectedPart.unitCost)} | Stock: ${selectedPart.currentStock}",
+                        text = "Stock disponible: ${selectedPart.currentStock}",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.primary
                     )
                 }
                 Spacer(modifier = Modifier.height(8.dp))
-                OutlinedTextField(
-                    value = quantity,
-                    onValueChange = {
-                        onQuantityChange(it)
-                        quantityError = null
-                    },
-                    label = { Text("Cantidad *") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    isError = quantityError != null,
-                    supportingText = quantityError?.let { error -> { Text(error, color = MaterialTheme.colorScheme.error) } },
-                    modifier = Modifier.fillMaxWidth()
-                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    OutlinedTextField(
+                        value = quantity,
+                        onValueChange = {
+                            onQuantityChange(it)
+                            quantityError = null
+                        },
+                        label = { Text("Cantidad *") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        isError = quantityError != null,
+                        supportingText = quantityError?.let { error -> { Text(error, color = MaterialTheme.colorScheme.error) } },
+                        modifier = Modifier.weight(1f)
+                    )
+                    OutlinedTextField(
+                        value = price,
+                        onValueChange = { onPriceChange(it) },
+                        label = { Text("Precio Unit. *") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                        prefix = { Text("$") },
+                        modifier = Modifier
+                            .weight(1f)
+                            .onFocusChanged { focusState ->
+                                if (focusState.isFocused && price.isNotEmpty()) {
+                                    onPriceChange("")
+                                }
+                            }
+                    )
+                }
             }
         },
         confirmButton = {

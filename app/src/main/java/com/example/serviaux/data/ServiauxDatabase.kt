@@ -6,12 +6,10 @@ import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
+import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 import com.example.serviaux.data.dao.*
 import com.example.serviaux.data.entity.*
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
 import java.io.BufferedReader
 import java.io.InputStreamReader
 
@@ -36,7 +34,7 @@ import java.io.InputStreamReader
         CatalogComplaint::class,
         CatalogDiagnosis::class
     ],
-    version = 2,
+    version = 3,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -65,13 +63,53 @@ abstract class ServiauxDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_2_3 = object : Migration(2, 3) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                // Add tables that may not exist in version 2
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS catalog_vehicle_types (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        name TEXT NOT NULL
+                    )
+                """.trimIndent())
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS catalog_accessories (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        name TEXT NOT NULL
+                    )
+                """.trimIndent())
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS catalog_complaints (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        name TEXT NOT NULL
+                    )
+                """.trimIndent())
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS catalog_diagnoses (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        complaintId INTEGER NOT NULL,
+                        name TEXT NOT NULL,
+                        FOREIGN KEY (complaintId) REFERENCES catalog_complaints(id) ON DELETE CASCADE
+                    )
+                """.trimIndent())
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_catalog_diagnoses_complaintId ON catalog_diagnoses(complaintId)")
+
+                // Add vehicleType column to vehicles if not present
+                try {
+                    db.execSQL("ALTER TABLE vehicles ADD COLUMN vehicleType TEXT")
+                } catch (_: Exception) { /* column already exists */ }
+
+                Log.i("ServiauxDatabase", "Migration 2->3 completed successfully")
+            }
+        }
+
         private fun buildDatabase(context: Context): ServiauxDatabase {
             return Room.databaseBuilder(
                 context.applicationContext,
                 ServiauxDatabase::class.java,
                 "serviaux_v3"
             )
-                .fallbackToDestructiveMigration()
+                .addMigrations(MIGRATION_2_3)
                 .addCallback(SeedCallback(context.applicationContext))
                 .build()
         }

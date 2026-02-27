@@ -10,8 +10,10 @@ import java.io.BufferedOutputStream
 import java.io.File
 import java.io.FileOutputStream
 import java.text.SimpleDateFormat
+import java.util.Calendar
 import java.util.Date
 import java.util.Locale
+import java.util.TimeZone
 import java.util.zip.ZipEntry
 import java.util.zip.ZipInputStream
 import java.util.zip.ZipOutputStream
@@ -22,7 +24,7 @@ class BackupRepository(private val database: ServiauxDatabase) {
         private const val PHOTOS_DIR = "vehicle_photos"
         private const val BACKUPS_DIR = "backups"
         private const val MANIFEST_FILE = "manifest.json"
-        private const val DB_VERSION = 5
+        private const val DB_VERSION = 7
     }
 
     data class BackupResult(
@@ -53,6 +55,10 @@ class BackupRepository(private val database: ServiauxDatabase) {
             val catalogColors = database.catalogDao().getAllColorsDirect()
             val catalogPartBrands = database.catalogDao().getAllPartBrandsDirect()
             val catalogServices = database.catalogDao().getAllServicesDirect()
+            val catalogVehicleTypes = database.catalogDao().getAllVehicleTypesDirect()
+            val catalogAccessories = database.catalogDao().getAllAccessoriesDirect()
+            val catalogComplaints = database.catalogDao().getAllComplaintsDirect()
+            val catalogDiagnoses = database.catalogDao().getAllDiagnosesDirect()
 
             val counts = mapOf(
                 "users" to users.size,
@@ -68,7 +74,11 @@ class BackupRepository(private val database: ServiauxDatabase) {
                 "catalog_models" to catalogModels.size,
                 "catalog_colors" to catalogColors.size,
                 "catalog_part_brands" to catalogPartBrands.size,
-                "catalog_services" to catalogServices.size
+                "catalog_services" to catalogServices.size,
+                "catalog_vehicle_types" to catalogVehicleTypes.size,
+                "catalog_accessories" to catalogAccessories.size,
+                "catalog_complaints" to catalogComplaints.size,
+                "catalog_diagnoses" to catalogDiagnoses.size
             )
 
             ZipOutputStream(BufferedOutputStream(FileOutputStream(zipFile))).use { zip ->
@@ -97,6 +107,10 @@ class BackupRepository(private val database: ServiauxDatabase) {
                 writeZipEntry(zip, "data/catalog_colors.json", catalogColorsToJson(catalogColors))
                 writeZipEntry(zip, "data/catalog_part_brands.json", catalogPartBrandsToJson(catalogPartBrands))
                 writeZipEntry(zip, "data/catalog_services.json", catalogServicesToJson(catalogServices))
+                writeZipEntry(zip, "data/catalog_vehicle_types.json", catalogVehicleTypesToJson(catalogVehicleTypes))
+                writeZipEntry(zip, "data/catalog_accessories.json", catalogAccessoriesToJson(catalogAccessories))
+                writeZipEntry(zip, "data/catalog_complaints.json", catalogComplaintsToJson(catalogComplaints))
+                writeZipEntry(zip, "data/catalog_diagnoses.json", catalogDiagnosesToJson(catalogDiagnoses))
 
                 // Photos
                 val photosDir = File(context.filesDir, PHOTOS_DIR)
@@ -128,6 +142,140 @@ class BackupRepository(private val database: ServiauxDatabase) {
         } catch (e: Exception) {
             BackupResult(message = "Error al exportar: ${e.message}", success = false)
         }
+    }
+
+    suspend fun exportByYear(context: Context, year: Int): BackupResult {
+        return try {
+            val backupDir = File(context.cacheDir, BACKUPS_DIR).apply { mkdirs() }
+            val timestamp = SimpleDateFormat("yyyyMMdd_HHmm", Locale.US).format(Date())
+            val zipFile = File(backupDir, "respaldo_serviaux_${year}_$timestamp.zip")
+
+            // Calculate year range in epoch ms
+            val calStart = Calendar.getInstance(TimeZone.getDefault()).apply {
+                set(year, Calendar.JANUARY, 1, 0, 0, 0)
+                set(Calendar.MILLISECOND, 0)
+            }
+            val calEnd = Calendar.getInstance(TimeZone.getDefault()).apply {
+                set(year, Calendar.DECEMBER, 31, 23, 59, 59)
+                set(Calendar.MILLISECOND, 999)
+            }
+            val fromMs = calStart.timeInMillis
+            val toMs = calEnd.timeInMillis
+
+            // Fetch year-filtered work orders
+            val workOrders = database.workOrderDao().getByDateRangeDirect(fromMs, toMs)
+            val orderIds = workOrders.map { it.id }.toSet()
+
+            // Fetch related data for those orders
+            val allServiceLines = database.serviceLineDao().getAllDirect()
+            val serviceLines = allServiceLines.filter { it.workOrderId in orderIds }
+            val allWorkOrderParts = database.workOrderPartDao().getAllDirect()
+            val workOrderParts = allWorkOrderParts.filter { it.workOrderId in orderIds }
+            val allPayments = database.workOrderPaymentDao().getAllDirect()
+            val workOrderPayments = allPayments.filter { it.workOrderId in orderIds }
+            val allStatusLogs = database.workOrderStatusLogDao().getAllDirect()
+            val statusLogs = allStatusLogs.filter { it.workOrderId in orderIds }
+
+            // Fetch all master data (always full)
+            val users = database.userDao().getAllDirect()
+            val customers = database.customerDao().getAllDirect()
+            val vehicles = database.vehicleDao().getAllDirect()
+            val parts = database.partDao().getAllDirect()
+            val catalogBrands = database.catalogDao().getAllBrandsDirect()
+            val catalogModels = database.catalogDao().getAllModelsDirect()
+            val catalogColors = database.catalogDao().getAllColorsDirect()
+            val catalogPartBrands = database.catalogDao().getAllPartBrandsDirect()
+            val catalogServices = database.catalogDao().getAllServicesDirect()
+            val catalogVehicleTypes = database.catalogDao().getAllVehicleTypesDirect()
+            val catalogAccessories = database.catalogDao().getAllAccessoriesDirect()
+            val catalogComplaints = database.catalogDao().getAllComplaintsDirect()
+            val catalogDiagnoses = database.catalogDao().getAllDiagnosesDirect()
+
+            val counts = mapOf(
+                "users" to users.size,
+                "customers" to customers.size,
+                "vehicles" to vehicles.size,
+                "parts" to parts.size,
+                "work_orders" to workOrders.size,
+                "service_lines" to serviceLines.size,
+                "work_order_parts" to workOrderParts.size,
+                "work_order_payments" to workOrderPayments.size,
+                "work_order_status_log" to statusLogs.size
+            )
+
+            ZipOutputStream(BufferedOutputStream(FileOutputStream(zipFile))).use { zip ->
+                val manifest = JSONObject().apply {
+                    put("app", "serviaux")
+                    put("dbVersion", DB_VERSION)
+                    put("exportType", "yearly")
+                    put("year", year)
+                    put("exportDate", System.currentTimeMillis())
+                    put("exportDateFormatted", SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US).format(Date()))
+                    put("counts", JSONObject(counts))
+                }
+                writeZipEntry(zip, MANIFEST_FILE, manifest.toString(2))
+
+                writeZipEntry(zip, "data/users.json", usersToJson(users))
+                writeZipEntry(zip, "data/customers.json", customersToJson(customers))
+                writeZipEntry(zip, "data/vehicles.json", vehiclesToJson(vehicles))
+                writeZipEntry(zip, "data/parts.json", partsToJson(parts))
+                writeZipEntry(zip, "data/work_orders.json", workOrdersToJson(workOrders))
+                writeZipEntry(zip, "data/service_lines.json", serviceLinesToJson(serviceLines))
+                writeZipEntry(zip, "data/work_order_parts.json", workOrderPartsToJson(workOrderParts))
+                writeZipEntry(zip, "data/work_order_payments.json", workOrderPaymentsToJson(workOrderPayments))
+                writeZipEntry(zip, "data/work_order_status_log.json", statusLogsToJson(statusLogs))
+                writeZipEntry(zip, "data/catalog_brands.json", catalogBrandsToJson(catalogBrands))
+                writeZipEntry(zip, "data/catalog_models.json", catalogModelsToJson(catalogModels))
+                writeZipEntry(zip, "data/catalog_colors.json", catalogColorsToJson(catalogColors))
+                writeZipEntry(zip, "data/catalog_part_brands.json", catalogPartBrandsToJson(catalogPartBrands))
+                writeZipEntry(zip, "data/catalog_services.json", catalogServicesToJson(catalogServices))
+                writeZipEntry(zip, "data/catalog_vehicle_types.json", catalogVehicleTypesToJson(catalogVehicleTypes))
+                writeZipEntry(zip, "data/catalog_accessories.json", catalogAccessoriesToJson(catalogAccessories))
+                writeZipEntry(zip, "data/catalog_complaints.json", catalogComplaintsToJson(catalogComplaints))
+                writeZipEntry(zip, "data/catalog_diagnoses.json", catalogDiagnosesToJson(catalogDiagnoses))
+
+                // Photos only for orders in this year
+                val photosDir = File(context.filesDir, PHOTOS_DIR)
+                if (photosDir.exists()) {
+                    val allPhotoPaths = mutableSetOf<String>()
+                    workOrders.forEach { wo ->
+                        wo.photoPaths?.split(",")?.filter { it.isNotBlank() }?.forEach { allPhotoPaths.add(it) }
+                    }
+                    // Include vehicle photos for vehicles referenced by orders
+                    val vehicleIds = workOrders.map { it.vehicleId }.toSet()
+                    vehicles.filter { it.id in vehicleIds }.forEach { v ->
+                        v.photoPaths?.split(",")?.filter { it.isNotBlank() }?.forEach { allPhotoPaths.add(it) }
+                    }
+                    for (path in allPhotoPaths) {
+                        val file = File(path)
+                        if (file.exists()) {
+                            zip.putNextEntry(ZipEntry("photos/${file.name}"))
+                            file.inputStream().use { it.copyTo(zip) }
+                            zip.closeEntry()
+                        }
+                    }
+                }
+            }
+
+            BackupResult(
+                file = zipFile,
+                message = "Respaldo del año $year exportado exitosamente (${workOrders.size} órdenes)",
+                success = true,
+                counts = counts
+            )
+        } catch (e: Exception) {
+            BackupResult(message = "Error al exportar: ${e.message}", success = false)
+        }
+    }
+
+    suspend fun getAvailableYears(): List<Int> {
+        val orders = database.workOrderDao().getAllDirect()
+        if (orders.isEmpty()) return listOf(Calendar.getInstance().get(Calendar.YEAR))
+        val cal = Calendar.getInstance()
+        return orders.map { order ->
+            cal.timeInMillis = order.entryDate
+            cal.get(Calendar.YEAR)
+        }.distinct().sorted().reversed()
     }
 
     suspend fun importFromZip(context: Context, zipUri: Uri): BackupResult {
@@ -242,6 +390,34 @@ class BackupRepository(private val database: ServiauxDatabase) {
                 val items = jsonToCatalogServices(String(bytes))
                 items.forEach { catalogDao.insertService(it) }
                 counts["catalog_services"] = items.size
+            }
+
+            // Catalog Vehicle Types
+            entries["data/catalog_vehicle_types.json"]?.let { bytes ->
+                val items = jsonToCatalogVehicleTypes(String(bytes))
+                items.forEach { catalogDao.insertVehicleType(it) }
+                counts["catalog_vehicle_types"] = items.size
+            }
+
+            // Catalog Accessories
+            entries["data/catalog_accessories.json"]?.let { bytes ->
+                val items = jsonToCatalogAccessories(String(bytes))
+                items.forEach { catalogDao.insertAccessory(it) }
+                counts["catalog_accessories"] = items.size
+            }
+
+            // Catalog Complaints
+            entries["data/catalog_complaints.json"]?.let { bytes ->
+                val items = jsonToCatalogComplaints(String(bytes))
+                items.forEach { catalogDao.insertComplaint(it) }
+                counts["catalog_complaints"] = items.size
+            }
+
+            // Catalog Diagnoses (depends on complaints)
+            entries["data/catalog_diagnoses.json"]?.let { bytes ->
+                val items = jsonToCatalogDiagnoses(String(bytes))
+                items.forEach { catalogDao.insertDiagnosis(it) }
+                counts["catalog_diagnoses"] = items.size
             }
 
             // Work Orders (depends on vehicles, customers, users)
@@ -580,6 +756,51 @@ class BackupRepository(private val database: ServiauxDatabase) {
         return arr.toString(2)
     }
 
+    private fun catalogVehicleTypesToJson(types: List<CatalogVehicleType>): String {
+        val arr = JSONArray()
+        types.forEach { t ->
+            arr.put(JSONObject().apply {
+                put("id", t.id)
+                put("name", t.name)
+            })
+        }
+        return arr.toString(2)
+    }
+
+    private fun catalogAccessoriesToJson(accessories: List<CatalogAccessory>): String {
+        val arr = JSONArray()
+        accessories.forEach { a ->
+            arr.put(JSONObject().apply {
+                put("id", a.id)
+                put("name", a.name)
+            })
+        }
+        return arr.toString(2)
+    }
+
+    private fun catalogComplaintsToJson(complaints: List<CatalogComplaint>): String {
+        val arr = JSONArray()
+        complaints.forEach { c ->
+            arr.put(JSONObject().apply {
+                put("id", c.id)
+                put("name", c.name)
+            })
+        }
+        return arr.toString(2)
+    }
+
+    private fun catalogDiagnosesToJson(diagnoses: List<CatalogDiagnosis>): String {
+        val arr = JSONArray()
+        diagnoses.forEach { d ->
+            arr.put(JSONObject().apply {
+                put("id", d.id)
+                put("complaintId", d.complaintId)
+                put("name", d.name)
+            })
+        }
+        return arr.toString(2)
+    }
+
     // ── JSON Deserialization ──────────────────────────────────────
 
     private fun jsonToUsers(json: String): List<User> {
@@ -801,6 +1022,42 @@ class BackupRepository(private val database: ServiauxDatabase) {
                 name = o.getString("name"),
                 defaultPrice = o.optDouble("defaultPrice", 10.0),
                 vehicleType = o.optStringOrNull("vehicleType")
+            )
+        }
+    }
+
+    private fun jsonToCatalogVehicleTypes(json: String): List<CatalogVehicleType> {
+        val arr = JSONArray(json)
+        return (0 until arr.length()).map { i ->
+            val o = arr.getJSONObject(i)
+            CatalogVehicleType(id = o.getLong("id"), name = o.getString("name"))
+        }
+    }
+
+    private fun jsonToCatalogAccessories(json: String): List<CatalogAccessory> {
+        val arr = JSONArray(json)
+        return (0 until arr.length()).map { i ->
+            val o = arr.getJSONObject(i)
+            CatalogAccessory(id = o.getLong("id"), name = o.getString("name"))
+        }
+    }
+
+    private fun jsonToCatalogComplaints(json: String): List<CatalogComplaint> {
+        val arr = JSONArray(json)
+        return (0 until arr.length()).map { i ->
+            val o = arr.getJSONObject(i)
+            CatalogComplaint(id = o.getLong("id"), name = o.getString("name"))
+        }
+    }
+
+    private fun jsonToCatalogDiagnoses(json: String): List<CatalogDiagnosis> {
+        val arr = JSONArray(json)
+        return (0 until arr.length()).map { i ->
+            val o = arr.getJSONObject(i)
+            CatalogDiagnosis(
+                id = o.getLong("id"),
+                complaintId = o.getLong("complaintId"),
+                name = o.getString("name")
             )
         }
     }
