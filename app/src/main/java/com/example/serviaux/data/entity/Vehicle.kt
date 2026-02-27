@@ -30,6 +30,7 @@ data class Vehicle(
     val year: Int? = null,
     val vin: String? = null,
     val color: String? = null,
+    val vehicleType: String? = null,
     val currentMileage: Int? = null,
     val engineDisplacement: String? = null,
     val engineNumber: String? = null,

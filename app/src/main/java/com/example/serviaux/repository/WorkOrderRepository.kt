@@ -14,12 +14,14 @@ class WorkOrderRepository(
 ) {
     fun getAll(): Flow<List<WorkOrder>> = workOrderDao.getAll()
     fun getById(id: Long): Flow<WorkOrder?> = workOrderDao.getById(id)
+    suspend fun getByIdDirect(id: Long): WorkOrder? = workOrderDao.getByIdDirect(id)
     fun getByVehicle(vehicleId: Long): Flow<List<WorkOrder>> = workOrderDao.getByVehicle(vehicleId)
     fun getByCustomer(customerId: Long): Flow<List<WorkOrder>> = workOrderDao.getByCustomer(customerId)
     fun getByStatus(status: OrderStatus): Flow<List<WorkOrder>> = workOrderDao.getByStatus(status)
     fun getByMechanic(mechanicId: Long): Flow<List<WorkOrder>> = workOrderDao.getByMechanic(mechanicId)
     fun countByStatus(status: OrderStatus): Flow<Int> = workOrderDao.countByStatus(status)
     fun getByDateRange(from: Long, to: Long): Flow<List<WorkOrder>> = workOrderDao.getByDateRange(from, to)
+    fun getByStatusAndDateRange(status: OrderStatus, from: Long, to: Long): Flow<List<WorkOrder>> = workOrderDao.getByStatusAndDateRange(status, from, to)
     fun getTotalByDateRange(from: Long, to: Long): Flow<Double> = workOrderDao.getTotalByDateRange(from, to)
 
     suspend fun insert(workOrder: WorkOrder): Long {

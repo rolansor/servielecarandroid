@@ -45,6 +45,8 @@ data class VehicleUiState(
     val formTransmission: String = "Manual",
     val formNotes: String = "",
     val formCustomerId: Long? = null,
+    val formCustomerSearch: String = "",
+    val formBrandSearch: String = "",
     val isEditing: Boolean = false,
     val editingVehicleId: Long? = null,
     val customers: List<Customer> = emptyList(),
@@ -176,9 +178,6 @@ class VehicleViewModel(application: Application) : AndroidViewModel(application)
     fun onFormColorChange(value: String) {
         _uiState.update { it.copy(formColor = value) }
     }
-    fun onFormVersionChange(value: String) {
-        _uiState.update { it.copy(formVersion = value) }
-    }
     fun onFormEngineDisplacementChange(value: String) {
         if (value.length <= 5 && value.all { it.isDigit() || it == '.' }) {
             _uiState.update { it.copy(formEngineDisplacement = value) }
@@ -195,9 +194,44 @@ class VehicleViewModel(application: Application) : AndroidViewModel(application)
     fun onFormTransmissionChange(value: String) {
         _uiState.update { it.copy(formTransmission = value) }
     }
-    fun onFormNotesChange(value: String) { _uiState.update { it.copy(formNotes = value) } }
+    fun onFormNotesChange(value: String) { _uiState.update { it.copy(formNotes = value.uppercase()) } }
+    fun onFormVersionChange(value: String) {
+        _uiState.update { it.copy(formVersion = value.uppercase()) }
+    }
     fun onFormCustomerIdChange(value: Long?) {
         _uiState.update { it.copy(formCustomerId = value, formCustomerError = null) }
+    }
+
+    fun onFormCustomerSearchChange(value: String) {
+        _uiState.update { it.copy(formCustomerSearch = value.uppercase(), formCustomerError = null) }
+    }
+
+    fun onFormCustomerSelected(customerId: Long) {
+        val customer = _uiState.value.customers.find { it.id == customerId }
+        _uiState.update {
+            it.copy(
+                formCustomerId = customerId,
+                formCustomerSearch = customer?.fullName ?: "",
+                formCustomerError = null
+            )
+        }
+    }
+
+    fun onFormBrandSearchChange(value: String) {
+        _uiState.update { it.copy(formBrandSearch = value.uppercase(), formBrand = value.uppercase(), formModel = "", formBrandError = null) }
+        loadModelsForBrand(value.uppercase())
+    }
+
+    fun onFormBrandSelected(brandName: String) {
+        _uiState.update {
+            it.copy(
+                formBrand = brandName,
+                formBrandSearch = brandName,
+                formModel = "",
+                formBrandError = null
+            )
+        }
+        loadModelsForBrand(brandName)
     }
 
     private val plateRegex = Regex("^[A-Z]{1,4}-?[0-9]{1,4}$")
@@ -335,7 +369,8 @@ class VehicleViewModel(application: Application) : AndroidViewModel(application)
                 formYear = "", formVin = "", formColor = "",
                 formNotes = "", formEngineDisplacement = "", formEngineNumber = "",
                 formDrivetrain = "4x2", formTransmission = "Manual",
-                formCustomerId = customerId, isEditing = false, editingVehicleId = null, error = null,
+                formCustomerId = customerId, formCustomerSearch = "", formBrandSearch = "",
+                isEditing = false, editingVehicleId = null, error = null,
                 formCustomerError = null, formPlateError = null, formBrandError = null,
                 formModelError = null, formYearError = null, formVinError = null,
                 formPhotoPaths = emptyList(), pendingPhotoUri = null
@@ -359,6 +394,7 @@ class VehicleViewModel(application: Application) : AndroidViewModel(application)
                 formTransmission = vehicle.transmission,
                 formNotes = vehicle.notes ?: "",
                 formCustomerId = vehicle.customerId,
+                formBrandSearch = vehicle.brand,
                 isEditing = true,
                 editingVehicleId = vehicle.id,
                 error = null,
@@ -369,6 +405,11 @@ class VehicleViewModel(application: Application) : AndroidViewModel(application)
             )
         }
         loadModelsForBrand(vehicle.brand)
+        // Load customer name async since customers list may not be ready yet
+        viewModelScope.launch {
+            val customer = customerRepo.getByIdDirect(vehicle.customerId)
+            _uiState.update { it.copy(formCustomerSearch = customer?.fullName ?: "") }
+        }
     }
 
     fun loadVehiclesByCustomer(customerId: Long) {
@@ -388,7 +429,6 @@ class VehicleViewModel(application: Application) : AndroidViewModel(application)
     }
 
     fun prepareCameraFile(): Uri? {
-        if (_uiState.value.formPhotoPaths.size >= PhotoUtils.MAX_PHOTOS) return null
         val context = getApplication<Application>()
         val file = PhotoUtils.createTempPhotoFile(context)
         pendingPhotoFile = file
@@ -411,6 +451,14 @@ class VehicleViewModel(application: Application) : AndroidViewModel(application)
             _uiState.update { it.copy(pendingPhotoUri = null) }
         }
         pendingPhotoFile = null
+    }
+
+    fun addPhotoFromGallery(uri: Uri) {
+        val context = getApplication<Application>()
+        val file = PhotoUtils.copyUriToInternalStorage(context, uri)
+        if (file != null) {
+            _uiState.update { it.copy(formPhotoPaths = it.formPhotoPaths + file.absolutePath) }
+        }
     }
 
     fun removePhoto(index: Int) {

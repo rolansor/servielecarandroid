@@ -8,7 +8,7 @@ data class Customer(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val fullName: String,
     val idNumber: String? = null,
-    val phone: String,
+    val phone: String? = null,
     val email: String? = null,
     val address: String? = null,
     val notes: String? = null,

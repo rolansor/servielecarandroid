@@ -7,6 +7,7 @@ import androidx.room.PrimaryKey
 data class Part(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val name: String,
+    val description: String? = null,
     val code: String? = null,
     val brand: String? = null,
     val unitCost: Double,

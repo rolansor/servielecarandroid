@@ -28,8 +28,10 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AddAPhoto
+import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.SwapHoriz
@@ -81,7 +83,6 @@ import com.example.serviaux.ui.components.InfoRow
 import com.example.serviaux.ui.components.PriorityChip
 import com.example.serviaux.ui.components.SectionTitle
 import com.example.serviaux.ui.components.StatusChip
-import com.example.serviaux.util.PhotoUtils
 import com.example.serviaux.util.ShareUtils
 import java.io.File
 import java.text.SimpleDateFormat
@@ -93,6 +94,7 @@ import java.util.Locale
 fun WorkOrderDetailScreen(
     orderId: Long,
     onNavigateBack: () -> Unit,
+    onNavigateToEdit: (Long) -> Unit = {},
     viewModel: WorkOrderViewModel = viewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -107,11 +109,15 @@ fun WorkOrderDetailScreen(
     var showDeleteServiceLineDialog by remember { mutableStateOf<Long?>(null) }
     var showDeletePartDialog by remember { mutableStateOf<Long?>(null) }
 
-    // Camera for order photos
+    // Camera & Gallery for order photos
     val detailContext = LocalContext.current
     val detailCameraLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.TakePicture()
     ) { success -> viewModel.onDetailPhotoTaken(success) }
+
+    val detailGalleryLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetMultipleContents()
+    ) { uris -> uris.forEach { uri -> viewModel.addDetailPhotoFromGallery(uri) } }
 
     val detailPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
@@ -180,21 +186,32 @@ fun WorkOrderDetailScreen(
 
     // Service line dialog
     if (showServiceLineDialog) {
+        val vehicleType = uiState.selectedVehicle?.vehicleType
+        val filteredCatalogServices = if (vehicleType.isNullOrBlank()) {
+            uiState.catalogServices
+        } else {
+            uiState.catalogServices.filter { it.vehicleType == null || it.vehicleType == vehicleType }
+        }
+        val isEditingServiceLine = uiState.editingServiceLineId != null
         ServiceLineDialog(
             description = uiState.serviceLineFormDescription,
             laborCost = uiState.serviceLineFormLaborCost,
-            catalogServices = uiState.catalogServices,
+            catalogServices = filteredCatalogServices,
+            isEditing = isEditingServiceLine,
             onDescriptionChange = { if (it.length <= 200) viewModel.onServiceLineDescriptionChange(it) },
             onLaborCostChange = { viewModel.onServiceLineLaborCostChange(it) },
             onSave = {
-                viewModel.addServiceLine()
+                viewModel.saveServiceLine()
                 if (uiState.serviceLineFormDescription.trim().length >= 3
                     && (uiState.serviceLineFormLaborCost.toDoubleOrNull() ?: -1.0) >= 0.0
                 ) {
                     showServiceLineDialog = false
                 }
             },
-            onDismiss = { showServiceLineDialog = false }
+            onDismiss = {
+                viewModel.cancelEditServiceLine()
+                showServiceLineDialog = false
+            }
         )
     }
 
@@ -287,6 +304,9 @@ fun WorkOrderDetailScreen(
                     }
                 },
                 actions = {
+                    IconButton(onClick = { onNavigateToEdit(orderId) }) {
+                        Icon(Icons.Default.Edit, contentDescription = "Editar orden")
+                    }
                     if (uiState.pdfGenerating) {
                         CircularProgressIndicator(
                             modifier = Modifier.size(24.dp).padding(end = 8.dp),
@@ -385,7 +405,14 @@ fun WorkOrderDetailScreen(
                             InfoRow(label = "Mec\u00e1nico Asignado", value = uiState.mechanics.find { it.id == order.assignedMechanicId }?.name ?: "Sin asignar")
                             InfoRow(label = "Kilometraje Entrada", value = order.entryMileage?.let { "$it km" } ?: "N/A")
                             InfoRow(label = "Nivel Combustible", value = order.fuelLevel ?: "N/A")
-                            InfoRow(label = "Notas Checklist", value = order.checklistNotes ?: "N/A")
+                            // Checklist items
+                            val checklistItems = remember(order.checklistNotes) {
+                                order.checklistNotes?.split(",")?.map { it.trim() }?.filter { it.isNotBlank() } ?: emptyList()
+                            }
+                            InfoRow(
+                                label = "Checklist",
+                                value = if (checklistItems.isEmpty()) "Sin items marcados" else checklistItems.joinToString(", ")
+                            )
                         }
                     }
                 }
@@ -394,7 +421,7 @@ fun WorkOrderDetailScreen(
                 item {
                     Card(modifier = Modifier.fillMaxWidth()) {
                         Column(modifier = Modifier.padding(16.dp)) {
-                            SectionTitle("Fotos (${uiState.detailPhotoPaths.size}/${PhotoUtils.MAX_PHOTOS})")
+                            SectionTitle("Fotos (${uiState.detailPhotoPaths.size})")
                             Spacer(modifier = Modifier.height(8.dp))
                             LazyRow(
                                 horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -428,21 +455,29 @@ fun WorkOrderDetailScreen(
                                         }
                                     }
                                 }
-                                if (uiState.detailPhotoPaths.size < PhotoUtils.MAX_PHOTOS) {
-                                    item {
-                                        Box(
-                                            modifier = Modifier
-                                                .size(100.dp)
-                                                .clip(RoundedCornerShape(8.dp))
-                                                .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(8.dp)),
-                                            contentAlignment = Alignment.Center
-                                        ) {
+                                item {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(100.dp)
+                                            .clip(RoundedCornerShape(8.dp))
+                                            .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(8.dp)),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                             IconButton(onClick = { launchDetailCamera() }) {
                                                 Icon(
                                                     Icons.Default.AddAPhoto,
                                                     contentDescription = "Tomar foto",
                                                     tint = MaterialTheme.colorScheme.primary,
-                                                    modifier = Modifier.size(32.dp)
+                                                    modifier = Modifier.size(28.dp)
+                                                )
+                                            }
+                                            IconButton(onClick = { detailGalleryLauncher.launch("image/*") }) {
+                                                Icon(
+                                                    Icons.Default.Image,
+                                                    contentDescription = "Elegir de galería",
+                                                    tint = MaterialTheme.colorScheme.primary,
+                                                    modifier = Modifier.size(28.dp)
                                                 )
                                             }
                                         }
@@ -462,7 +497,10 @@ fun WorkOrderDetailScreen(
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 SectionTitle("Servicios / Mano de Obra", modifier = Modifier.weight(1f))
-                                IconButton(onClick = { showServiceLineDialog = true }) {
+                                IconButton(onClick = {
+                                    viewModel.cancelEditServiceLine()
+                                    showServiceLineDialog = true
+                                }) {
                                     Icon(Icons.Default.Add, contentDescription = "Agregar servicio")
                                 }
                             }
@@ -482,7 +520,9 @@ fun WorkOrderDetailScreen(
                     Card(
                         modifier = Modifier.fillMaxWidth(),
                         colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                            containerColor = if (uiState.editingServiceLineId == serviceLine.id)
+                                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
+                            else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
                         )
                     ) {
                         Row(
@@ -502,6 +542,16 @@ fun WorkOrderDetailScreen(
                                     style = MaterialTheme.typography.bodySmall,
                                     fontWeight = FontWeight.SemiBold,
                                     color = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                            IconButton(onClick = {
+                                viewModel.startEditServiceLine(serviceLine)
+                                showServiceLineDialog = true
+                            }) {
+                                Icon(
+                                    Icons.Default.Edit,
+                                    contentDescription = "Editar",
+                                    tint = MaterialTheme.colorScheme.primary
                                 )
                             }
                             IconButton(onClick = { showDeleteServiceLineDialog = serviceLine.id }) {
@@ -827,6 +877,7 @@ private fun ServiceLineDialog(
     description: String,
     laborCost: String,
     catalogServices: List<com.example.serviaux.data.entity.CatalogService>,
+    isEditing: Boolean = false,
     onDescriptionChange: (String) -> Unit,
     onLaborCostChange: (String) -> Unit,
     onSave: () -> Unit,
@@ -845,7 +896,7 @@ private fun ServiceLineDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Agregar Servicio") },
+        title = { Text(if (isEditing) "Editar Servicio" else "Agregar Servicio") },
         text = {
             Column {
                 ExposedDropdownMenuBox(
@@ -892,7 +943,18 @@ private fun ServiceLineDialog(
                         ) {
                             filteredServices.forEach { service ->
                                 DropdownMenuItem(
-                                    text = { Text(service.name) },
+                                    text = {
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            Text(service.name, modifier = Modifier.weight(1f))
+                                            if (service.vehicleType != null) {
+                                                Text(
+                                                    text = service.vehicleType,
+                                                    style = MaterialTheme.typography.labelSmall,
+                                                    color = MaterialTheme.colorScheme.onTertiaryContainer
+                                                )
+                                            }
+                                        }
+                                    },
                                     onClick = {
                                         onDescriptionChange(service.name)
                                         onLaborCostChange(String.format("%.2f", service.defaultPrice))
@@ -927,16 +989,18 @@ private fun ServiceLineDialog(
                     descriptionError = if (description.isBlank()) "Descripci\u00f3n es obligatoria" else "M\u00ednimo 3 caracteres"
                     hasError = true
                 }
-                val parsedCost = laborCost.toDoubleOrNull()
-                if (laborCost.isBlank() || parsedCost == null || parsedCost < 0) {
-                    laborCostError = "Costo de mano de obra es obligatorio"
+                val parsedCost = laborCost.toDoubleOrNull() ?: (if (laborCost.isBlank()) 0.0 else null)
+                if (parsedCost == null || parsedCost < 0) {
+                    laborCostError = "Costo inv\u00e1lido"
                     hasError = true
+                } else if (laborCost.isBlank()) {
+                    onLaborCostChange("0")
                 }
                 if (!hasError) {
                     onSave()
                 }
             }) {
-                Text("Agregar")
+                Text(if (isEditing) "Guardar" else "Agregar")
             }
         },
         dismissButton = {

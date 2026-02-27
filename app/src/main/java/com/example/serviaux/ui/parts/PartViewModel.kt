@@ -20,6 +20,7 @@ data class PartUiState(
     val error: String? = null,
     val availablePartBrands: List<String> = emptyList(),
     val formName: String = "",
+    val formDescription: String = "",
     val formCode: String = "",
     val formBrand: String = "",
     val formUnitCost: String = "",
@@ -88,7 +89,13 @@ class PartViewModel(application: Application) : AndroidViewModel(application) {
 
     fun onFormNameChange(value: String) {
         if (value.length <= 100) {
-            _uiState.update { it.copy(formName = value, formNameError = null) }
+            _uiState.update { it.copy(formName = value.uppercase(), formNameError = null) }
+        }
+    }
+
+    fun onFormDescriptionChange(value: String) {
+        if (value.length <= 200) {
+            _uiState.update { it.copy(formDescription = value.uppercase()) }
         }
     }
 
@@ -218,6 +225,7 @@ class PartViewModel(application: Application) : AndroidViewModel(application) {
                         partRepo.update(
                             existing.copy(
                                 name = state.formName.trim(),
+                                description = state.formDescription.trim().ifBlank { null },
                                 code = state.formCode.trim().ifBlank { null },
                                 brand = state.formBrand.trim().ifBlank { null },
                                 unitCost = state.formUnitCost.toDoubleOrNull() ?: 0.0,
@@ -231,6 +239,7 @@ class PartViewModel(application: Application) : AndroidViewModel(application) {
                     partRepo.insert(
                         Part(
                             name = state.formName.trim(),
+                            description = state.formDescription.trim().ifBlank { null },
                             code = state.formCode.trim().ifBlank { null },
                             brand = state.formBrand.trim().ifBlank { null },
                             unitCost = state.formUnitCost.toDoubleOrNull() ?: 0.0,
@@ -258,7 +267,7 @@ class PartViewModel(application: Application) : AndroidViewModel(application) {
     fun prepareNew() {
         _uiState.update {
             it.copy(
-                formName = "", formCode = "", formBrand = "",
+                formName = "", formDescription = "", formCode = "", formBrand = "",
                 formUnitCost = "", formSalePrice = "", formCurrentStock = "",
                 formActive = true, isEditing = false, editingPartId = null, error = null,
                 formNameError = null, formCodeError = null, formBrandError = null,
@@ -271,6 +280,7 @@ class PartViewModel(application: Application) : AndroidViewModel(application) {
         _uiState.update {
             it.copy(
                 formName = part.name,
+                formDescription = part.description ?: "",
                 formCode = part.code ?: "",
                 formBrand = part.brand ?: "",
                 formUnitCost = part.unitCost.toString(),

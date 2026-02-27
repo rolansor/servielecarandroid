@@ -11,7 +11,6 @@ import java.util.Locale
 object PhotoUtils {
 
     private const val PHOTOS_DIR = "vehicle_photos"
-    const val MAX_PHOTOS = 6
 
     fun createTempPhotoFile(context: Context, prefix: String = "VEH"): File {
         val dir = File(context.filesDir, PHOTOS_DIR).apply { mkdirs() }
@@ -39,5 +38,22 @@ object PhotoUtils {
     fun deletePhoto(path: String) {
         val file = File(path)
         if (file.exists()) file.delete()
+    }
+
+    fun copyUriToInternalStorage(context: Context, uri: Uri, prefix: String = "VEH"): File? {
+        return try {
+            val destFile = createTempPhotoFile(context, prefix)
+            context.contentResolver.openInputStream(uri)?.use { input ->
+                destFile.outputStream().use { output ->
+                    input.copyTo(output)
+                }
+            }
+            if (destFile.exists() && destFile.length() > 0) destFile else {
+                destFile.delete()
+                null
+            }
+        } catch (e: Exception) {
+            null
+        }
     }
 }

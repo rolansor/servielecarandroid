@@ -107,7 +107,7 @@ fun CustomerDetailScreen(
                         Column(modifier = Modifier.padding(16.dp)) {
                             SectionTitle("Informaci\u00f3n del Cliente")
                             InfoRow(label = "Nombre", value = customer.fullName)
-                            InfoRow(label = "Tel\u00e9fono", value = customer.phone)
+                            InfoRow(label = "Tel\u00e9fono", value = customer.phone ?: "N/A")
                             InfoRow(label = "C\u00e9dula/RUC", value = customer.idNumber ?: "N/A")
                             InfoRow(label = "Email", value = customer.email ?: "N/A")
                             InfoRow(label = "Direcci\u00f3n", value = customer.address ?: "N/A")

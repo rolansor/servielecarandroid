@@ -8,6 +8,11 @@ import com.example.serviaux.data.entity.CatalogBrand
 import com.example.serviaux.data.entity.CatalogModel
 import com.example.serviaux.data.entity.CatalogColor
 import com.example.serviaux.data.entity.CatalogPartBrand
+import com.example.serviaux.data.entity.CatalogService
+import com.example.serviaux.data.entity.CatalogVehicleType
+import com.example.serviaux.data.entity.CatalogAccessory
+import com.example.serviaux.data.entity.CatalogComplaint
+import com.example.serviaux.data.entity.CatalogDiagnosis
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -20,8 +25,15 @@ data class CatalogUiState(
     val models: List<CatalogModel> = emptyList(),
     val colors: List<CatalogColor> = emptyList(),
     val partBrands: List<CatalogPartBrand> = emptyList(),
+    val services: List<CatalogService> = emptyList(),
+    val vehicleTypes: List<CatalogVehicleType> = emptyList(),
+    val accessories: List<CatalogAccessory> = emptyList(),
+    val complaints: List<CatalogComplaint> = emptyList(),
+    val diagnoses: List<CatalogDiagnosis> = emptyList(),
+    val selectedComplaintId: Long? = null,
     val selectedBrandId: Long? = null,
     val selectedBrandName: String = "",
+    val expandedServiceCategory: String? = null,
     val isLoading: Boolean = false,
     val error: String? = null,
     val successMessage: String? = null,
@@ -39,6 +51,16 @@ sealed class CatalogDialogState {
     data class EditColor(val color: CatalogColor, val name: String) : CatalogDialogState()
     data class AddPartBrand(val name: String = "") : CatalogDialogState()
     data class EditPartBrand(val partBrand: CatalogPartBrand, val name: String) : CatalogDialogState()
+    data class AddService(val category: String = "", val name: String = "", val price: String = "10.0", val vehicleType: String = "") : CatalogDialogState()
+    data class EditService(val service: CatalogService, val category: String, val name: String, val price: String, val vehicleType: String = "") : CatalogDialogState()
+    data class AddVehicleType(val name: String = "") : CatalogDialogState()
+    data class EditVehicleType(val vt: CatalogVehicleType, val name: String) : CatalogDialogState()
+    data class AddAccessory(val name: String = "") : CatalogDialogState()
+    data class EditAccessory(val acc: CatalogAccessory, val name: String) : CatalogDialogState()
+    data class AddComplaint(val name: String = "") : CatalogDialogState()
+    data class EditComplaint(val complaint: CatalogComplaint, val name: String) : CatalogDialogState()
+    data class AddDiagnosis(val complaintId: Long, val name: String = "") : CatalogDialogState()
+    data class EditDiagnosis(val diagnosis: CatalogDiagnosis, val name: String) : CatalogDialogState()
     data class ConfirmDelete(val type: String, val id: Long, val name: String) : CatalogDialogState()
     data class ImportDialog(val jsonText: String = "") : CatalogDialogState()
 }
@@ -57,6 +79,11 @@ class CatalogViewModel(application: Application) : AndroidViewModel(application)
         loadBrands()
         loadColors()
         loadPartBrands()
+        loadServices()
+        loadVehicleTypes()
+        loadAccessories()
+        loadComplaints()
+        loadDiagnoses()
     }
 
     private fun loadBrands() {
@@ -83,6 +110,50 @@ class CatalogViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
+    private fun loadServices() {
+        viewModelScope.launch {
+            catalogRepo.getAllServices().collect { services ->
+                _uiState.update { it.copy(services = services) }
+            }
+        }
+    }
+
+    private fun loadVehicleTypes() {
+        viewModelScope.launch {
+            catalogRepo.getAllVehicleTypes().collect { vts ->
+                _uiState.update { it.copy(vehicleTypes = vts) }
+            }
+        }
+    }
+
+    private fun loadAccessories() {
+        viewModelScope.launch {
+            catalogRepo.getAllAccessories().collect { accs ->
+                _uiState.update { it.copy(accessories = accs) }
+            }
+        }
+    }
+
+    private fun loadComplaints() {
+        viewModelScope.launch {
+            catalogRepo.getAllComplaints().collect { complaints ->
+                _uiState.update { it.copy(complaints = complaints) }
+            }
+        }
+    }
+
+    private fun loadDiagnoses() {
+        viewModelScope.launch {
+            catalogRepo.getAllDiagnoses().collect { diagnoses ->
+                _uiState.update { it.copy(diagnoses = diagnoses) }
+            }
+        }
+    }
+
+    fun selectComplaint(complaint: CatalogComplaint?) {
+        _uiState.update { it.copy(selectedComplaintId = complaint?.id) }
+    }
+
     fun selectBrand(brand: CatalogBrand?) {
         _uiState.update {
             it.copy(
@@ -98,6 +169,12 @@ class CatalogViewModel(application: Application) : AndroidViewModel(application)
                     _uiState.update { it.copy(models = models) }
                 }
             }
+        }
+    }
+
+    fun toggleServiceCategory(category: String) {
+        _uiState.update {
+            it.copy(expandedServiceCategory = if (it.expandedServiceCategory == category) null else category)
         }
     }
 
@@ -134,6 +211,50 @@ class CatalogViewModel(application: Application) : AndroidViewModel(application)
         _uiState.update { it.copy(dialogState = CatalogDialogState.EditPartBrand(partBrand, partBrand.name)) }
     }
 
+    fun showAddServiceDialog(category: String = "") {
+        _uiState.update { it.copy(dialogState = CatalogDialogState.AddService(category = category)) }
+    }
+
+    fun showEditServiceDialog(service: CatalogService) {
+        _uiState.update {
+            it.copy(dialogState = CatalogDialogState.EditService(
+                service, service.category, service.name, service.defaultPrice.toString(), service.vehicleType ?: ""
+            ))
+        }
+    }
+
+    fun showAddVehicleTypeDialog() {
+        _uiState.update { it.copy(dialogState = CatalogDialogState.AddVehicleType()) }
+    }
+
+    fun showEditVehicleTypeDialog(vt: CatalogVehicleType) {
+        _uiState.update { it.copy(dialogState = CatalogDialogState.EditVehicleType(vt, vt.name)) }
+    }
+
+    fun showAddAccessoryDialog() {
+        _uiState.update { it.copy(dialogState = CatalogDialogState.AddAccessory()) }
+    }
+
+    fun showEditAccessoryDialog(acc: CatalogAccessory) {
+        _uiState.update { it.copy(dialogState = CatalogDialogState.EditAccessory(acc, acc.name)) }
+    }
+
+    fun showAddComplaintDialog() {
+        _uiState.update { it.copy(dialogState = CatalogDialogState.AddComplaint()) }
+    }
+
+    fun showEditComplaintDialog(complaint: CatalogComplaint) {
+        _uiState.update { it.copy(dialogState = CatalogDialogState.EditComplaint(complaint, complaint.name)) }
+    }
+
+    fun showAddDiagnosisDialog(complaintId: Long) {
+        _uiState.update { it.copy(dialogState = CatalogDialogState.AddDiagnosis(complaintId)) }
+    }
+
+    fun showEditDiagnosisDialog(diagnosis: CatalogDiagnosis) {
+        _uiState.update { it.copy(dialogState = CatalogDialogState.EditDiagnosis(diagnosis, diagnosis.name)) }
+    }
+
     fun showDeleteConfirmation(type: String, id: Long, name: String) {
         _uiState.update { it.copy(dialogState = CatalogDialogState.ConfirmDelete(type, id, name)) }
     }
@@ -157,7 +278,38 @@ class CatalogViewModel(application: Application) : AndroidViewModel(application)
                 is CatalogDialogState.EditColor -> d.copy(name = text)
                 is CatalogDialogState.AddPartBrand -> d.copy(name = text)
                 is CatalogDialogState.EditPartBrand -> d.copy(name = text)
+                is CatalogDialogState.AddVehicleType -> d.copy(name = text)
+                is CatalogDialogState.EditVehicleType -> d.copy(name = text)
+                is CatalogDialogState.AddAccessory -> d.copy(name = text)
+                is CatalogDialogState.EditAccessory -> d.copy(name = text)
+                is CatalogDialogState.AddComplaint -> d.copy(name = text)
+                is CatalogDialogState.EditComplaint -> d.copy(name = text)
+                is CatalogDialogState.AddDiagnosis -> d.copy(name = text)
+                is CatalogDialogState.EditDiagnosis -> d.copy(name = text)
                 is CatalogDialogState.ImportDialog -> d.copy(jsonText = text)
+                else -> d
+            }
+            state.copy(dialogState = newDialog)
+        }
+    }
+
+    fun updateServiceDialogField(field: String, value: String) {
+        _uiState.update { state ->
+            val newDialog = when (val d = state.dialogState) {
+                is CatalogDialogState.AddService -> when (field) {
+                    "category" -> d.copy(category = value)
+                    "name" -> d.copy(name = value)
+                    "price" -> d.copy(price = value)
+                    "vehicleType" -> d.copy(vehicleType = value)
+                    else -> d
+                }
+                is CatalogDialogState.EditService -> when (field) {
+                    "category" -> d.copy(category = value)
+                    "name" -> d.copy(name = value)
+                    "price" -> d.copy(price = value)
+                    "vehicleType" -> d.copy(vehicleType = value)
+                    else -> d
+                }
                 else -> d
             }
             state.copy(dialogState = newDialog)
@@ -261,6 +413,130 @@ class CatalogViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
+    fun confirmAddService(category: String, name: String, priceStr: String, vehicleType: String = "") {
+        if (category.isBlank() || name.isBlank()) return
+        val price = priceStr.toDoubleOrNull() ?: 10.0
+        val vType = vehicleType.trim().ifBlank { null }
+        viewModelScope.launch {
+            try {
+                catalogRepo.insertService(category.trim(), name.trim(), price, vType)
+                _uiState.update { it.copy(dialogState = CatalogDialogState.None, successMessage = "Servicio agregado") }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(error = e.message ?: "Error al agregar servicio") }
+            }
+        }
+    }
+
+    fun confirmEditService(service: CatalogService, category: String, name: String, priceStr: String, vehicleType: String = "") {
+        if (category.isBlank() || name.isBlank()) return
+        val price = priceStr.toDoubleOrNull() ?: service.defaultPrice
+        val vType = vehicleType.trim().ifBlank { null }
+        viewModelScope.launch {
+            try {
+                catalogRepo.updateService(service.copy(category = category.trim(), name = name.trim(), defaultPrice = price, vehicleType = vType))
+                _uiState.update { it.copy(dialogState = CatalogDialogState.None, successMessage = "Servicio actualizado") }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(error = e.message ?: "Error al actualizar servicio") }
+            }
+        }
+    }
+
+    fun confirmAddVehicleType(name: String) {
+        if (name.isBlank()) return
+        viewModelScope.launch {
+            try {
+                catalogRepo.insertVehicleType(name.trim())
+                _uiState.update { it.copy(dialogState = CatalogDialogState.None, successMessage = "Tipo de veh\u00edculo agregado") }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(error = e.message ?: "Error al agregar") }
+            }
+        }
+    }
+
+    fun confirmEditVehicleType(vt: CatalogVehicleType, newName: String) {
+        if (newName.isBlank()) return
+        viewModelScope.launch {
+            try {
+                catalogRepo.updateVehicleType(vt.copy(name = newName.trim()))
+                _uiState.update { it.copy(dialogState = CatalogDialogState.None, successMessage = "Tipo de veh\u00edculo actualizado") }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(error = e.message ?: "Error al actualizar") }
+            }
+        }
+    }
+
+    fun confirmAddAccessory(name: String) {
+        if (name.isBlank()) return
+        viewModelScope.launch {
+            try {
+                catalogRepo.insertAccessory(name.trim())
+                _uiState.update { it.copy(dialogState = CatalogDialogState.None, successMessage = "Accesorio agregado") }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(error = e.message ?: "Error al agregar") }
+            }
+        }
+    }
+
+    fun confirmEditAccessory(acc: CatalogAccessory, newName: String) {
+        if (newName.isBlank()) return
+        viewModelScope.launch {
+            try {
+                catalogRepo.updateAccessory(acc.copy(name = newName.trim()))
+                _uiState.update { it.copy(dialogState = CatalogDialogState.None, successMessage = "Accesorio actualizado") }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(error = e.message ?: "Error al actualizar") }
+            }
+        }
+    }
+
+    fun confirmAddComplaint(name: String) {
+        if (name.isBlank()) return
+        viewModelScope.launch {
+            try {
+                catalogRepo.insertComplaint(name.trim())
+                _uiState.update { it.copy(dialogState = CatalogDialogState.None, successMessage = "Motivo agregado") }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(error = e.message ?: "Error al agregar") }
+            }
+        }
+    }
+
+    fun confirmEditComplaint(complaint: CatalogComplaint, newName: String) {
+        if (newName.isBlank()) return
+        viewModelScope.launch {
+            try {
+                catalogRepo.updateComplaint(complaint.copy(name = newName.trim()))
+                _uiState.update { it.copy(dialogState = CatalogDialogState.None, successMessage = "Motivo actualizado") }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(error = e.message ?: "Error al actualizar") }
+            }
+        }
+    }
+
+    fun confirmAddDiagnosis(complaintId: Long, name: String) {
+        if (name.isBlank()) return
+        viewModelScope.launch {
+            try {
+                catalogRepo.insertDiagnosis(complaintId, name.trim())
+                _uiState.update { it.copy(dialogState = CatalogDialogState.None, successMessage = "Diagn\u00f3stico agregado") }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(error = e.message ?: "Error al agregar") }
+            }
+        }
+    }
+
+    fun confirmEditDiagnosis(diagnosis: CatalogDiagnosis, newName: String) {
+        if (newName.isBlank()) return
+        viewModelScope.launch {
+            try {
+                catalogRepo.updateDiagnosis(diagnosis.copy(name = newName.trim()))
+                _uiState.update { it.copy(dialogState = CatalogDialogState.None, successMessage = "Diagn\u00f3stico actualizado") }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(error = e.message ?: "Error al actualizar") }
+            }
+        }
+    }
+
     fun confirmDelete() {
         val dialog = _uiState.value.dialogState as? CatalogDialogState.ConfirmDelete ?: return
         viewModelScope.launch {
@@ -270,7 +546,6 @@ class CatalogViewModel(application: Application) : AndroidViewModel(application)
                         val brand = _uiState.value.brands.find { it.id == dialog.id }
                         if (brand != null) {
                             catalogRepo.deleteBrand(brand)
-                            // If this was the selected brand, deselect
                             if (_uiState.value.selectedBrandId == dialog.id) {
                                 selectBrand(null)
                             }
@@ -287,6 +562,26 @@ class CatalogViewModel(application: Application) : AndroidViewModel(application)
                     "partBrand" -> {
                         val partBrand = _uiState.value.partBrands.find { it.id == dialog.id }
                         if (partBrand != null) catalogRepo.deletePartBrand(partBrand)
+                    }
+                    "service" -> {
+                        val service = _uiState.value.services.find { it.id == dialog.id }
+                        if (service != null) catalogRepo.deleteService(service)
+                    }
+                    "vehicleType" -> {
+                        val vt = _uiState.value.vehicleTypes.find { it.id == dialog.id }
+                        if (vt != null) catalogRepo.deleteVehicleType(vt)
+                    }
+                    "accessory" -> {
+                        val acc = _uiState.value.accessories.find { it.id == dialog.id }
+                        if (acc != null) catalogRepo.deleteAccessory(acc)
+                    }
+                    "complaint" -> {
+                        val complaint = _uiState.value.complaints.find { it.id == dialog.id }
+                        if (complaint != null) catalogRepo.deleteComplaint(complaint)
+                    }
+                    "diagnosis" -> {
+                        val diagnosis = _uiState.value.diagnoses.find { it.id == dialog.id }
+                        if (diagnosis != null) catalogRepo.deleteDiagnosis(diagnosis)
                     }
                 }
                 _uiState.update { it.copy(dialogState = CatalogDialogState.None, successMessage = "Eliminado correctamente") }
@@ -320,7 +615,6 @@ class CatalogViewModel(application: Application) : AndroidViewModel(application)
             try {
                 _uiState.update { it.copy(isLoading = true, dialogState = CatalogDialogState.None) }
                 catalogRepo.importFromJson(jsonText)
-                // Reset selection after import
                 selectBrand(null)
                 _uiState.update { it.copy(isLoading = false, successMessage = "Importaci\u00f3n exitosa") }
             } catch (e: Exception) {

@@ -36,5 +36,35 @@ data class CatalogService(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val category: String,
     val name: String,
-    val defaultPrice: Double = 10.0
+    val defaultPrice: Double = 10.0,
+    val vehicleType: String? = null
+)
+
+@Entity(tableName = "catalog_vehicle_types")
+data class CatalogVehicleType(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val name: String
+)
+
+@Entity(tableName = "catalog_accessories")
+data class CatalogAccessory(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val name: String
+)
+
+@Entity(tableName = "catalog_complaints")
+data class CatalogComplaint(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val name: String
+)
+
+@Entity(
+    tableName = "catalog_diagnoses",
+    foreignKeys = [ForeignKey(entity = CatalogComplaint::class, parentColumns = ["id"], childColumns = ["complaintId"], onDelete = ForeignKey.CASCADE)],
+    indices = [Index("complaintId")]
+)
+data class CatalogDiagnosis(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val complaintId: Long,
+    val name: String
 )

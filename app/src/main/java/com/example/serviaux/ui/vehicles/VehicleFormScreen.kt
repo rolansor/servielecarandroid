@@ -27,6 +27,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.AddAPhoto
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Image
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenuItem
@@ -65,7 +66,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil3.compose.AsyncImage
 import coil3.request.ImageRequest
-import com.example.serviaux.util.PhotoUtils
+import com.example.serviaux.ui.components.SearchableDropdown
+import com.example.serviaux.ui.components.SearchableItem
 import java.io.File
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -109,12 +111,14 @@ fun VehicleFormScreen(
         }
     }
 
-    var customerDropdownExpanded by remember { mutableStateOf(false) }
-    val selectedCustomerName = uiState.customers.find { it.id == uiState.formCustomerId }?.fullName ?: ""
-
-    // Brand dropdown state
-    var brandDropdownExpanded by remember { mutableStateOf(false) }
-    val brandList = uiState.availableBrands
+    val customerItems = remember(uiState.customers) {
+        uiState.customers.sortedByDescending { it.createdAt }.map {
+            SearchableItem(it.id, it.fullName, it.phone)
+        }
+    }
+    val brandItems = remember(uiState.availableBrands) {
+        uiState.availableBrands.mapIndexed { index, name -> SearchableItem(index.toLong(), name) }
+    }
 
     // Model dropdown state
     var modelDropdownExpanded by remember { mutableStateOf(false) }
@@ -123,11 +127,15 @@ fun VehicleFormScreen(
     // Color dropdown state
     var colorDropdownExpanded by remember { mutableStateOf(false) }
 
-    // Camera
+    // Camera & Gallery
     val context = LocalContext.current
     val cameraLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.TakePicture()
     ) { success -> viewModel.onPhotoTaken(success) }
+
+    val galleryLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetMultipleContents()
+    ) { uris -> uris.forEach { uri -> viewModel.addPhotoFromGallery(uri) } }
 
     val permissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
@@ -168,38 +176,17 @@ fun VehicleFormScreen(
                 .verticalScroll(rememberScrollState())
                 .padding(16.dp)
         ) {
-            // 1. Customer selector
-            ExposedDropdownMenuBox(
-                expanded = customerDropdownExpanded,
-                onExpandedChange = { customerDropdownExpanded = it }
-            ) {
-                OutlinedTextField(
-                    value = selectedCustomerName,
-                    onValueChange = {},
-                    readOnly = true,
-                    label = { Text("Cliente *") },
-                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = customerDropdownExpanded) },
-                    isError = uiState.formCustomerError != null,
-                    supportingText = uiState.formCustomerError?.let { error -> { Text(error) } },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .menuAnchor(MenuAnchorType.PrimaryNotEditable)
-                )
-                ExposedDropdownMenu(
-                    expanded = customerDropdownExpanded,
-                    onDismissRequest = { customerDropdownExpanded = false }
-                ) {
-                    uiState.customers.forEach { customer ->
-                        DropdownMenuItem(
-                            text = { Text(customer.fullName) },
-                            onClick = {
-                                viewModel.onFormCustomerIdChange(customer.id)
-                                customerDropdownExpanded = false
-                            }
-                        )
-                    }
-                }
-            }
+            // 1. Customer selector (autocomplete)
+            SearchableDropdown(
+                value = uiState.formCustomerSearch,
+                onValueChange = { viewModel.onFormCustomerSearchChange(it) },
+                items = customerItems,
+                onItemSelected = { viewModel.onFormCustomerSelected(it.id) },
+                label = "Cliente *",
+                isError = uiState.formCustomerError != null,
+                supportingText = uiState.formCustomerError?.let { error -> { Text(error) } },
+                modifier = Modifier.fillMaxWidth()
+            )
 
             Spacer(modifier = Modifier.height(12.dp))
 
@@ -219,39 +206,17 @@ fun VehicleFormScreen(
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // 3. Marca (Brand) dropdown
-            ExposedDropdownMenuBox(
-                expanded = brandDropdownExpanded,
-                onExpandedChange = { brandDropdownExpanded = it }
-            ) {
-                OutlinedTextField(
-                    value = uiState.formBrand,
-                    onValueChange = {},
-                    readOnly = true,
-                    label = { Text("Marca *") },
-                    singleLine = true,
-                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = brandDropdownExpanded) },
-                    isError = uiState.formBrandError != null,
-                    supportingText = uiState.formBrandError?.let { error -> { Text(error) } },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .menuAnchor(MenuAnchorType.PrimaryNotEditable)
-                )
-                ExposedDropdownMenu(
-                    expanded = brandDropdownExpanded,
-                    onDismissRequest = { brandDropdownExpanded = false }
-                ) {
-                    brandList.forEach { brand ->
-                        DropdownMenuItem(
-                            text = { Text(brand) },
-                            onClick = {
-                                viewModel.onFormBrandChange(brand)
-                                brandDropdownExpanded = false
-                            }
-                        )
-                    }
-                }
-            }
+            // 3. Marca (Brand) autocomplete
+            SearchableDropdown(
+                value = uiState.formBrandSearch,
+                onValueChange = { viewModel.onFormBrandSearchChange(it) },
+                items = brandItems,
+                onItemSelected = { viewModel.onFormBrandSelected(it.name) },
+                label = "Marca *",
+                isError = uiState.formBrandError != null,
+                supportingText = uiState.formBrandError?.let { error -> { Text(error) } },
+                modifier = Modifier.fillMaxWidth()
+            )
 
             Spacer(modifier = Modifier.height(12.dp))
 
@@ -301,6 +266,7 @@ fun VehicleFormScreen(
                 label = { Text("Versi\u00f3n") },
                 placeholder = { Text("ej: 1.6 GL, 2.0 GLS Premium, SR Turbo") },
                 singleLine = true,
+                keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Characters),
                 modifier = Modifier.fillMaxWidth()
             )
 
@@ -445,7 +411,7 @@ fun VehicleFormScreen(
 
             // Photos section
             Text(
-                text = "Fotos (${uiState.formPhotoPaths.size}/${PhotoUtils.MAX_PHOTOS})",
+                text = "Fotos (${uiState.formPhotoPaths.size})",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -485,25 +451,29 @@ fun VehicleFormScreen(
                         }
                     }
                 }
-                if (uiState.formPhotoPaths.size < PhotoUtils.MAX_PHOTOS) {
-                    item {
-                        Box(
-                            modifier = Modifier
-                                .size(100.dp)
-                                .clip(RoundedCornerShape(8.dp))
-                                .border(
-                                    1.dp,
-                                    MaterialTheme.colorScheme.outline,
-                                    RoundedCornerShape(8.dp)
-                                ),
-                            contentAlignment = Alignment.Center
-                        ) {
+                item {
+                    Box(
+                        modifier = Modifier
+                            .size(100.dp)
+                            .clip(RoundedCornerShape(8.dp))
+                            .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(8.dp)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             IconButton(onClick = { launchCamera() }) {
                                 Icon(
                                     Icons.Default.AddAPhoto,
                                     contentDescription = "Tomar foto",
                                     tint = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.size(32.dp)
+                                    modifier = Modifier.size(28.dp)
+                                )
+                            }
+                            IconButton(onClick = { galleryLauncher.launch("image/*") }) {
+                                Icon(
+                                    Icons.Default.Image,
+                                    contentDescription = "Elegir de galería",
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(28.dp)
                                 )
                             }
                         }
@@ -519,6 +489,7 @@ fun VehicleFormScreen(
                 onValueChange = { viewModel.onFormNotesChange(it) },
                 label = { Text("Notas") },
                 minLines = 3,
+                keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Characters),
                 modifier = Modifier.fillMaxWidth()
             )
 

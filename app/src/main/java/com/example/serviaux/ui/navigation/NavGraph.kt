@@ -164,7 +164,8 @@ fun ServiauxNavGraph(navController: NavHostController) {
             val orderId = backStackEntry.arguments?.getLong("orderId") ?: return@composable
             WorkOrderDetailScreen(
                 orderId = orderId,
-                onNavigateBack = { navController.popBackStack() }
+                onNavigateBack = { navController.popBackStack() },
+                onNavigateToEdit = { navController.navigate(Routes.workOrderEdit(it)) }
             )
         }
 
@@ -175,6 +176,20 @@ fun ServiauxNavGraph(navController: NavHostController) {
                     navController.navigate(Routes.workOrderDetail(orderId)) {
                         popUpTo(Routes.WORK_ORDER_LIST)
                     }
+                }
+            )
+        }
+
+        composable(
+            Routes.WORK_ORDER_EDIT,
+            arguments = listOf(navArgument("orderId") { type = NavType.LongType })
+        ) { backStackEntry ->
+            val orderId = backStackEntry.arguments?.getLong("orderId") ?: return@composable
+            WorkOrderFormScreen(
+                orderId = orderId,
+                onNavigateBack = { navController.popBackStack() },
+                onOrderCreated = { id ->
+                    navController.popBackStack()
                 }
             )
         }

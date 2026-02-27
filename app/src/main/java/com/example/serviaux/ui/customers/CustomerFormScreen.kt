@@ -30,6 +30,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -97,6 +98,7 @@ fun CustomerFormScreen(
                 supportingText = uiState.formNameError?.let { error ->
                     { Text(error, color = MaterialTheme.colorScheme.error) }
                 },
+                keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Characters),
                 modifier = Modifier
                     .fillMaxWidth()
                     .onFocusChanged { if (!it.isFocused) viewModel.validateFieldOnFocusLost("name") }
@@ -161,6 +163,7 @@ fun CustomerFormScreen(
                 onValueChange = { viewModel.onFormAddressChange(it) },
                 label = { Text("Direcci\u00f3n") },
                 singleLine = true,
+                keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Characters),
                 modifier = Modifier.fillMaxWidth()
             )
 
@@ -171,6 +174,7 @@ fun CustomerFormScreen(
                 onValueChange = { viewModel.onFormNotesChange(it) },
                 label = { Text("Notas") },
                 minLines = 3,
+                keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Characters),
                 modifier = Modifier.fillMaxWidth()
             )
 

@@ -90,23 +90,40 @@ fun WorkOrderListScreen(
                 .fillMaxSize()
                 .padding(padding)
         ) {
-            // Filter chips
+            // Year filter chips
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .horizontalScroll(rememberScrollState())
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                    .padding(horizontal = 16.dp, vertical = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                uiState.availableYears.forEach { year ->
+                    FilterChip(
+                        selected = uiState.filterYear == year,
+                        onClick = { viewModel.loadOrders(year = year) },
+                        label = { Text(year.toString()) }
+                    )
+                }
+            }
+
+            // Status filter chips
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState())
+                    .padding(horizontal = 16.dp, vertical = 4.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 FilterChip(
                     selected = uiState.filter == null,
-                    onClick = { viewModel.loadOrders(null) },
+                    onClick = { viewModel.loadOrders(filter = null) },
                     label = { Text("Todas") }
                 )
                 OrderStatus.entries.forEach { status ->
                     FilterChip(
                         selected = uiState.filter == status,
-                        onClick = { viewModel.loadOrders(status) },
+                        onClick = { viewModel.loadOrders(filter = status) },
                         label = { Text(status.displayName) }
                     )
                 }

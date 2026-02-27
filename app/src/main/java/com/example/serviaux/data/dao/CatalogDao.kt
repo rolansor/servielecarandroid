@@ -6,6 +6,10 @@ import com.example.serviaux.data.entity.CatalogModel
 import com.example.serviaux.data.entity.CatalogColor
 import com.example.serviaux.data.entity.CatalogPartBrand
 import com.example.serviaux.data.entity.CatalogService
+import com.example.serviaux.data.entity.CatalogVehicleType
+import com.example.serviaux.data.entity.CatalogAccessory
+import com.example.serviaux.data.entity.CatalogComplaint
+import com.example.serviaux.data.entity.CatalogDiagnosis
 import kotlinx.coroutines.flow.Flow
 
 @Dao
@@ -93,9 +97,100 @@ interface CatalogDao {
     @Query("SELECT * FROM catalog_services ORDER BY category, name")
     suspend fun getAllServicesDirect(): List<CatalogService>
 
+    @Query("SELECT * FROM catalog_services WHERE vehicleType IS NULL OR vehicleType = :type ORDER BY category, name")
+    fun getServicesByVehicleType(type: String): Flow<List<CatalogService>>
+
     @Query("SELECT DISTINCT category FROM catalog_services ORDER BY category")
     fun getServiceCategories(): Flow<List<String>>
 
     @Insert
     suspend fun insertService(service: CatalogService): Long
+
+    @Update
+    suspend fun updateService(service: CatalogService)
+
+    @Delete
+    suspend fun deleteService(service: CatalogService)
+
+    @Query("DELETE FROM catalog_services")
+    suspend fun deleteAllServices()
+
+    // Vehicle Types
+    @Query("SELECT * FROM catalog_vehicle_types ORDER BY name")
+    fun getAllVehicleTypes(): Flow<List<CatalogVehicleType>>
+
+    @Query("SELECT * FROM catalog_vehicle_types ORDER BY name")
+    suspend fun getAllVehicleTypesDirect(): List<CatalogVehicleType>
+
+    @Insert
+    suspend fun insertVehicleType(vehicleType: CatalogVehicleType): Long
+
+    @Update
+    suspend fun updateVehicleType(vehicleType: CatalogVehicleType)
+
+    @Delete
+    suspend fun deleteVehicleType(vehicleType: CatalogVehicleType)
+
+    @Query("DELETE FROM catalog_vehicle_types")
+    suspend fun deleteAllVehicleTypes()
+
+    // Accessories
+    @Query("SELECT * FROM catalog_accessories ORDER BY name")
+    fun getAllAccessories(): Flow<List<CatalogAccessory>>
+
+    @Query("SELECT * FROM catalog_accessories ORDER BY name")
+    suspend fun getAllAccessoriesDirect(): List<CatalogAccessory>
+
+    @Insert
+    suspend fun insertAccessory(accessory: CatalogAccessory): Long
+
+    @Update
+    suspend fun updateAccessory(accessory: CatalogAccessory)
+
+    @Delete
+    suspend fun deleteAccessory(accessory: CatalogAccessory)
+
+    @Query("DELETE FROM catalog_accessories")
+    suspend fun deleteAllAccessories()
+
+    // Complaints
+    @Query("SELECT * FROM catalog_complaints ORDER BY name")
+    fun getAllComplaints(): Flow<List<CatalogComplaint>>
+
+    @Query("SELECT * FROM catalog_complaints ORDER BY name")
+    suspend fun getAllComplaintsDirect(): List<CatalogComplaint>
+
+    @Insert
+    suspend fun insertComplaint(complaint: CatalogComplaint): Long
+
+    @Update
+    suspend fun updateComplaint(complaint: CatalogComplaint)
+
+    @Delete
+    suspend fun deleteComplaint(complaint: CatalogComplaint)
+
+    @Query("DELETE FROM catalog_complaints")
+    suspend fun deleteAllComplaints()
+
+    // Diagnoses
+    @Query("SELECT * FROM catalog_diagnoses ORDER BY name")
+    fun getAllDiagnoses(): Flow<List<CatalogDiagnosis>>
+
+    @Query("SELECT * FROM catalog_diagnoses WHERE complaintId = :complaintId ORDER BY name")
+    fun getDiagnosesByComplaint(complaintId: Long): Flow<List<CatalogDiagnosis>>
+
+    @Query("SELECT * FROM catalog_diagnoses ORDER BY name")
+    suspend fun getAllDiagnosesDirect(): List<CatalogDiagnosis>
+
+    @Insert
+    suspend fun insertDiagnosis(diagnosis: CatalogDiagnosis): Long
+
+    @Update
+    suspend fun updateDiagnosis(diagnosis: CatalogDiagnosis)
+
+    @Delete
+    suspend fun deleteDiagnosis(diagnosis: CatalogDiagnosis)
+
+    @Query("DELETE FROM catalog_diagnoses")
+    suspend fun deleteAllDiagnoses()
 }

@@ -82,7 +82,7 @@ class CustomerViewModel(application: Application) : AndroidViewModel(application
 
     fun onFormFullNameChange(value: String) {
         if (value.length <= 100) {
-            _uiState.update { it.copy(formFullName = value, formNameError = null) }
+            _uiState.update { it.copy(formFullName = value.uppercase(), formNameError = null) }
         }
     }
 
@@ -106,8 +106,8 @@ class CustomerViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
-    fun onFormAddressChange(value: String) { _uiState.update { it.copy(formAddress = value) } }
-    fun onFormNotesChange(value: String) { _uiState.update { it.copy(formNotes = value) } }
+    fun onFormAddressChange(value: String) { _uiState.update { it.copy(formAddress = value.uppercase()) } }
+    fun onFormNotesChange(value: String) { _uiState.update { it.copy(formNotes = value.uppercase()) } }
 
     private companion object {
         val NAME_REGEX = Regex("^[\\p{L} ]+$")
@@ -241,7 +241,7 @@ class CustomerViewModel(application: Application) : AndroidViewModel(application
         _uiState.update {
             it.copy(
                 formFullName = customer.fullName,
-                formPhone = customer.phone,
+                formPhone = customer.phone ?: "",
                 formIdNumber = customer.idNumber ?: "",
                 formEmail = customer.email ?: "",
                 formAddress = customer.address ?: "",

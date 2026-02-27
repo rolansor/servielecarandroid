@@ -39,6 +39,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -104,9 +105,22 @@ fun PartFormScreen(
                 singleLine = true,
                 isError = uiState.formNameError != null,
                 supportingText = uiState.formNameError?.let { error -> { Text(error) } },
+                keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Characters),
                 modifier = Modifier
                     .fillMaxWidth()
                     .onFocusChanged { if (!it.isFocused) viewModel.validateFieldOnFocusLost("name") }
+            )
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            OutlinedTextField(
+                value = uiState.formDescription,
+                onValueChange = { viewModel.onFormDescriptionChange(it) },
+                label = { Text("Descripci\u00f3n") },
+                singleLine = false,
+                maxLines = 3,
+                keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Characters),
+                modifier = Modifier.fillMaxWidth()
             )
 
             Spacer(modifier = Modifier.height(12.dp))

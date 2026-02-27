@@ -368,7 +368,7 @@ class BackupRepository(private val database: ServiauxDatabase) {
                 put("id", c.id)
                 put("fullName", c.fullName)
                 put("idNumber", c.idNumber ?: JSONObject.NULL)
-                put("phone", c.phone)
+                put("phone", c.phone ?: JSONObject.NULL)
                 put("email", c.email ?: JSONObject.NULL)
                 put("address", c.address ?: JSONObject.NULL)
                 put("notes", c.notes ?: JSONObject.NULL)
@@ -412,6 +412,7 @@ class BackupRepository(private val database: ServiauxDatabase) {
             arr.put(JSONObject().apply {
                 put("id", p.id)
                 put("name", p.name)
+                put("description", p.description ?: JSONObject.NULL)
                 put("code", p.code ?: JSONObject.NULL)
                 put("brand", p.brand ?: JSONObject.NULL)
                 put("unitCost", p.unitCost)
@@ -573,6 +574,7 @@ class BackupRepository(private val database: ServiauxDatabase) {
                 put("category", s.category)
                 put("name", s.name)
                 put("defaultPrice", s.defaultPrice)
+                put("vehicleType", s.vehicleType ?: JSONObject.NULL)
             })
         }
         return arr.toString(2)
@@ -649,6 +651,7 @@ class BackupRepository(private val database: ServiauxDatabase) {
             Part(
                 id = o.getLong("id"),
                 name = o.getString("name"),
+                description = o.optStringOrNull("description"),
                 code = o.optStringOrNull("code"),
                 brand = o.optStringOrNull("brand"),
                 unitCost = o.getDouble("unitCost"),
@@ -796,7 +799,8 @@ class BackupRepository(private val database: ServiauxDatabase) {
                 id = o.getLong("id"),
                 category = o.getString("category"),
                 name = o.getString("name"),
-                defaultPrice = o.optDouble("defaultPrice", 10.0)
+                defaultPrice = o.optDouble("defaultPrice", 10.0),
+                vehicleType = o.optStringOrNull("vehicleType")
             )
         }
     }

@@ -19,6 +19,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
+import java.util.Calendar
 
 data class WorkOrderUiState(
     val orders: List<WorkOrder> = emptyList(),
@@ -34,10 +35,13 @@ data class WorkOrderUiState(
     val vehicleName: String = "",
     val customerName: String = "",
     val filter: OrderStatus? = null,
+    val filterYear: Int = Calendar.getInstance().get(Calendar.YEAR),
+    val availableYears: List<Int> = (2024..Calendar.getInstance().get(Calendar.YEAR)).toList(),
     val isLoading: Boolean = false,
     val error: String? = null,
-    // Create order form
+    // Create/edit order form
     val formCustomerId: Long? = null,
+    val formCustomerSearch: String = "",
     val formVehicleId: Long? = null,
     val formComplaint: String = "",
     val formDiagnosis: String = "",
@@ -45,9 +49,20 @@ data class WorkOrderUiState(
     val formEntryMileage: String = "",
     val formFuelLevel: String = "",
     val formChecklistNotes: String = "",
+    // Checklist
+    val formChecklist: Map<String, Boolean> = emptyMap(),
+    val catalogAccessories: List<CatalogAccessory> = emptyList(),
+    // Complaint/Diagnosis catalogs
+    val catalogComplaints: List<CatalogComplaint> = emptyList(),
+    val catalogDiagnoses: List<CatalogDiagnosis> = emptyList(),
+    val selectedComplaintId: Long? = null,
+    // Edit mode
+    val isEditing: Boolean = false,
+    val editingOrderId: Long? = null,
     // Service line form
     val serviceLineFormDescription: String = "",
     val serviceLineFormLaborCost: String = "",
+    val editingServiceLineId: Long? = null,
     // Part form
     val partFormSelectedPartId: Long? = null,
     val partFormQuantity: String = "",
@@ -60,7 +75,7 @@ data class WorkOrderUiState(
     val formCustomerError: String? = null,
     val formVehicleError: String? = null,
     val formComplaintError: String? = null,
-    val catalogServices: List<com.example.serviaux.data.entity.CatalogService> = emptyList(),
+    val catalogServices: List<CatalogService> = emptyList(),
     val formMileageError: String? = null,
     val formPhotoPaths: List<String> = emptyList(),
     val pendingPhotoUri: Uri? = null,
@@ -87,12 +102,16 @@ class WorkOrderViewModel(application: Application) : AndroidViewModel(applicatio
     val uiState: StateFlow<WorkOrderUiState> = _uiState.asStateFlow()
 
     private var ordersJob: Job? = null
+    private var diagnosesJob: Job? = null
     private var pendingPhotoFile: File? = null
     private var detailPendingPhotoFile: File? = null
 
     init {
         loadOrders()
         loadCatalogServices()
+        loadCatalogComplaints()
+        loadCatalogDiagnoses()
+        loadCatalogAccessories()
     }
 
     private fun loadCatalogServices() {
@@ -103,14 +122,56 @@ class WorkOrderViewModel(application: Application) : AndroidViewModel(applicatio
         }
     }
 
-    fun loadOrders(filter: OrderStatus? = null) {
-        _uiState.update { it.copy(filter = filter) }
+    private fun loadCatalogComplaints() {
+        viewModelScope.launch {
+            catalogRepo.getAllComplaints().collect { complaints ->
+                _uiState.update { it.copy(catalogComplaints = complaints) }
+            }
+        }
+    }
+
+    private fun loadCatalogDiagnoses() {
+        viewModelScope.launch {
+            catalogRepo.getAllDiagnoses().collect { diagnoses ->
+                _uiState.update { it.copy(catalogDiagnoses = diagnoses) }
+            }
+        }
+    }
+
+    private fun loadCatalogAccessories() {
+        viewModelScope.launch {
+            catalogRepo.getAllAccessories().collect { accessories ->
+                _uiState.update { it.copy(catalogAccessories = accessories) }
+            }
+        }
+    }
+
+    private fun yearToDateRange(year: Int): Pair<Long, Long> {
+        val cal = Calendar.getInstance()
+        cal.set(year, Calendar.JANUARY, 1, 0, 0, 0)
+        cal.set(Calendar.MILLISECOND, 0)
+        val from = cal.timeInMillis
+        cal.set(year, Calendar.DECEMBER, 31, 23, 59, 59)
+        cal.set(Calendar.MILLISECOND, 999)
+        val to = cal.timeInMillis
+        return from to to
+    }
+
+    fun loadOrders(filter: OrderStatus? = _uiState.value.filter, year: Int? = _uiState.value.filterYear) {
+        _uiState.update { it.copy(filter = filter, filterYear = year ?: Calendar.getInstance().get(Calendar.YEAR)) }
         ordersJob?.cancel()
         ordersJob = viewModelScope.launch {
-            val flow = if (filter != null) {
-                workOrderRepo.getByStatus(filter)
-            } else {
-                workOrderRepo.getAll()
+            val flow = when {
+                year != null && filter != null -> {
+                    val (from, to) = yearToDateRange(year)
+                    workOrderRepo.getByStatusAndDateRange(filter, from, to)
+                }
+                year != null -> {
+                    val (from, to) = yearToDateRange(year)
+                    workOrderRepo.getByDateRange(from, to)
+                }
+                filter != null -> workOrderRepo.getByStatus(filter)
+                else -> workOrderRepo.getAll()
             }
             flow.collect { list ->
                 _uiState.update { it.copy(orders = list) }
@@ -163,6 +224,90 @@ class WorkOrderViewModel(application: Application) : AndroidViewModel(applicatio
         }
     }
 
+    // Edit mode: prepare form with existing order data
+    fun prepareEdit(orderId: Long) {
+        viewModelScope.launch {
+            val order = workOrderRepo.getByIdDirect(orderId) ?: return@launch
+            val customer = customerRepo.getByIdDirect(order.customerId)
+            val vehicle = vehicleRepo.getByIdDirect(order.vehicleId)
+
+            // Parse checklist from comma-separated string
+            val checkedItems = order.checklistNotes?.split(",")?.map { it.trim() }?.filter { it.isNotBlank() }?.toSet() ?: emptySet()
+            val accessories = _uiState.value.catalogAccessories
+            val checklistMap = accessories.associate { it.name to (it.name in checkedItems) }
+
+            _uiState.update {
+                it.copy(
+                    isEditing = true,
+                    editingOrderId = orderId,
+                    formCustomerId = order.customerId,
+                    formCustomerSearch = customer?.fullName ?: "",
+                    formVehicleId = order.vehicleId,
+                    formComplaint = order.customerComplaint,
+                    formDiagnosis = order.initialDiagnosis ?: "",
+                    formPriority = order.priority,
+                    formEntryMileage = order.entryMileage?.toString() ?: "",
+                    formFuelLevel = order.fuelLevel ?: "",
+                    formChecklist = checklistMap,
+                    formPhotoPaths = PhotoUtils.parsePaths(order.photoPaths),
+                    customerName = customer?.fullName ?: "",
+                    vehicleName = vehicle?.let { v -> "${v.plate} - ${v.brand} ${v.model}" } ?: "",
+                    formCustomerError = null,
+                    formVehicleError = null,
+                    formComplaintError = null,
+                    formMileageError = null
+                )
+            }
+
+            // Try to match complaint to catalog for diagnosis suggestions
+            val complaints = _uiState.value.catalogComplaints
+            val matchedComplaint = complaints.find { it.name.equals(order.customerComplaint.trim(), ignoreCase = true) }
+            if (matchedComplaint != null) {
+                _uiState.update { it.copy(selectedComplaintId = matchedComplaint.id) }
+            }
+        }
+    }
+
+    fun updateOrder() {
+        val state = _uiState.value
+        val orderId = state.editingOrderId ?: return
+        if (!session.isLoggedIn) {
+            _uiState.update { it.copy(error = "Debe iniciar sesión") }
+            return
+        }
+
+        val complaintError = validateComplaint()
+        val mileageError = validateEntryMileage()
+
+        _uiState.update {
+            it.copy(formComplaintError = complaintError, formMileageError = mileageError)
+        }
+
+        if (complaintError != null || mileageError != null) return
+
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true, error = null) }
+            try {
+                val existing = workOrderRepo.getByIdDirect(orderId) ?: return@launch
+                val checkedItems = state.formChecklist.filter { it.value }.keys.joinToString(",")
+                val updated = existing.copy(
+                    customerComplaint = state.formComplaint.trim(),
+                    initialDiagnosis = state.formDiagnosis.trim().ifBlank { null },
+                    priority = state.formPriority,
+                    entryMileage = state.formEntryMileage.toIntOrNull(),
+                    fuelLevel = state.formFuelLevel.trim().ifBlank { null },
+                    checklistNotes = checkedItems.ifBlank { null },
+                    photoPaths = PhotoUtils.serializePaths(state.formPhotoPaths),
+                    updatedBy = session.currentUserId
+                )
+                workOrderRepo.update(updated)
+                _uiState.update { it.copy(isLoading = false, createdOrderId = orderId) }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(isLoading = false, error = e.message ?: "Error al actualizar orden") }
+            }
+        }
+    }
+
     private fun validateComplaint(): String? {
         val complaint = _uiState.value.formComplaint
         return when {
@@ -211,6 +356,7 @@ class WorkOrderViewModel(application: Application) : AndroidViewModel(applicatio
             _uiState.update { it.copy(isLoading = true, error = null) }
             try {
                 val userId = session.currentUserId
+                val checkedItems = state.formChecklist.filter { it.value }.keys.joinToString(",")
                 val order = WorkOrder(
                     customerId = state.formCustomerId!!,
                     vehicleId = state.formVehicleId!!,
@@ -219,7 +365,7 @@ class WorkOrderViewModel(application: Application) : AndroidViewModel(applicatio
                     priority = state.formPriority,
                     entryMileage = state.formEntryMileage.toIntOrNull(),
                     fuelLevel = state.formFuelLevel.trim().ifBlank { null },
-                    checklistNotes = state.formChecklistNotes.trim().ifBlank { null },
+                    checklistNotes = checkedItems.ifBlank { null },
                     photoPaths = PhotoUtils.serializePaths(state.formPhotoPaths),
                     createdBy = userId,
                     updatedBy = userId
@@ -230,6 +376,10 @@ class WorkOrderViewModel(application: Application) : AndroidViewModel(applicatio
                 _uiState.update { it.copy(isLoading = false, error = e.message ?: "Error al crear orden") }
             }
         }
+    }
+
+    fun saveOrder() {
+        if (_uiState.value.isEditing) updateOrder() else createOrder()
     }
 
     fun changeStatus(newStatus: OrderStatus, note: String? = null) {
@@ -254,7 +404,8 @@ class WorkOrderViewModel(application: Application) : AndroidViewModel(applicatio
         }
     }
 
-    fun addServiceLine() {
+    // Service line: add or update
+    fun saveServiceLine() {
         val state = _uiState.value
         val orderId = state.selectedOrder?.id ?: return
         if (state.serviceLineFormDescription.isBlank()) {
@@ -263,21 +414,55 @@ class WorkOrderViewModel(application: Application) : AndroidViewModel(applicatio
         }
         viewModelScope.launch {
             try {
-                val serviceLine = ServiceLine(
-                    workOrderId = orderId,
-                    description = state.serviceLineFormDescription.trim(),
-                    laborCost = state.serviceLineFormLaborCost.toDoubleOrNull() ?: 0.0
-                )
-                workOrderRepo.addServiceLine(serviceLine)
+                val editingId = state.editingServiceLineId
+                if (editingId != null) {
+                    val existing = state.serviceLines.find { it.id == editingId } ?: return@launch
+                    workOrderRepo.updateServiceLine(
+                        existing.copy(
+                            description = state.serviceLineFormDescription.trim(),
+                            laborCost = state.serviceLineFormLaborCost.toDoubleOrNull() ?: 0.0
+                        )
+                    )
+                } else {
+                    val serviceLine = ServiceLine(
+                        workOrderId = orderId,
+                        description = state.serviceLineFormDescription.trim(),
+                        laborCost = state.serviceLineFormLaborCost.toDoubleOrNull() ?: 0.0
+                    )
+                    workOrderRepo.addServiceLine(serviceLine)
+                }
                 _uiState.update {
                     it.copy(
                         serviceLineFormDescription = "",
-                        serviceLineFormLaborCost = ""
+                        serviceLineFormLaborCost = "",
+                        editingServiceLineId = null
                     )
                 }
             } catch (e: Exception) {
-                _uiState.update { it.copy(error = e.message ?: "Error al agregar servicio") }
+                _uiState.update { it.copy(error = e.message ?: "Error al guardar servicio") }
             }
+        }
+    }
+
+    fun addServiceLine() = saveServiceLine()
+
+    fun startEditServiceLine(serviceLine: ServiceLine) {
+        _uiState.update {
+            it.copy(
+                editingServiceLineId = serviceLine.id,
+                serviceLineFormDescription = serviceLine.description,
+                serviceLineFormLaborCost = String.format("%.2f", serviceLine.laborCost)
+            )
+        }
+    }
+
+    fun cancelEditServiceLine() {
+        _uiState.update {
+            it.copy(
+                editingServiceLineId = null,
+                serviceLineFormDescription = "",
+                serviceLineFormLaborCost = ""
+            )
         }
     }
 
@@ -395,15 +580,35 @@ class WorkOrderViewModel(application: Application) : AndroidViewModel(applicatio
 
     // Form field change handlers
     fun onFormCustomerIdChange(value: Long?) {
-        _uiState.update { it.copy(formCustomerId = value, formVehicleId = null, customerVehicles = emptyList(), formCustomerError = null) }
+        val customerName = _uiState.value.customers.find { it.id == value }?.fullName ?: ""
+        _uiState.update {
+            it.copy(
+                formCustomerId = value,
+                formCustomerSearch = customerName,
+                formVehicleId = null,
+                customerVehicles = emptyList(),
+                formCustomerError = null
+            )
+        }
         value?.let { loadVehiclesForCustomer(it) }
     }
+
+    fun onFormCustomerSearchChange(value: String) {
+        _uiState.update { it.copy(formCustomerSearch = value, formCustomerId = null, formVehicleId = null, customerVehicles = emptyList()) }
+    }
+
     fun onFormVehicleIdChange(value: Long?) { _uiState.update { it.copy(formVehicleId = value, formVehicleError = null) } }
+
     fun onFormComplaintChange(value: String) {
         if (value.length <= 500) {
             _uiState.update { it.copy(formComplaint = value, formComplaintError = null) }
+            // Try to match complaint to catalog for diagnosis suggestions
+            val complaints = _uiState.value.catalogComplaints
+            val matched = complaints.find { it.name.equals(value.trim(), ignoreCase = true) }
+            _uiState.update { it.copy(selectedComplaintId = matched?.id) }
         }
     }
+
     fun onFormDiagnosisChange(value: String) {
         if (value.length <= 500) {
             _uiState.update { it.copy(formDiagnosis = value) }
@@ -417,8 +622,34 @@ class WorkOrderViewModel(application: Application) : AndroidViewModel(applicatio
     fun onFormFuelLevelChange(value: String) { _uiState.update { it.copy(formFuelLevel = value) } }
     fun onFormChecklistNotesChange(value: String) { _uiState.update { it.copy(formChecklistNotes = value) } }
 
+    // Checklist toggle
+    fun onChecklistItemToggle(name: String, checked: Boolean) {
+        _uiState.update {
+            it.copy(formChecklist = it.formChecklist + (name to checked))
+        }
+    }
+
+    // Initialize checklist from accessories
+    fun initChecklist() {
+        val accessories = _uiState.value.catalogAccessories
+        if (_uiState.value.formChecklist.isEmpty() && accessories.isNotEmpty()) {
+            _uiState.update {
+                it.copy(formChecklist = accessories.associate { acc -> acc.name to false })
+            }
+        }
+    }
+
     fun onServiceLineDescriptionChange(value: String) { _uiState.update { it.copy(serviceLineFormDescription = value) } }
-    fun onServiceLineLaborCostChange(value: String) { _uiState.update { it.copy(serviceLineFormLaborCost = value) } }
+    fun onServiceLineLaborCostChange(value: String) {
+        val filtered = value.filter { it.isDigit() || it == '.' }
+        // Prevent multiple dots
+        val dotCount = filtered.count { it == '.' }
+        val sanitized = if (dotCount > 1) {
+            val firstDot = filtered.indexOf('.')
+            filtered.substring(0, firstDot + 1) + filtered.substring(firstDot + 1).replace(".", "")
+        } else filtered
+        _uiState.update { it.copy(serviceLineFormLaborCost = sanitized) }
+    }
 
     fun onPartSelectedChange(value: Long?) { _uiState.update { it.copy(partFormSelectedPartId = value) } }
     fun onPartQuantityChange(value: String) { _uiState.update { it.copy(partFormQuantity = value) } }
@@ -429,7 +660,6 @@ class WorkOrderViewModel(application: Application) : AndroidViewModel(applicatio
 
     // Photo management for create form
     fun prepareCameraFile(): Uri? {
-        if (_uiState.value.formPhotoPaths.size >= PhotoUtils.MAX_PHOTOS) return null
         val context = getApplication<Application>()
         val file = PhotoUtils.createTempPhotoFile(context, "WO")
         pendingPhotoFile = file
@@ -460,9 +690,16 @@ class WorkOrderViewModel(application: Application) : AndroidViewModel(applicatio
         }
     }
 
+    fun addPhotoFromGallery(uri: Uri) {
+        val context = getApplication<Application>()
+        val file = PhotoUtils.copyUriToInternalStorage(context, uri, "WO")
+        if (file != null) {
+            _uiState.update { it.copy(formPhotoPaths = it.formPhotoPaths + file.absolutePath) }
+        }
+    }
+
     // Photo management for detail screen (existing orders)
     fun prepareDetailCameraFile(): Uri? {
-        if (_uiState.value.detailPhotoPaths.size >= PhotoUtils.MAX_PHOTOS) return null
         val context = getApplication<Application>()
         val file = PhotoUtils.createTempPhotoFile(context, "WO")
         detailPendingPhotoFile = file
@@ -482,6 +719,16 @@ class WorkOrderViewModel(application: Application) : AndroidViewModel(applicatio
             _uiState.update { it.copy(detailPendingPhotoUri = null) }
         }
         detailPendingPhotoFile = null
+    }
+
+    fun addDetailPhotoFromGallery(uri: Uri) {
+        val context = getApplication<Application>()
+        val file = PhotoUtils.copyUriToInternalStorage(context, uri, "WO")
+        if (file != null) {
+            val newPaths = _uiState.value.detailPhotoPaths + file.absolutePath
+            _uiState.update { it.copy(detailPhotoPaths = newPaths) }
+            saveOrderPhotos(newPaths)
+        }
     }
 
     fun removeDetailPhoto(index: Int) {
@@ -516,7 +763,6 @@ class WorkOrderViewModel(application: Application) : AndroidViewModel(applicatio
 
         viewModelScope.launch {
             try {
-                // Fetch payments directly in case Flow hasn't emitted yet
                 val directPayments = if (state.payments.isEmpty()) {
                     workOrderRepo.getPaymentsDirect(order.id)
                 } else {

@@ -12,6 +12,7 @@ object Routes {
     const val WORK_ORDER_LIST = "workorders"
     const val WORK_ORDER_DETAIL = "workorders/{orderId}"
     const val WORK_ORDER_FORM = "workorders/form"
+    const val WORK_ORDER_EDIT = "workorders/edit/{orderId}"
     const val PART_LIST = "parts"
     const val PART_FORM = "parts/form?partId={partId}"
     const val USER_LIST = "users"
@@ -30,6 +31,7 @@ object Routes {
         return if (params.isEmpty()) "vehicles/form" else "vehicles/form?${params.joinToString("&")}"
     }
     fun workOrderDetail(id: Long) = "workorders/$id"
+    fun workOrderEdit(id: Long) = "workorders/edit/$id"
     fun partForm(id: Long? = null) = if (id != null) "parts/form?partId=$id" else "parts/form"
     fun userForm(id: Long? = null) = if (id != null) "users/form?userId=$id" else "users/form"
 }

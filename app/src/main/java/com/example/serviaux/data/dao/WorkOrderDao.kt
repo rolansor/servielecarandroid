@@ -40,6 +40,9 @@ interface WorkOrderDao {
     @Query("SELECT * FROM work_orders WHERE createdAt BETWEEN :from AND :to ORDER BY createdAt DESC")
     fun getByDateRange(from: Long, to: Long): Flow<List<WorkOrder>>
 
+    @Query("SELECT * FROM work_orders WHERE status = :status AND createdAt BETWEEN :from AND :to ORDER BY createdAt DESC")
+    fun getByStatusAndDateRange(status: OrderStatus, from: Long, to: Long): Flow<List<WorkOrder>>
+
     @Query("SELECT COALESCE(SUM(total), 0.0) FROM work_orders WHERE createdAt BETWEEN :from AND :to AND status != 'CANCELADO'")
     fun getTotalByDateRange(from: Long, to: Long): Flow<Double>
 

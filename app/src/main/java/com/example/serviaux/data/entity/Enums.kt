@@ -25,6 +25,8 @@ enum class Priority(val displayName: String) {
 enum class PaymentMethod(val displayName: String) {
     EFECTIVO("Efectivo"),
     TRANSFERENCIA("Transferencia"),
-    TARJETA("Tarjeta"),
+    TARJETA_CREDITO("Tarjeta de Crédito"),
+    TARJETA_DEBITO("Tarjeta de Débito"),
+    MIXTA("Mixta"),
     OTRO("Otro")
 }
