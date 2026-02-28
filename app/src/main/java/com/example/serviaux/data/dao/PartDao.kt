@@ -33,6 +33,9 @@ interface PartDao {
     @Query("UPDATE parts SET currentStock = currentStock - :qty WHERE id = :partId AND currentStock >= :qty")
     suspend fun decreaseStock(partId: Long, qty: Int): Int
 
+    @Query("UPDATE parts SET currentStock = currentStock + :qty WHERE id = :partId")
+    suspend fun increaseStock(partId: Long, qty: Int)
+
     @Query("SELECT * FROM parts")
     suspend fun getAllDirect(): List<Part>
 }

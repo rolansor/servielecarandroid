@@ -24,6 +24,7 @@ import com.example.serviaux.ui.vehicles.VehicleListScreen
 import com.example.serviaux.ui.workorders.WorkOrderDetailScreen
 import com.example.serviaux.ui.workorders.WorkOrderFormScreen
 import com.example.serviaux.ui.workorders.WorkOrderListScreen
+import com.example.serviaux.data.entity.OrderStatus
 
 @Composable
 fun ServiauxNavGraph(navController: NavHostController) {
@@ -43,7 +44,8 @@ fun ServiauxNavGraph(navController: NavHostController) {
             DashboardScreen(
                 onNavigateToCustomers = { navController.navigate(Routes.CUSTOMER_LIST) },
                 onNavigateToVehicles = { navController.navigate(Routes.VEHICLE_LIST) },
-                onNavigateToOrders = { navController.navigate(Routes.WORK_ORDER_LIST) },
+                onNavigateToOrders = { navController.navigate(Routes.workOrderList()) },
+                onNavigateToOrdersByStatus = { status -> navController.navigate(Routes.workOrderList(status.name)) },
                 onNavigateToParts = { navController.navigate(Routes.PART_LIST) },
                 onNavigateToUsers = { navController.navigate(Routes.USER_LIST) },
                 onNavigateToReports = { navController.navigate(Routes.REPORTS) },
@@ -149,8 +151,14 @@ fun ServiauxNavGraph(navController: NavHostController) {
         }
 
         // Work Order routes
-        composable(Routes.WORK_ORDER_LIST) {
+        composable(
+            Routes.WORK_ORDER_LIST,
+            arguments = listOf(navArgument("status") { type = NavType.StringType; defaultValue = "" })
+        ) { backStackEntry ->
+            val statusStr = backStackEntry.arguments?.getString("status") ?: ""
+            val initialFilter = try { OrderStatus.valueOf(statusStr) } catch (_: Exception) { null }
             WorkOrderListScreen(
+                initialFilter = initialFilter,
                 onNavigateBack = { navController.popBackStack() },
                 onNavigateToDetail = { navController.navigate(Routes.workOrderDetail(it)) },
                 onNavigateToForm = { navController.navigate(Routes.WORK_ORDER_FORM) }
@@ -174,7 +182,7 @@ fun ServiauxNavGraph(navController: NavHostController) {
                 onNavigateBack = { navController.popBackStack() },
                 onOrderCreated = { orderId ->
                     navController.navigate(Routes.workOrderDetail(orderId)) {
-                        popUpTo(Routes.WORK_ORDER_LIST)
+                        popUpTo(Routes.WORK_ORDER_FORM) { inclusive = true }
                     }
                 }
             )

@@ -51,6 +51,7 @@ import java.util.Locale
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun WorkOrderListScreen(
+    initialFilter: com.example.serviaux.data.entity.OrderStatus? = null,
     onNavigateBack: () -> Unit,
     onNavigateToDetail: (Long) -> Unit,
     onNavigateToForm: () -> Unit,
@@ -59,6 +60,12 @@ fun WorkOrderListScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
     val dateFormat = remember { SimpleDateFormat("dd/MM/yyyy", Locale("es")) }
+
+    LaunchedEffect(initialFilter) {
+        if (initialFilter != null) {
+            viewModel.loadOrders(filter = initialFilter)
+        }
+    }
 
     LaunchedEffect(uiState.error) {
         uiState.error?.let {
@@ -154,12 +161,22 @@ fun WorkOrderListScreen(
                                     modifier = Modifier.fillMaxWidth(),
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    Text(
-                                        text = "Orden #${order.id}",
-                                        style = MaterialTheme.typography.titleMedium,
-                                        fontWeight = FontWeight.Bold,
-                                        modifier = Modifier.weight(1f)
-                                    )
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(
+                                            text = "Orden #${order.id}",
+                                            style = MaterialTheme.typography.titleMedium,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                        val customerName = uiState.customerMap[order.customerId] ?: ""
+                                        val vehiclePlate = uiState.vehicleMap[order.vehicleId]?.substringBefore(" -") ?: ""
+                                        if (customerName.isNotBlank() || vehiclePlate.isNotBlank()) {
+                                            Text(
+                                                text = listOf(customerName, vehiclePlate).filter { it.isNotBlank() }.joinToString(" - "),
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                        }
+                                    }
                                     StatusChip(status = order.status)
                                 }
 

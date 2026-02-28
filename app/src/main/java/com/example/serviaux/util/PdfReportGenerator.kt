@@ -167,9 +167,9 @@ object PdfReportGenerator {
         c.drawText("SERVIELECAR", ML + lOff, y + 16f, pTitle)
         c.drawText("Taller Automotriz", ML + lOff, y + 28f, pSubtitle)
 
-        // Order number right-aligned
+        // Order number + plate right-aligned
         val pOrderNum = paint(14f, COL_ACCENT, bold = true)
-        val orderTxt = "ORDEN #${data.order.id}"
+        val orderTxt = "#${data.order.id} ${data.vehiclePlate}"
         rightAlignText(orderTxt, MR, pOrderNum)
         y += 14f // align date below order number  (y is now ~MT+19)
 
@@ -382,16 +382,27 @@ object PdfReportGenerator {
                 drawRowBg(i)
                 c.drawText(dateFmt.format(Date(pay.date)), pyDate, y + 10f, pBody)
                 c.drawText(pay.method.displayName, pyMethod, y + 10f, pBody)
-                c.drawText(truncate(pay.notes ?: "", pBody, MR - 90f - pyNotes), pyNotes, y + 10f, pBody)
+                val notesText = buildString {
+                    if (pay.discount > 0) append("Desc: ${money(pay.discount)} ")
+                    append(pay.notes ?: "")
+                }.trim()
+                c.drawText(truncate(notesText, pBody, MR - 90f - pyNotes), pyNotes, y + 10f, pBody)
                 rightAlignText(money(pay.amount), pyAmountRight, pMoney)
                 y += ROW_H
             }
 
             val totalPaid = data.payments.sumOf { it.amount }
+            val totalDiscounts = data.payments.sumOf { it.discount }
             y += 4f
             ensureSpace(16f)
             c.drawLine(MR - 160f, y, MR, y, pLine)
             y += 12f
+            if (totalDiscounts > 0) {
+                c.drawText("Total Descuentos:", MR - 160f, y, pMoneyBold)
+                rightAlignText("-${money(totalDiscounts)}", pyAmountRight, pMoneyBold)
+                y += 14f
+                ensureSpace(16f)
+            }
             c.drawText("Total Pagado:", MR - 160f, y, pMoneyBold)
             rightAlignText(money(totalPaid), pyAmountRight, pMoneyBold)
             y += 6f
@@ -402,8 +413,9 @@ object PdfReportGenerator {
         // ══════════════════════════════════════════
         //  TOTALS BOX
         // ══════════════════════════════════════════
-        val totalPaid = data.payments.sumOf { it.amount }
-        val balance = data.order.total - totalPaid
+        val totalPaidFinal = data.payments.sumOf { it.amount }
+        val totalDiscountsFinal = data.payments.sumOf { it.discount }
+        val balance = data.order.total - totalPaidFinal - totalDiscountsFinal
         val hasPayments = data.payments.isNotEmpty()
         val boxH = if (hasPayments) 80f else 60f
 
@@ -502,7 +514,8 @@ object PdfReportGenerator {
         // ── Save file ──
         val dir = File(context.filesDir, "reports")
         if (!dir.exists()) dir.mkdirs()
-        val file = File(dir, "OT_${data.order.id}.pdf")
+        val plateSuffix = if (data.vehiclePlate.isNotBlank()) "_${data.vehiclePlate.replace(" ", "_")}" else ""
+        val file = File(dir, "OT_${data.order.id}${plateSuffix}.pdf")
         FileOutputStream(file).use { doc.writeTo(it) }
         doc.close()
 

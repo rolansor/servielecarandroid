@@ -51,4 +51,19 @@ interface WorkOrderDao {
 
     @Query("SELECT * FROM work_orders WHERE entryDate BETWEEN :fromMs AND :toMs ORDER BY entryDate DESC")
     suspend fun getByDateRangeDirect(fromMs: Long, toMs: Long): List<WorkOrder>
+
+    @Query("DELETE FROM work_orders WHERE id = :id")
+    suspend fun deleteById(id: Long)
+
+    @Query("DELETE FROM service_lines WHERE workOrderId = :workOrderId")
+    suspend fun deleteServiceLinesByOrder(workOrderId: Long)
+
+    @Query("DELETE FROM work_order_parts WHERE workOrderId = :workOrderId")
+    suspend fun deletePartsByOrder(workOrderId: Long)
+
+    @Query("DELETE FROM work_order_payments WHERE workOrderId = :workOrderId")
+    suspend fun deletePaymentsByOrder(workOrderId: Long)
+
+    @Query("DELETE FROM work_order_status_log WHERE workOrderId = :workOrderId")
+    suspend fun deleteStatusLogByOrder(workOrderId: Long)
 }

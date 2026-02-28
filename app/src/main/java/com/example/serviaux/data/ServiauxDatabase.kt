@@ -34,7 +34,7 @@ import java.io.InputStreamReader
         CatalogComplaint::class,
         CatalogDiagnosis::class
     ],
-    version = 3,
+    version = 5,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -60,6 +60,23 @@ abstract class ServiauxDatabase : RoomDatabase() {
             appContext = context.applicationContext
             return INSTANCE ?: synchronized(this) {
                 INSTANCE ?: buildDatabase(context).also { INSTANCE = it }
+            }
+        }
+
+        private val MIGRATION_4_5 = object : Migration(4, 5) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE work_order_payments ADD COLUMN discount REAL NOT NULL DEFAULT 0.0")
+                Log.i("ServiauxDatabase", "Migration 4->5 completed successfully")
+            }
+        }
+
+        private val MIGRATION_3_4 = object : Migration(3, 4) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE work_orders ADD COLUMN filePaths TEXT")
+                db.execSQL("ALTER TABLE work_orders ADD COLUMN deliveryNote TEXT")
+                db.execSQL("ALTER TABLE work_orders ADD COLUMN invoiceNumber TEXT")
+                db.execSQL("ALTER TABLE work_orders ADD COLUMN notes TEXT")
+                Log.i("ServiauxDatabase", "Migration 3->4 completed successfully")
             }
         }
 
@@ -109,7 +126,7 @@ abstract class ServiauxDatabase : RoomDatabase() {
                 ServiauxDatabase::class.java,
                 "serviaux_v3"
             )
-                .addMigrations(MIGRATION_2_3)
+                .addMigrations(MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
                 .addCallback(SeedCallback(context.applicationContext))
                 .build()
         }

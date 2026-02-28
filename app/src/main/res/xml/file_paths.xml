@@ -2,5 +2,6 @@
 <paths>
     <files-path name="vehicle_photos" path="vehicle_photos/" />
     <files-path name="reports" path="reports/" />
+    <files-path name="work_order_files" path="work_order_files/" />
     <cache-path name="backups" path="backups/" />
 </paths>

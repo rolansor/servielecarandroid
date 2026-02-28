@@ -16,6 +16,7 @@ data class WorkOrderPayment(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val workOrderId: Long,
     val amount: Double,
+    val discount: Double = 0.0,
     val method: PaymentMethod,
     val date: Long = System.currentTimeMillis(),
     val notes: String? = null,

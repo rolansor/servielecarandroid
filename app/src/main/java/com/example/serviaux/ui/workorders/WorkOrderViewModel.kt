@@ -34,6 +34,8 @@ data class WorkOrderUiState(
     val customerVehicles: List<Vehicle> = emptyList(),
     val vehicleName: String = "",
     val customerName: String = "",
+    val vehicleMap: Map<Long, String> = emptyMap(),
+    val customerMap: Map<Long, String> = emptyMap(),
     val filter: OrderStatus? = null,
     val filterYear: Int = Calendar.getInstance().get(Calendar.YEAR),
     val availableYears: List<Int> = (2024..Calendar.getInstance().get(Calendar.YEAR)).toList(),
@@ -49,6 +51,9 @@ data class WorkOrderUiState(
     val formEntryMileage: String = "",
     val formFuelLevel: String = "",
     val formChecklistNotes: String = "",
+    val formDeliveryNote: String = "",
+    val formInvoiceNumber: String = "",
+    val formNotes: String = "",
     // Checklist
     val formChecklist: Map<String, Boolean> = emptyMap(),
     val catalogAccessories: List<CatalogAccessory> = emptyList(),
@@ -67,8 +72,10 @@ data class WorkOrderUiState(
     val partFormSelectedPartId: Long? = null,
     val partFormQuantity: String = "",
     val partFormPrice: String = "",
+    val editingWorkOrderPartId: Long? = null,
     // Payment form
     val paymentFormAmount: String = "",
+    val paymentFormDiscount: String = "",
     val paymentFormMethod: PaymentMethod = PaymentMethod.EFECTIVO,
     val paymentFormNotes: String = "",
     val createdOrderId: Long? = null,
@@ -80,12 +87,22 @@ data class WorkOrderUiState(
     val formMileageError: String? = null,
     val formPhotoPaths: List<String> = emptyList(),
     val pendingPhotoUri: Uri? = null,
+    val formFilePaths: List<String> = emptyList(),
     val detailPhotoPaths: List<String> = emptyList(),
     val detailPendingPhotoUri: Uri? = null,
+    val detailFilePaths: List<String> = emptyList(),
+    // Editable detail fields
+    val detailEntryMileage: String = "",
+    val detailFuelLevel: String = "",
+    val detailDeliveryNote: String = "",
+    val detailInvoiceNumber: String = "",
+    val detailNotes: String = "",
+    val detailFieldsChanged: Boolean = false,
     val selectedCustomer: Customer? = null,
     val selectedVehicle: Vehicle? = null,
     val pdfGenerating: Boolean = false,
-    val pdfFile: File? = null
+    val pdfFile: File? = null,
+    val orderDeleted: Boolean = false
 )
 
 class WorkOrderViewModel(application: Application) : AndroidViewModel(application) {
@@ -109,10 +126,24 @@ class WorkOrderViewModel(application: Application) : AndroidViewModel(applicatio
 
     init {
         loadOrders()
+        loadVehicleAndCustomerMaps()
         loadCatalogServices()
         loadCatalogComplaints()
         loadCatalogDiagnoses()
         loadCatalogAccessories()
+    }
+
+    private fun loadVehicleAndCustomerMaps() {
+        viewModelScope.launch {
+            vehicleRepo.getAll().collect { vehicles ->
+                _uiState.update { it.copy(vehicleMap = vehicles.associate { v -> v.id to "${v.plate} - ${v.brand} ${v.model}" }) }
+            }
+        }
+        viewModelScope.launch {
+            customerRepo.getAll().collect { customers ->
+                _uiState.update { it.copy(customerMap = customers.associate { c -> c.id to c.fullName }) }
+            }
+        }
     }
 
     private fun loadCatalogServices() {
@@ -186,7 +217,14 @@ class WorkOrderViewModel(application: Application) : AndroidViewModel(applicatio
                 _uiState.update {
                     it.copy(
                         selectedOrder = order,
-                        detailPhotoPaths = PhotoUtils.parsePaths(order?.photoPaths)
+                        detailPhotoPaths = PhotoUtils.parsePaths(order?.photoPaths),
+                        detailFilePaths = PhotoUtils.parsePaths(order?.filePaths),
+                        detailEntryMileage = order?.entryMileage?.toString() ?: "",
+                        detailFuelLevel = order?.fuelLevel ?: "",
+                        detailDeliveryNote = order?.deliveryNote ?: "",
+                        detailInvoiceNumber = order?.invoiceNumber ?: "",
+                        detailNotes = order?.notes ?: "",
+                        detailFieldsChanged = false
                     )
                 }
                 order?.let { o ->
@@ -251,6 +289,10 @@ class WorkOrderViewModel(application: Application) : AndroidViewModel(applicatio
                     formFuelLevel = order.fuelLevel ?: "",
                     formChecklist = checklistMap,
                     formPhotoPaths = PhotoUtils.parsePaths(order.photoPaths),
+                    formFilePaths = PhotoUtils.parsePaths(order.filePaths),
+                    formDeliveryNote = order.deliveryNote ?: "",
+                    formInvoiceNumber = order.invoiceNumber ?: "",
+                    formNotes = order.notes ?: "",
                     customerName = customer?.fullName ?: "",
                     vehicleName = vehicle?.let { v -> "${v.plate} - ${v.brand} ${v.model}" } ?: "",
                     formCustomerError = null,
@@ -299,6 +341,10 @@ class WorkOrderViewModel(application: Application) : AndroidViewModel(applicatio
                     fuelLevel = state.formFuelLevel.trim().ifBlank { null },
                     checklistNotes = checkedItems.ifBlank { null },
                     photoPaths = PhotoUtils.serializePaths(state.formPhotoPaths),
+                    filePaths = PhotoUtils.serializePaths(state.formFilePaths),
+                    deliveryNote = state.formDeliveryNote.trim().ifBlank { null },
+                    invoiceNumber = state.formInvoiceNumber.trim().ifBlank { null },
+                    notes = state.formNotes.trim().ifBlank { null },
                     updatedBy = session.currentUserId
                 )
                 workOrderRepo.update(updated)
@@ -368,6 +414,10 @@ class WorkOrderViewModel(application: Application) : AndroidViewModel(applicatio
                     fuelLevel = state.formFuelLevel.trim().ifBlank { null },
                     checklistNotes = checkedItems.ifBlank { null },
                     photoPaths = PhotoUtils.serializePaths(state.formPhotoPaths),
+                    filePaths = PhotoUtils.serializePaths(state.formFilePaths),
+                    deliveryNote = state.formDeliveryNote.trim().ifBlank { null },
+                    invoiceNumber = state.formInvoiceNumber.trim().ifBlank { null },
+                    notes = state.formNotes.trim().ifBlank { null },
                     createdBy = userId,
                     updatedBy = userId
                 )
@@ -521,6 +571,63 @@ class WorkOrderViewModel(application: Application) : AndroidViewModel(applicatio
         }
     }
 
+    fun startEditPart(workOrderPart: WorkOrderPart) {
+        _uiState.update {
+            it.copy(
+                editingWorkOrderPartId = workOrderPart.id,
+                partFormSelectedPartId = workOrderPart.partId,
+                partFormQuantity = workOrderPart.quantity.toString(),
+                partFormPrice = String.format("%.2f", workOrderPart.appliedUnitPrice)
+            )
+        }
+    }
+
+    fun cancelEditPart() {
+        _uiState.update {
+            it.copy(
+                editingWorkOrderPartId = null,
+                partFormSelectedPartId = null,
+                partFormQuantity = "",
+                partFormPrice = ""
+            )
+        }
+    }
+
+    fun updatePart() {
+        val state = _uiState.value
+        val editingId = state.editingWorkOrderPartId ?: return
+        val quantity = state.partFormQuantity.toIntOrNull() ?: run {
+            _uiState.update { it.copy(error = "Ingrese cantidad válida") }
+            return
+        }
+        val unitPrice = state.partFormPrice.toDoubleOrNull() ?: run {
+            _uiState.update { it.copy(error = "Ingrese precio válido") }
+            return
+        }
+        viewModelScope.launch {
+            try {
+                val existing = state.orderParts.find { it.id == editingId } ?: return@launch
+                val updated = existing.copy(
+                    quantity = quantity,
+                    appliedUnitPrice = unitPrice,
+                    subtotal = unitPrice * quantity,
+                    updatedAt = System.currentTimeMillis()
+                )
+                workOrderRepo.updateWorkOrderPart(updated)
+                _uiState.update {
+                    it.copy(
+                        editingWorkOrderPartId = null,
+                        partFormSelectedPartId = null,
+                        partFormQuantity = "",
+                        partFormPrice = ""
+                    )
+                }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(error = e.message ?: "Error al actualizar repuesto") }
+            }
+        }
+    }
+
     fun addPayment() {
         val state = _uiState.value
         val orderId = state.selectedOrder?.id ?: return
@@ -528,17 +635,19 @@ class WorkOrderViewModel(application: Application) : AndroidViewModel(applicatio
             _uiState.update { it.copy(error = "Ingrese monto valido") }
             return
         }
+        val discount = state.paymentFormDiscount.toDoubleOrNull() ?: 0.0
         viewModelScope.launch {
             try {
                 val payment = WorkOrderPayment(
                     workOrderId = orderId,
                     amount = amount,
+                    discount = discount,
                     method = state.paymentFormMethod,
                     notes = state.paymentFormNotes.trim().ifBlank { null }
                 )
                 workOrderRepo.addPayment(payment)
                 _uiState.update {
-                    it.copy(paymentFormAmount = "", paymentFormNotes = "")
+                    it.copy(paymentFormAmount = "", paymentFormDiscount = "", paymentFormNotes = "")
                 }
             } catch (e: Exception) {
                 _uiState.update { it.copy(error = e.message ?: "Error al registrar pago") }
@@ -621,6 +730,9 @@ class WorkOrderViewModel(application: Application) : AndroidViewModel(applicatio
     }
     fun onFormFuelLevelChange(value: String) { _uiState.update { it.copy(formFuelLevel = value) } }
     fun onFormChecklistNotesChange(value: String) { _uiState.update { it.copy(formChecklistNotes = value) } }
+    fun onFormDeliveryNoteChange(value: String) { _uiState.update { it.copy(formDeliveryNote = value) } }
+    fun onFormInvoiceNumberChange(value: String) { _uiState.update { it.copy(formInvoiceNumber = value) } }
+    fun onFormNotesChange(value: String) { _uiState.update { it.copy(formNotes = value) } }
 
     // Checklist toggle
     fun onChecklistItemToggle(name: String, checked: Boolean) {
@@ -656,7 +768,13 @@ class WorkOrderViewModel(application: Application) : AndroidViewModel(applicatio
         if (value != null) {
             viewModelScope.launch {
                 val part = partRepo.getByIdDirect(value)
-                val price = part?.salePrice ?: part?.unitCost ?: 0.0
+                // Try to get last price for same part + same customer
+                val customerId = _uiState.value.selectedOrder?.customerId
+                    ?: _uiState.value.formCustomerId
+                val lastPrice = if (customerId != null) {
+                    workOrderRepo.getLastPartPriceForCustomer(value, customerId)
+                } else null
+                val price = lastPrice ?: part?.salePrice ?: part?.unitCost ?: 0.0
                 _uiState.update { it.copy(partFormPrice = String.format("%.2f", price), partFormQuantity = "1") }
             }
         } else {
@@ -675,6 +793,7 @@ class WorkOrderViewModel(application: Application) : AndroidViewModel(applicatio
     }
 
     fun onPaymentAmountChange(value: String) { _uiState.update { it.copy(paymentFormAmount = value) } }
+    fun onPaymentDiscountChange(value: String) { _uiState.update { it.copy(paymentFormDiscount = value) } }
     fun onPaymentMethodChange(value: PaymentMethod) { _uiState.update { it.copy(paymentFormMethod = value) } }
     fun onPaymentNotesChange(value: String) { _uiState.update { it.copy(paymentFormNotes = value) } }
 
@@ -715,6 +834,95 @@ class WorkOrderViewModel(application: Application) : AndroidViewModel(applicatio
         val file = PhotoUtils.copyUriToInternalStorage(context, uri, "WO")
         if (file != null) {
             _uiState.update { it.copy(formPhotoPaths = it.formPhotoPaths + file.absolutePath) }
+        }
+    }
+
+    // File management for create/edit form
+    fun addFormFile(uri: Uri) {
+        val context = getApplication<Application>()
+        val file = PhotoUtils.copyFileToInternalStorage(context, uri, "WO")
+        if (file != null) {
+            _uiState.update { it.copy(formFilePaths = it.formFilePaths + file.absolutePath) }
+        }
+    }
+
+    fun removeFormFile(index: Int) {
+        val paths = _uiState.value.formFilePaths.toMutableList()
+        if (index in paths.indices) {
+            PhotoUtils.deleteFile(paths[index])
+            paths.removeAt(index)
+            _uiState.update { it.copy(formFilePaths = paths) }
+        }
+    }
+
+    // File management for detail screen (existing orders)
+    fun addDetailFile(uri: Uri) {
+        val context = getApplication<Application>()
+        val file = PhotoUtils.copyFileToInternalStorage(context, uri, "WO")
+        if (file != null) {
+            val newPaths = _uiState.value.detailFilePaths + file.absolutePath
+            _uiState.update { it.copy(detailFilePaths = newPaths) }
+            saveOrderFiles(newPaths)
+        }
+    }
+
+    fun removeDetailFile(index: Int) {
+        val paths = _uiState.value.detailFilePaths.toMutableList()
+        if (index in paths.indices) {
+            PhotoUtils.deleteFile(paths[index])
+            paths.removeAt(index)
+            _uiState.update { it.copy(detailFilePaths = paths) }
+            saveOrderFiles(paths)
+        }
+    }
+
+    // Detail field change handlers
+    fun onDetailEntryMileageChange(value: String) {
+        val filtered = value.filter { it.isDigit() }.take(7)
+        _uiState.update { it.copy(detailEntryMileage = filtered, detailFieldsChanged = true) }
+    }
+    fun onDetailFuelLevelChange(value: String) {
+        _uiState.update { it.copy(detailFuelLevel = value, detailFieldsChanged = true) }
+    }
+    fun onDetailDeliveryNoteChange(value: String) {
+        _uiState.update { it.copy(detailDeliveryNote = value, detailFieldsChanged = true) }
+    }
+    fun onDetailInvoiceNumberChange(value: String) {
+        _uiState.update { it.copy(detailInvoiceNumber = value, detailFieldsChanged = true) }
+    }
+    fun onDetailNotesChange(value: String) {
+        _uiState.update { it.copy(detailNotes = value, detailFieldsChanged = true) }
+    }
+
+    fun saveDetailFields() {
+        val order = _uiState.value.selectedOrder ?: return
+        viewModelScope.launch {
+            try {
+                val state = _uiState.value
+                val updated = order.copy(
+                    entryMileage = state.detailEntryMileage.toIntOrNull(),
+                    fuelLevel = state.detailFuelLevel.trim().ifBlank { null },
+                    deliveryNote = state.detailDeliveryNote.trim().ifBlank { null },
+                    invoiceNumber = state.detailInvoiceNumber.trim().ifBlank { null },
+                    notes = state.detailNotes.trim().ifBlank { null },
+                    updatedBy = session.currentUserId
+                )
+                workOrderRepo.update(updated)
+                _uiState.update { it.copy(detailFieldsChanged = false) }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(error = e.message ?: "Error al guardar") }
+            }
+        }
+    }
+
+    private fun saveOrderFiles(paths: List<String>) {
+        val order = _uiState.value.selectedOrder ?: return
+        viewModelScope.launch {
+            try {
+                workOrderRepo.update(order.copy(filePaths = PhotoUtils.serializePaths(paths)))
+            } catch (e: Exception) {
+                _uiState.update { it.copy(error = e.message ?: "Error al guardar archivos") }
+            }
         }
     }
 
@@ -816,6 +1024,30 @@ class WorkOrderViewModel(application: Application) : AndroidViewModel(applicatio
                 _uiState.update { it.copy(pdfGenerating = false, error = e.message ?: "Error al generar PDF") }
             }
         }
+    }
+
+    fun deleteOrder(orderId: Long) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true, error = null) }
+            try {
+                val (photoPaths, filePaths) = workOrderRepo.deleteOrder(orderId)
+                // Delete photo files
+                for (path in photoPaths) {
+                    PhotoUtils.deletePhoto(path)
+                }
+                // Delete attached files
+                for (path in filePaths) {
+                    PhotoUtils.deleteFile(path)
+                }
+                _uiState.update { it.copy(isLoading = false, orderDeleted = true) }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(isLoading = false, error = e.message ?: "Error al eliminar orden") }
+            }
+        }
+    }
+
+    fun clearOrderDeleted() {
+        _uiState.update { it.copy(orderDeleted = false) }
     }
 
     fun clearPdf() {

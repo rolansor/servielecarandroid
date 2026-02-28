@@ -91,6 +91,14 @@ class WorkOrderRepository(
         return id
     }
 
+    suspend fun getLastPartPriceForCustomer(partId: Long, customerId: Long): Double? =
+        workOrderPartDao.getLastPriceForCustomer(partId, customerId)
+
+    suspend fun updateWorkOrderPart(workOrderPart: WorkOrderPart) {
+        workOrderPartDao.update(workOrderPart)
+        recalculateTotals(workOrderPart.workOrderId)
+    }
+
     suspend fun deleteWorkOrderPart(workOrderPart: WorkOrderPart) {
         workOrderPartDao.delete(workOrderPart)
         recalculateTotals(workOrderPart.workOrderId)
@@ -105,6 +113,24 @@ class WorkOrderRepository(
 
     // Status Log
     fun getStatusLog(workOrderId: Long): Flow<List<WorkOrderStatusLog>> = workOrderStatusLogDao.getByWorkOrder(workOrderId)
+
+    // Delete work order and all related data, returns photo paths and file paths for cleanup
+    suspend fun deleteOrder(orderId: Long): Pair<List<String>, List<String>> {
+        val order = workOrderDao.getByIdDirect(orderId)
+        val photoPaths = order?.photoPaths?.split(",")?.map { it.trim() }?.filter { it.isNotBlank() } ?: emptyList()
+        val filePaths = order?.filePaths?.split(",")?.map { it.trim() }?.filter { it.isNotBlank() } ?: emptyList()
+        // Restore stock for parts used in this order
+        val parts = workOrderPartDao.getByWorkOrderDirect(orderId)
+        for (part in parts) {
+            partDao.increaseStock(part.partId, part.quantity)
+        }
+        workOrderDao.deleteServiceLinesByOrder(orderId)
+        workOrderDao.deletePartsByOrder(orderId)
+        workOrderDao.deletePaymentsByOrder(orderId)
+        workOrderDao.deleteStatusLogByOrder(orderId)
+        workOrderDao.deleteById(orderId)
+        return photoPaths to filePaths
+    }
 
     // Reports
     suspend fun getTopParts(from: Long, to: Long, limit: Int = 10): List<TopPartResult> =

@@ -48,6 +48,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.serviaux.data.entity.OrderStatus
 import com.example.serviaux.data.entity.UserRole
 import com.example.serviaux.ui.theme.StatusDiagnostico
 import com.example.serviaux.ui.theme.StatusEnProceso
@@ -62,6 +63,7 @@ fun DashboardScreen(
     onNavigateToCustomers: () -> Unit,
     onNavigateToVehicles: () -> Unit,
     onNavigateToOrders: () -> Unit,
+    onNavigateToOrdersByStatus: (OrderStatus) -> Unit = {},
     onNavigateToParts: () -> Unit,
     onNavigateToUsers: () -> Unit,
     onNavigateToReports: () -> Unit,
@@ -143,24 +145,24 @@ fun DashboardScreen(
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                 modifier = Modifier.fillMaxWidth()
             ) {
-                StatusCard("Recibido", uiState.recibido, StatusRecibido, Modifier.weight(1f))
-                StatusCard("Diagn\u00f3stico", uiState.enDiagnostico, StatusDiagnostico, Modifier.weight(1f))
+                StatusCard("Recibido", uiState.recibido, StatusRecibido, Modifier.weight(1f)) { onNavigateToOrdersByStatus(OrderStatus.RECIBIDO) }
+                StatusCard("Diagn\u00f3stico", uiState.enDiagnostico, StatusDiagnostico, Modifier.weight(1f)) { onNavigateToOrdersByStatus(OrderStatus.EN_DIAGNOSTICO) }
             }
             Spacer(modifier = Modifier.height(12.dp))
             Row(
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                 modifier = Modifier.fillMaxWidth()
             ) {
-                StatusCard("En Proceso", uiState.enProceso, StatusEnProceso, Modifier.weight(1f))
-                StatusCard("En Espera", uiState.enEsperaRepuesto, StatusEsperaRepuesto, Modifier.weight(1f))
+                StatusCard("En Proceso", uiState.enProceso, StatusEnProceso, Modifier.weight(1f)) { onNavigateToOrdersByStatus(OrderStatus.EN_PROCESO) }
+                StatusCard("En Espera", uiState.enEsperaRepuesto, StatusEsperaRepuesto, Modifier.weight(1f)) { onNavigateToOrdersByStatus(OrderStatus.EN_ESPERA_REPUESTO) }
             }
             Spacer(modifier = Modifier.height(12.dp))
             Row(
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                 modifier = Modifier.fillMaxWidth()
             ) {
-                StatusCard("Listo", uiState.listo, StatusListo, Modifier.weight(1f))
-                StatusCard("Entregado", uiState.entregado, StatusEntregado, Modifier.weight(1f))
+                StatusCard("Listo", uiState.listo, StatusListo, Modifier.weight(1f)) { onNavigateToOrdersByStatus(OrderStatus.LISTO) }
+                StatusCard("Entregado", uiState.entregado, StatusEntregado, Modifier.weight(1f)) { onNavigateToOrdersByStatus(OrderStatus.ENTREGADO) }
             }
 
             Spacer(modifier = Modifier.height(24.dp))
@@ -216,10 +218,11 @@ private fun StatusCard(
     label: String,
     count: Int,
     color: Color,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit = {}
 ) {
     Card(
-        modifier = modifier,
+        modifier = modifier.clickable(onClick = onClick),
         colors = CardDefaults.cardColors(
             containerColor = color.copy(alpha = 0.1f)
         )

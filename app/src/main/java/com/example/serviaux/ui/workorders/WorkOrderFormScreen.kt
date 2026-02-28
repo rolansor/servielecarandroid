@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
@@ -27,10 +28,12 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.AddAPhoto
-import androidx.compose.material.icons.filled.Image
+import androidx.compose.material.icons.filled.AttachFile
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
+import androidx.compose.material.icons.filled.Image
 import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
@@ -123,6 +126,10 @@ fun WorkOrderFormScreen(
     val galleryLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetMultipleContents()
     ) { uris -> uris.forEach { uri -> viewModel.addPhotoFromGallery(uri) } }
+
+    val fileLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenMultipleDocuments()
+    ) { uris -> uris.forEach { uri -> viewModel.addFormFile(uri) } }
 
     val permissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
@@ -323,54 +330,6 @@ fun WorkOrderFormScreen(
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            OutlinedTextField(
-                value = uiState.formEntryMileage,
-                onValueChange = { viewModel.onFormEntryMileageChange(it) },
-                label = { Text("Kilometraje de entrada") },
-                singleLine = true,
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                isError = uiState.formMileageError != null,
-                supportingText = uiState.formMileageError?.let { error -> { Text(error, color = MaterialTheme.colorScheme.error) } },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .onFocusChanged { if (!it.isFocused) viewModel.validateFieldOnFocusLost("entryMileage") }
-            )
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            // Fuel level dropdown
-            ExposedDropdownMenuBox(
-                expanded = fuelDropdownExpanded,
-                onExpandedChange = { fuelDropdownExpanded = it }
-            ) {
-                OutlinedTextField(
-                    value = uiState.formFuelLevel,
-                    onValueChange = {},
-                    readOnly = true,
-                    label = { Text("Nivel de Combustible") },
-                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = fuelDropdownExpanded) },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .menuAnchor(MenuAnchorType.PrimaryNotEditable)
-                )
-                ExposedDropdownMenu(
-                    expanded = fuelDropdownExpanded,
-                    onDismissRequest = { fuelDropdownExpanded = false }
-                ) {
-                    fuelLevels.forEach { level ->
-                        DropdownMenuItem(
-                            text = { Text(level) },
-                            onClick = {
-                                viewModel.onFormFuelLevelChange(level)
-                                fuelDropdownExpanded = false
-                            }
-                        )
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(12.dp))
-
             // Checklist section (collapsible)
             Row(
                 modifier = Modifier
@@ -415,77 +374,6 @@ fun WorkOrderFormScreen(
                                 text = name,
                                 style = MaterialTheme.typography.bodyMedium
                             )
-                        }
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            // Photos section
-            Text(
-                text = "Fotos (${uiState.formPhotoPaths.size})",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Spacer(modifier = Modifier.height(4.dp))
-            LazyRow(
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                itemsIndexed(uiState.formPhotoPaths) { index, path ->
-                    Box(modifier = Modifier.size(100.dp)) {
-                        AsyncImage(
-                            model = ImageRequest.Builder(context)
-                                .data(File(path))
-                                .build(),
-                            contentDescription = "Foto ${index + 1}",
-                            contentScale = ContentScale.Crop,
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .clip(RoundedCornerShape(8.dp))
-                                .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(8.dp))
-                        )
-                        IconButton(
-                            onClick = { viewModel.removeFormPhoto(index) },
-                            modifier = Modifier
-                                .align(Alignment.TopEnd)
-                                .size(24.dp)
-                                .background(MaterialTheme.colorScheme.errorContainer, CircleShape)
-                        ) {
-                            Icon(
-                                Icons.Default.Close,
-                                contentDescription = "Eliminar foto",
-                                modifier = Modifier.size(14.dp),
-                                tint = MaterialTheme.colorScheme.onErrorContainer
-                            )
-                        }
-                    }
-                }
-                item {
-                    Box(
-                        modifier = Modifier
-                            .size(100.dp)
-                            .clip(RoundedCornerShape(8.dp))
-                            .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(8.dp)),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            IconButton(onClick = { launchCamera() }) {
-                                Icon(
-                                    Icons.Default.AddAPhoto,
-                                    contentDescription = "Tomar foto",
-                                    tint = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.size(28.dp)
-                                )
-                            }
-                            IconButton(onClick = { galleryLauncher.launch("image/*") }) {
-                                Icon(
-                                    Icons.Default.Image,
-                                    contentDescription = "Elegir de galer\u00eda",
-                                    tint = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.size(28.dp)
-                                )
-                            }
                         }
                     }
                 }

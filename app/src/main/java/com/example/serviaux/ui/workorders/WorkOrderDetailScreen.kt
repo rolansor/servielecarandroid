@@ -1,15 +1,18 @@
 package com.example.serviaux.ui.workorders
 
 import android.Manifest
+import android.content.Intent
 import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -29,14 +32,18 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AddAPhoto
-import androidx.compose.material.icons.filled.Image
+import androidx.compose.material.icons.filled.AttachFile
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Image
+import androidx.compose.material.icons.filled.OpenInNew
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -61,6 +68,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -84,6 +92,7 @@ import com.example.serviaux.ui.components.InfoRow
 import com.example.serviaux.ui.components.PriorityChip
 import com.example.serviaux.ui.components.SectionTitle
 import com.example.serviaux.ui.components.StatusChip
+import com.example.serviaux.util.PhotoUtils
 import com.example.serviaux.util.ShareUtils
 import java.io.File
 import java.text.SimpleDateFormat
@@ -109,6 +118,11 @@ fun WorkOrderDetailScreen(
     var showPaymentDialog by remember { mutableStateOf(false) }
     var showDeleteServiceLineDialog by remember { mutableStateOf<Long?>(null) }
     var showDeletePartDialog by remember { mutableStateOf<Long?>(null) }
+    var showDeleteOrderDialog by remember { mutableStateOf(false) }
+    var deleteConfirmationText by remember { mutableStateOf("") }
+    var viewingPhotoPath by remember { mutableStateOf<String?>(null) }
+    var viewingPhotoIndex by remember { mutableIntStateOf(-1) }
+    var showUnsavedChangesDialog by remember { mutableStateOf(false) }
 
     // Camera & Gallery for order photos
     val detailContext = LocalContext.current
@@ -119,6 +133,10 @@ fun WorkOrderDetailScreen(
     val detailGalleryLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetMultipleContents()
     ) { uris -> uris.forEach { uri -> viewModel.addDetailPhotoFromGallery(uri) } }
+
+    val detailFileLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenMultipleDocuments()
+    ) { uris -> uris.forEach { uri -> viewModel.addDetailFile(uri) } }
 
     val detailPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
@@ -159,7 +177,15 @@ fun WorkOrderDetailScreen(
         }
     }
 
+    LaunchedEffect(uiState.orderDeleted) {
+        if (uiState.orderDeleted) {
+            viewModel.clearOrderDeleted()
+            onNavigateBack()
+        }
+    }
+
     val order = uiState.selectedOrder
+    val isEntregado = order?.status == OrderStatus.ENTREGADO
 
     // Status change dialog
     if (showStatusDialog) {
@@ -218,11 +244,13 @@ fun WorkOrderDetailScreen(
 
     // Part dialog
     if (showPartDialog) {
+        val isEditingPart = uiState.editingWorkOrderPartId != null
         PartDialog(
             availableParts = uiState.availableParts,
             selectedPartId = uiState.partFormSelectedPartId,
             quantity = uiState.partFormQuantity,
             price = uiState.partFormPrice,
+            isEditing = isEditingPart,
             onPartSelected = { viewModel.onPartSelectedChange(it) },
             onQuantityChange = { newVal ->
                 val filtered = newVal.filter { it.isDigit() }
@@ -230,36 +258,45 @@ fun WorkOrderDetailScreen(
             },
             onPriceChange = { viewModel.onPartPriceChange(it) },
             onSave = {
-                if (uiState.partFormSelectedPartId != null && (uiState.partFormQuantity.toIntOrNull() ?: 0) >= 1) {
+                if (isEditingPart) {
+                    viewModel.updatePart()
+                    showPartDialog = false
+                } else if (uiState.partFormSelectedPartId != null && (uiState.partFormQuantity.toIntOrNull() ?: 0) >= 1) {
                     viewModel.addPart()
                     showPartDialog = false
                 } else {
                     viewModel.addPart() // triggers error message
                 }
             },
-            onDismiss = { showPartDialog = false }
+            onDismiss = {
+                viewModel.cancelEditPart()
+                showPartDialog = false
+            }
         )
     }
 
     // Payment dialog
     if (showPaymentDialog) {
         val totalPaid = uiState.payments.sumOf { it.amount }
-        val remainingBalance = (order?.total ?: 0.0) - totalPaid
+        val totalDiscounts = uiState.payments.sumOf { it.discount }
+        val remainingBalance = (order?.total ?: 0.0) - totalPaid - totalDiscounts
         PaymentDialog(
             amount = uiState.paymentFormAmount,
+            discount = uiState.paymentFormDiscount,
             method = uiState.paymentFormMethod,
             notes = uiState.paymentFormNotes,
             remainingBalance = remainingBalance,
             onAmountChange = { viewModel.onPaymentAmountChange(it) },
+            onDiscountChange = { viewModel.onPaymentDiscountChange(it) },
             onMethodChange = { viewModel.onPaymentMethodChange(it) },
             onNotesChange = { viewModel.onPaymentNotesChange(it) },
             onSave = {
-                val parsedAmount = uiState.paymentFormAmount.toDoubleOrNull()
-                if (parsedAmount != null && parsedAmount > 0 && parsedAmount <= remainingBalance) {
+                val parsedAmount = uiState.paymentFormAmount.toDoubleOrNull() ?: 0.0
+                val parsedDiscount = uiState.paymentFormDiscount.toDoubleOrNull() ?: 0.0
+                if ((parsedAmount + parsedDiscount) > 0 && (parsedAmount + parsedDiscount) <= remainingBalance + 0.01) {
                     viewModel.addPayment()
                     showPaymentDialog = false
                 }
-                // Dialog will show inline errors for invalid input
             },
             onDismiss = { showPaymentDialog = false }
         )
@@ -297,18 +334,179 @@ fun WorkOrderDetailScreen(
         }
     }
 
+    // Delete order confirmation dialog - requires typing order number
+    if (showDeleteOrderDialog) {
+        AlertDialog(
+            onDismissRequest = {
+                showDeleteOrderDialog = false
+                deleteConfirmationText = ""
+            },
+            title = {
+                Text("Eliminar Orden #$orderId", color = MaterialTheme.colorScheme.error)
+            },
+            text = {
+                Column {
+                    Text(
+                        "Esta accion eliminara permanentemente la orden, todos sus servicios, repuestos, pagos, historial y fotos.",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        "Escriba el numero de la orden ($orderId) para confirmar:",
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    OutlinedTextField(
+                        value = deleteConfirmationText,
+                        onValueChange = { deleteConfirmationText = it.filter { c -> c.isDigit() } },
+                        label = { Text("Numero de orden") },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        viewModel.deleteOrder(orderId)
+                        showDeleteOrderDialog = false
+                        deleteConfirmationText = ""
+                    },
+                    enabled = deleteConfirmationText == orderId.toString(),
+                    colors = androidx.compose.material3.ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.error
+                    )
+                ) {
+                    Text("Eliminar")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    showDeleteOrderDialog = false
+                    deleteConfirmationText = ""
+                }) {
+                    Text("Cancelar")
+                }
+            }
+        )
+    }
+
+    // Unsaved changes dialog
+    if (showUnsavedChangesDialog) {
+        AlertDialog(
+            onDismissRequest = { showUnsavedChangesDialog = false },
+            title = { Text("Cambios sin guardar") },
+            text = { Text("\u00bfDesea guardar los cambios antes de salir?") },
+            confirmButton = {
+                TextButton(onClick = {
+                    viewModel.saveDetailFields()
+                    showUnsavedChangesDialog = false
+                    onNavigateBack()
+                }) {
+                    Text("Guardar y salir")
+                }
+            },
+            dismissButton = {
+                Row {
+                    TextButton(onClick = {
+                        showUnsavedChangesDialog = false
+                        onNavigateBack()
+                    }) {
+                        Text("Salir sin guardar")
+                    }
+                    TextButton(onClick = { showUnsavedChangesDialog = false }) {
+                        Text("Cancelar")
+                    }
+                }
+            }
+        )
+    }
+
+    // Full-screen photo viewer
+    viewingPhotoPath?.let { path ->
+        AlertDialog(
+            onDismissRequest = {
+                viewingPhotoPath = null
+                viewingPhotoIndex = -1
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    viewingPhotoPath = null
+                    viewingPhotoIndex = -1
+                }) {
+                    Text("Cerrar")
+                }
+            },
+            dismissButton = {
+                if (!isEntregado && viewingPhotoIndex >= 0) {
+                    TextButton(
+                        onClick = {
+                            viewModel.removeDetailPhoto(viewingPhotoIndex)
+                            viewingPhotoPath = null
+                            viewingPhotoIndex = -1
+                        },
+                        colors = ButtonDefaults.textButtonColors(
+                            contentColor = MaterialTheme.colorScheme.error
+                        )
+                    ) {
+                        Icon(
+                            Icons.Default.Delete,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("Eliminar")
+                    }
+                }
+            },
+            text = {
+                AsyncImage(
+                    model = ImageRequest.Builder(detailContext)
+                        .data(File(path))
+                        .build(),
+                    contentDescription = "Foto",
+                    contentScale = ContentScale.Fit,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(400.dp)
+                )
+            }
+        )
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text("Orden #$orderId") },
                 navigationIcon = {
-                    IconButton(onClick = onNavigateBack) {
+                    IconButton(onClick = {
+                        if (uiState.detailFieldsChanged) {
+                            showUnsavedChangesDialog = true
+                        } else {
+                            onNavigateBack()
+                        }
+                    }) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Volver")
                     }
                 },
                 actions = {
-                    IconButton(onClick = { onNavigateToEdit(orderId) }) {
+                    IconButton(
+                        onClick = { onNavigateToEdit(orderId) },
+                        enabled = !isEntregado
+                    ) {
                         Icon(Icons.Default.Edit, contentDescription = "Editar orden")
+                    }
+                    IconButton(
+                        onClick = { showDeleteOrderDialog = true },
+                        enabled = !isEntregado
+                    ) {
+                        Icon(
+                            Icons.Default.Delete,
+                            contentDescription = "Eliminar orden",
+                            tint = if (isEntregado) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f) else MaterialTheme.colorScheme.error
+                        )
                     }
                     if (uiState.pdfGenerating) {
                         CircularProgressIndicator(
@@ -406,8 +604,6 @@ fun WorkOrderDetailScreen(
                             InfoRow(label = "Queja del Cliente", value = order.customerComplaint)
                             InfoRow(label = "Diagn\u00f3stico Inicial", value = order.initialDiagnosis ?: "N/A")
                             InfoRow(label = "Mec\u00e1nico Asignado", value = uiState.mechanics.find { it.id == order.assignedMechanicId }?.name ?: "Sin asignar")
-                            InfoRow(label = "Kilometraje Entrada", value = order.entryMileage?.let { "$it km" } ?: "N/A")
-                            InfoRow(label = "Nivel Combustible", value = order.fuelLevel ?: "N/A")
                             // Checklist items
                             val checklistItems = remember(order.checklistNotes) {
                                 order.checklistNotes?.split(",")?.map { it.trim() }?.filter { it.isNotBlank() } ?: emptyList()
@@ -416,6 +612,95 @@ fun WorkOrderDetailScreen(
                                 label = "Checklist",
                                 value = if (checklistItems.isEmpty()) "Sin items marcados" else checklistItems.joinToString(", ")
                             )
+                        }
+                    }
+                }
+
+                // Editable detail fields
+                item {
+                    Card(modifier = Modifier.fillMaxWidth()) {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            SectionTitle("Datos del Proceso")
+                            Spacer(modifier = Modifier.height(8.dp))
+                            OutlinedTextField(
+                                value = uiState.detailEntryMileage,
+                                onValueChange = { viewModel.onDetailEntryMileageChange(it) },
+                                label = { Text("Kilometraje de Entrada") },
+                                singleLine = true,
+                                enabled = !isEntregado,
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            var fuelExpanded by remember { mutableStateOf(false) }
+                            val fuelLevels = listOf("Vac\u00edo", "1/4", "1/2", "3/4", "Lleno")
+                            ExposedDropdownMenuBox(
+                                expanded = fuelExpanded,
+                                onExpandedChange = { if (!isEntregado) fuelExpanded = it }
+                            ) {
+                                OutlinedTextField(
+                                    value = uiState.detailFuelLevel,
+                                    onValueChange = {},
+                                    readOnly = true,
+                                    enabled = !isEntregado,
+                                    label = { Text("Nivel de Combustible") },
+                                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = fuelExpanded) },
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .menuAnchor(MenuAnchorType.PrimaryNotEditable)
+                                )
+                                ExposedDropdownMenu(
+                                    expanded = fuelExpanded,
+                                    onDismissRequest = { fuelExpanded = false }
+                                ) {
+                                    fuelLevels.forEach { level ->
+                                        DropdownMenuItem(
+                                            text = { Text(level) },
+                                            onClick = {
+                                                viewModel.onDetailFuelLevelChange(level)
+                                                fuelExpanded = false
+                                            }
+                                        )
+                                    }
+                                }
+                            }
+                            Spacer(modifier = Modifier.height(8.dp))
+                            OutlinedTextField(
+                                value = uiState.detailDeliveryNote,
+                                onValueChange = { viewModel.onDetailDeliveryNoteChange(it) },
+                                label = { Text("Nota de Entrega") },
+                                singleLine = true,
+                                enabled = !isEntregado,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            OutlinedTextField(
+                                value = uiState.detailInvoiceNumber,
+                                onValueChange = { viewModel.onDetailInvoiceNumberChange(it) },
+                                label = { Text("Factura") },
+                                singleLine = true,
+                                enabled = !isEntregado,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            OutlinedTextField(
+                                value = uiState.detailNotes,
+                                onValueChange = { viewModel.onDetailNotesChange(it) },
+                                label = { Text("Notas") },
+                                enabled = !isEntregado,
+                                minLines = 2,
+                                maxLines = 4,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                            if (uiState.detailFieldsChanged) {
+                                Spacer(modifier = Modifier.height(12.dp))
+                                Button(
+                                    onClick = { viewModel.saveDetailFields() },
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Text("Guardar Datos del Proceso")
+                                }
+                            }
                         }
                     }
                 }
@@ -430,7 +715,13 @@ fun WorkOrderDetailScreen(
                                 horizontalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
                                 itemsIndexed(uiState.detailPhotoPaths) { index, path ->
-                                    Box(modifier = Modifier.size(100.dp)) {
+                                    Box(modifier = Modifier
+                                        .size(100.dp)
+                                        .clickable {
+                                            viewingPhotoPath = path
+                                            viewingPhotoIndex = index
+                                        }
+                                    ) {
                                         AsyncImage(
                                             model = ImageRequest.Builder(detailContext)
                                                 .data(File(path))
@@ -442,20 +733,6 @@ fun WorkOrderDetailScreen(
                                                 .clip(RoundedCornerShape(8.dp))
                                                 .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(8.dp))
                                         )
-                                        IconButton(
-                                            onClick = { viewModel.removeDetailPhoto(index) },
-                                            modifier = Modifier
-                                                .align(Alignment.TopEnd)
-                                                .size(24.dp)
-                                                .background(MaterialTheme.colorScheme.errorContainer, CircleShape)
-                                        ) {
-                                            Icon(
-                                                Icons.Default.Close,
-                                                contentDescription = "Eliminar foto",
-                                                modifier = Modifier.size(14.dp),
-                                                tint = MaterialTheme.colorScheme.onErrorContainer
-                                            )
-                                        }
                                     }
                                 }
                                 item {
@@ -467,7 +744,10 @@ fun WorkOrderDetailScreen(
                                         contentAlignment = Alignment.Center
                                     ) {
                                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                            IconButton(onClick = { launchDetailCamera() }) {
+                                            IconButton(
+                                                onClick = { launchDetailCamera() },
+                                                enabled = !isEntregado
+                                            ) {
                                                 Icon(
                                                     Icons.Default.AddAPhoto,
                                                     contentDescription = "Tomar foto",
@@ -475,7 +755,10 @@ fun WorkOrderDetailScreen(
                                                     modifier = Modifier.size(28.dp)
                                                 )
                                             }
-                                            IconButton(onClick = { detailGalleryLauncher.launch("image/*") }) {
+                                            IconButton(
+                                                onClick = { detailGalleryLauncher.launch("image/*") },
+                                                enabled = !isEntregado
+                                            ) {
                                                 Icon(
                                                     Icons.Default.Image,
                                                     contentDescription = "Elegir de galería",
@@ -484,6 +767,98 @@ fun WorkOrderDetailScreen(
                                                 )
                                             }
                                         }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Files section
+                item {
+                    Card(modifier = Modifier.fillMaxWidth()) {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                SectionTitle("Archivos Adjuntos (${uiState.detailFilePaths.size})", modifier = Modifier.weight(1f))
+                                IconButton(
+                                    onClick = { detailFileLauncher.launch(arrayOf("*/*")) },
+                                    enabled = !isEntregado
+                                ) {
+                                    Icon(Icons.Default.AttachFile, contentDescription = "Adjuntar archivo")
+                                }
+                            }
+                            if (uiState.detailFilePaths.isEmpty()) {
+                                Text(
+                                    text = "No hay archivos adjuntos",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            uiState.detailFilePaths.forEachIndexed { index, path ->
+                                val fileName = path.substringAfterLast('/')
+                                val extension = PhotoUtils.getFileExtension(path).uppercase()
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(vertical = 4.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(
+                                        Icons.Default.Description,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(20.dp),
+                                        tint = MaterialTheme.colorScheme.primary
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(
+                                            text = fileName,
+                                            style = MaterialTheme.typography.bodySmall,
+                                            maxLines = 1
+                                        )
+                                        if (extension.isNotBlank()) {
+                                            Text(
+                                                text = extension,
+                                                style = MaterialTheme.typography.labelSmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                        }
+                                    }
+                                    IconButton(
+                                        onClick = {
+                                            val file = File(path)
+                                            if (file.exists()) {
+                                                val uri = PhotoUtils.getUriForFile(detailContext, file)
+                                                val mime = detailContext.contentResolver.getType(uri) ?: "*/*"
+                                                val intent = Intent(Intent.ACTION_VIEW).apply {
+                                                    setDataAndType(uri, mime)
+                                                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                                }
+                                                detailContext.startActivity(intent)
+                                            }
+                                        },
+                                        modifier = Modifier.size(32.dp)
+                                    ) {
+                                        Icon(
+                                            Icons.Default.OpenInNew,
+                                            contentDescription = "Abrir archivo",
+                                            modifier = Modifier.size(18.dp),
+                                            tint = MaterialTheme.colorScheme.primary
+                                        )
+                                    }
+                                    if (!isEntregado) IconButton(
+                                        onClick = { viewModel.removeDetailFile(index) },
+                                        modifier = Modifier.size(32.dp)
+                                    ) {
+                                        Icon(
+                                            Icons.Default.Close,
+                                            contentDescription = "Eliminar archivo",
+                                            modifier = Modifier.size(18.dp),
+                                            tint = MaterialTheme.colorScheme.error
+                                        )
                                     }
                                 }
                             }
@@ -500,10 +875,13 @@ fun WorkOrderDetailScreen(
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 SectionTitle("Servicios / Mano de Obra", modifier = Modifier.weight(1f))
-                                IconButton(onClick = {
-                                    viewModel.cancelEditServiceLine()
-                                    showServiceLineDialog = true
-                                }) {
+                                IconButton(
+                                    onClick = {
+                                        viewModel.cancelEditServiceLine()
+                                        showServiceLineDialog = true
+                                    },
+                                    enabled = !isEntregado
+                                ) {
                                     Icon(Icons.Default.Add, contentDescription = "Agregar servicio")
                                 }
                             }
@@ -547,17 +925,23 @@ fun WorkOrderDetailScreen(
                                     color = MaterialTheme.colorScheme.primary
                                 )
                             }
-                            IconButton(onClick = {
-                                viewModel.startEditServiceLine(serviceLine)
-                                showServiceLineDialog = true
-                            }) {
+                            IconButton(
+                                onClick = {
+                                    viewModel.startEditServiceLine(serviceLine)
+                                    showServiceLineDialog = true
+                                },
+                                enabled = !isEntregado
+                            ) {
                                 Icon(
                                     Icons.Default.Edit,
                                     contentDescription = "Editar",
                                     tint = MaterialTheme.colorScheme.primary
                                 )
                             }
-                            IconButton(onClick = { showDeleteServiceLineDialog = serviceLine.id }) {
+                            IconButton(
+                                onClick = { showDeleteServiceLineDialog = serviceLine.id },
+                                enabled = !isEntregado
+                            ) {
                                 Icon(
                                     Icons.Default.Delete,
                                     contentDescription = "Eliminar",
@@ -577,7 +961,10 @@ fun WorkOrderDetailScreen(
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 SectionTitle("Repuestos Utilizados", modifier = Modifier.weight(1f))
-                                IconButton(onClick = { showPartDialog = true }) {
+                                IconButton(
+                                    onClick = { showPartDialog = true },
+                                    enabled = !isEntregado
+                                ) {
                                     Icon(Icons.Default.Add, contentDescription = "Agregar repuesto")
                                 }
                             }
@@ -594,7 +981,10 @@ fun WorkOrderDetailScreen(
                 }
 
                 items(uiState.orderParts, key = { "op_${it.id}" }) { orderPart ->
-                    val partName = uiState.availableParts.find { it.id == orderPart.partId }?.name ?: "Repuesto #${orderPart.partId}"
+                    val part = uiState.availableParts.find { it.id == orderPart.partId }
+                    val partName = part?.let { p ->
+                        if (!p.code.isNullOrBlank()) "${p.code} - ${p.name}" else p.name
+                    } ?: "Repuesto #${orderPart.partId}"
                     Card(
                         modifier = Modifier.fillMaxWidth(),
                         colors = CardDefaults.cardColors(
@@ -619,7 +1009,23 @@ fun WorkOrderDetailScreen(
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
-                            IconButton(onClick = { showDeletePartDialog = orderPart.id }) {
+                            IconButton(
+                                onClick = {
+                                    viewModel.startEditPart(orderPart)
+                                    showPartDialog = true
+                                },
+                                enabled = !isEntregado
+                            ) {
+                                Icon(
+                                    Icons.Default.Edit,
+                                    contentDescription = "Editar",
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                            IconButton(
+                                onClick = { showDeletePartDialog = orderPart.id },
+                                enabled = !isEntregado
+                            ) {
                                 Icon(
                                     Icons.Default.Delete,
                                     contentDescription = "Eliminar",
@@ -672,7 +1078,9 @@ fun WorkOrderDetailScreen(
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 SectionTitle("Pagos", modifier = Modifier.weight(1f))
-                                IconButton(onClick = { showPaymentDialog = true }) {
+                                IconButton(
+                                    onClick = { showPaymentDialog = true }
+                                ) {
                                     Icon(Icons.Default.Add, contentDescription = "Agregar pago")
                                 }
                             }
@@ -715,6 +1123,24 @@ fun WorkOrderDetailScreen(
                                     fontWeight = FontWeight.Bold,
                                     color = MaterialTheme.colorScheme.primary
                                 )
+                            }
+                            if (payment.discount > 0) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Text(
+                                        text = "Descuento",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.error
+                                    )
+                                    Text(
+                                        text = String.format("-$%.2f", payment.discount),
+                                        style = MaterialTheme.typography.bodySmall,
+                                        fontWeight = FontWeight.Medium,
+                                        color = MaterialTheme.colorScheme.error
+                                    )
+                                }
                             }
                             Text(
                                 text = dateFormat.format(Date(payment.date)),
@@ -909,11 +1335,12 @@ private fun ServiceLineDialog(
                     OutlinedTextField(
                         value = description,
                         onValueChange = {
-                            onDescriptionChange(it)
+                            onDescriptionChange(it.uppercase())
                             descriptionError = null
                             suggestionsExpanded = it.isNotBlank()
                         },
                         label = { Text("Descripci\u00f3n *") },
+                        keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Characters),
                         leadingIcon = {
                             Icon(Icons.Default.Search, contentDescription = null, modifier = Modifier.size(20.dp))
                         },
@@ -1021,15 +1448,18 @@ private fun PartDialog(
     selectedPartId: Long?,
     quantity: String,
     price: String,
+    isEditing: Boolean = false,
     onPartSelected: (Long?) -> Unit,
     onQuantityChange: (String) -> Unit,
     onPriceChange: (String) -> Unit,
     onSave: () -> Unit,
     onDismiss: () -> Unit
 ) {
-    var searchQuery by remember { mutableStateOf("") }
-    var suggestionsExpanded by remember { mutableStateOf(false) }
     val selectedPart = availableParts.find { it.id == selectedPartId }
+    var searchQuery by remember { mutableStateOf(
+        if (isEditing && selectedPart != null) "${selectedPart.code ?: ""} - ${selectedPart.name}" else ""
+    ) }
+    var suggestionsExpanded by remember { mutableStateOf(false) }
     var partError by remember { mutableStateOf<String?>(null) }
     var quantityError by remember { mutableStateOf<String?>(null) }
 
@@ -1057,7 +1487,7 @@ private fun PartDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Agregar Repuesto") },
+        title = { Text(if (isEditing) "Editar Repuesto" else "Agregar Repuesto") },
         text = {
             Column {
                 ExposedDropdownMenuBox(
@@ -1180,7 +1610,7 @@ private fun PartDialog(
                     onSave()
                 }
             }) {
-                Text("Agregar")
+                Text(if (isEditing) "Guardar" else "Agregar")
             }
         },
         dismissButton = {
@@ -1195,10 +1625,12 @@ private fun PartDialog(
 @Composable
 private fun PaymentDialog(
     amount: String,
+    discount: String,
     method: PaymentMethod,
     notes: String,
     remainingBalance: Double,
     onAmountChange: (String) -> Unit,
+    onDiscountChange: (String) -> Unit,
     onMethodChange: (PaymentMethod) -> Unit,
     onNotesChange: (String) -> Unit,
     onSave: () -> Unit,
@@ -1226,6 +1658,18 @@ private fun PaymentDialog(
                     } else {
                         { Text("Balance pendiente: $${String.format("%.2f", remainingBalance)}") }
                     },
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                OutlinedTextField(
+                    value = discount,
+                    onValueChange = {
+                        onDiscountChange(it)
+                        amountError = null
+                    },
+                    label = { Text("Descuento") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                    supportingText = { Text("Opcional - monto de descuento aplicado") },
                     modifier = Modifier.fillMaxWidth()
                 )
                 Spacer(modifier = Modifier.height(8.dp))
@@ -1269,11 +1713,15 @@ private fun PaymentDialog(
         },
         confirmButton = {
             TextButton(onClick = {
-                val parsedAmount = amount.toDoubleOrNull()
-                if (parsedAmount == null || parsedAmount <= 0) {
-                    amountError = "Ingrese un monto v\u00e1lido mayor a 0"
-                } else if (parsedAmount > remainingBalance) {
-                    amountError = "El monto excede el balance pendiente ($${String.format("%.2f", remainingBalance)})"
+                val parsedAmount = amount.toDoubleOrNull() ?: 0.0
+                val parsedDiscount = discount.toDoubleOrNull() ?: 0.0
+                val totalPayment = parsedAmount + parsedDiscount
+                if (parsedAmount < 0 || parsedDiscount < 0) {
+                    amountError = "Los valores no pueden ser negativos"
+                } else if (totalPayment <= 0) {
+                    amountError = "Ingrese un monto o descuento mayor a 0"
+                } else if (totalPayment > remainingBalance + 0.01) {
+                    amountError = "El total (monto + descuento) excede el balance pendiente ($${String.format("%.2f", remainingBalance)})"
                 } else {
                     onSave()
                 }
