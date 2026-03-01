@@ -226,8 +226,8 @@ def generate():
     for name, username, role in catalogs['users']:
         pw_hash = hash_password(DEFAULT_PASSWORD)
         lines.append(
-            f"INSERT INTO users (name, username, role, passwordHash, active, createdAt, updatedAt) "
-            f"VALUES ({sql_escape(name)}, {sql_escape(username)}, '{role}', {sql_escape(pw_hash)}, 1, {now_ms}, {now_ms});"
+            f"INSERT INTO users (name, username, role, passwordHash, commissionType, commissionValue, active, createdAt, updatedAt) "
+            f"VALUES ({sql_escape(name)}, {sql_escape(username)}, '{role}', {sql_escape(pw_hash)}, 'NINGUNA', 0.0, 1, {now_ms}, {now_ms});"
         )
     lines.append("")
 
