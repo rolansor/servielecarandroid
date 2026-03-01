@@ -43,8 +43,12 @@ data class VehicleUiState(
     val availableModels: List<String> = emptyList(),
     val availableColors: List<String> = emptyList(),
     val availableVehicleTypes: List<String> = emptyList(),
+    val availableOilTypes: List<String> = emptyList(),
     val formVehicleType: String = "",
     val formFuelType: String = "",
+    val formOilType: String = "",
+    val formOilTypeSearch: String = "",
+    val formOilCapacity: String = "",
     val formPlate: String = "",
     val formBrand: String = "",
     val formModel: String = "",
@@ -116,6 +120,11 @@ class VehicleViewModel(application: Application) : AndroidViewModel(application)
         viewModelScope.launch {
             catalogRepo.getAllVehicleTypes().collect { types ->
                 _uiState.update { it.copy(availableVehicleTypes = types.map { t -> t.name }) }
+            }
+        }
+        viewModelScope.launch {
+            catalogRepo.getAllOilTypes().collect { oilTypes ->
+                _uiState.update { it.copy(availableOilTypes = oilTypes.map { o -> o.name }) }
             }
         }
     }
@@ -234,6 +243,15 @@ class VehicleViewModel(application: Application) : AndroidViewModel(application)
     }
     fun onFormFuelTypeChange(value: String) {
         _uiState.update { it.copy(formFuelType = value) }
+    }
+    fun onFormOilTypeSearchChange(value: String) {
+        _uiState.update { it.copy(formOilTypeSearch = value.uppercase(), formOilType = value.uppercase()) }
+    }
+    fun onFormOilTypeSelected(name: String) {
+        _uiState.update { it.copy(formOilType = name, formOilTypeSearch = name) }
+    }
+    fun onFormOilCapacityChange(value: String) {
+        _uiState.update { it.copy(formOilCapacity = value) }
     }
     fun onFormNotesChange(value: String) { _uiState.update { it.copy(formNotes = value.uppercase()) } }
     fun onFormVersionChange(value: String) {
@@ -398,6 +416,8 @@ class VehicleViewModel(application: Application) : AndroidViewModel(application)
                                 color = state.formColor.trim().ifBlank { null },
                                 vehicleType = state.formVehicleType.ifBlank { null },
                                 fuelType = state.formFuelType.ifBlank { null },
+                                oilType = state.formOilType.ifBlank { null },
+                                oilCapacity = state.formOilCapacity.trim().ifBlank { null },
                                 engineDisplacement = state.formEngineDisplacement.trim().ifBlank { null },
                                 engineNumber = state.formEngineNumber.trim().ifBlank { null },
                                 drivetrain = state.formDrivetrain,
@@ -421,6 +441,8 @@ class VehicleViewModel(application: Application) : AndroidViewModel(application)
                             color = state.formColor.trim().ifBlank { null },
                             vehicleType = state.formVehicleType.ifBlank { null },
                             fuelType = state.formFuelType.ifBlank { null },
+                            oilType = state.formOilType.ifBlank { null },
+                            oilCapacity = state.formOilCapacity.trim().ifBlank { null },
                             engineDisplacement = state.formEngineDisplacement.trim().ifBlank { null },
                             engineNumber = state.formEngineNumber.trim().ifBlank { null },
                             drivetrain = state.formDrivetrain,
@@ -443,6 +465,7 @@ class VehicleViewModel(application: Application) : AndroidViewModel(application)
             it.copy(
                 formPlate = "", formBrand = "", formModel = "", formVersion = "",
                 formYear = "", formVin = "", formColor = "", formVehicleType = "", formFuelType = "",
+                formOilType = "", formOilTypeSearch = "", formOilCapacity = "",
                 formNotes = "", formEngineDisplacement = "", formEngineNumber = "",
                 formDrivetrain = "4x2", formTransmission = "Manual",
                 formCustomerId = customerId, formCustomerSearch = "", formBrandSearch = "", formModelSearch = "", formColorSearch = "", formVehicleTypeSearch = "",
@@ -468,6 +491,9 @@ class VehicleViewModel(application: Application) : AndroidViewModel(application)
                 formVehicleType = vehicle.vehicleType ?: "",
                 formVehicleTypeSearch = vehicle.vehicleType ?: "",
                 formFuelType = vehicle.fuelType ?: "",
+                formOilType = vehicle.oilType ?: "",
+                formOilTypeSearch = vehicle.oilType ?: "",
+                formOilCapacity = vehicle.oilCapacity ?: "",
                 formEngineDisplacement = vehicle.engineDisplacement ?: "",
                 formEngineNumber = vehicle.engineNumber ?: "",
                 formDrivetrain = vehicle.drivetrain,

@@ -50,6 +50,8 @@ data class Vehicle(
     val color: String? = null,
     val vehicleType: String? = null,
     val fuelType: String? = null,
+    val oilType: String? = null,
+    val oilCapacity: String? = null,
     val currentMileage: Int? = null,
     val engineDisplacement: String? = null,
     val engineNumber: String? = null,

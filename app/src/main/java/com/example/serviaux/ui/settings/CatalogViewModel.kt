@@ -22,6 +22,7 @@ import com.example.serviaux.data.entity.CatalogVehicleType
 import com.example.serviaux.data.entity.CatalogAccessory
 import com.example.serviaux.data.entity.CatalogComplaint
 import com.example.serviaux.data.entity.CatalogDiagnosis
+import com.example.serviaux.data.entity.CatalogOilType
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -39,6 +40,7 @@ data class CatalogUiState(
     val accessories: List<CatalogAccessory> = emptyList(),
     val complaints: List<CatalogComplaint> = emptyList(),
     val diagnoses: List<CatalogDiagnosis> = emptyList(),
+    val oilTypes: List<CatalogOilType> = emptyList(),
     val selectedComplaintId: Long? = null,
     val selectedBrandId: Long? = null,
     val selectedBrandName: String = "",
@@ -70,6 +72,8 @@ sealed class CatalogDialogState {
     data class EditComplaint(val complaint: CatalogComplaint, val name: String) : CatalogDialogState()
     data class AddDiagnosis(val complaintId: Long, val name: String = "") : CatalogDialogState()
     data class EditDiagnosis(val diagnosis: CatalogDiagnosis, val name: String) : CatalogDialogState()
+    data class AddOilType(val name: String = "") : CatalogDialogState()
+    data class EditOilType(val oilType: CatalogOilType, val name: String) : CatalogDialogState()
     data class ConfirmDelete(val type: String, val id: Long, val name: String) : CatalogDialogState()
     data class ImportDialog(val jsonText: String = "") : CatalogDialogState()
 }
@@ -93,6 +97,7 @@ class CatalogViewModel(application: Application) : AndroidViewModel(application)
         loadAccessories()
         loadComplaints()
         loadDiagnoses()
+        loadOilTypes()
     }
 
     private fun loadBrands() {
@@ -155,6 +160,14 @@ class CatalogViewModel(application: Application) : AndroidViewModel(application)
         viewModelScope.launch {
             catalogRepo.getAllDiagnoses().collect { diagnoses ->
                 _uiState.update { it.copy(diagnoses = diagnoses) }
+            }
+        }
+    }
+
+    private fun loadOilTypes() {
+        viewModelScope.launch {
+            catalogRepo.getAllOilTypes().collect { oilTypes ->
+                _uiState.update { it.copy(oilTypes = oilTypes) }
             }
         }
     }
@@ -264,6 +277,14 @@ class CatalogViewModel(application: Application) : AndroidViewModel(application)
         _uiState.update { it.copy(dialogState = CatalogDialogState.EditDiagnosis(diagnosis, diagnosis.name)) }
     }
 
+    fun showAddOilTypeDialog() {
+        _uiState.update { it.copy(dialogState = CatalogDialogState.AddOilType()) }
+    }
+
+    fun showEditOilTypeDialog(oilType: CatalogOilType) {
+        _uiState.update { it.copy(dialogState = CatalogDialogState.EditOilType(oilType, oilType.name)) }
+    }
+
     fun showDeleteConfirmation(type: String, id: Long, name: String) {
         _uiState.update { it.copy(dialogState = CatalogDialogState.ConfirmDelete(type, id, name)) }
     }
@@ -295,6 +316,8 @@ class CatalogViewModel(application: Application) : AndroidViewModel(application)
                 is CatalogDialogState.EditComplaint -> d.copy(name = text)
                 is CatalogDialogState.AddDiagnosis -> d.copy(name = text)
                 is CatalogDialogState.EditDiagnosis -> d.copy(name = text)
+                is CatalogDialogState.AddOilType -> d.copy(name = text)
+                is CatalogDialogState.EditOilType -> d.copy(name = text)
                 is CatalogDialogState.ImportDialog -> d.copy(jsonText = text)
                 else -> d
             }
@@ -546,6 +569,30 @@ class CatalogViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
+    fun confirmAddOilType(name: String) {
+        if (name.isBlank()) return
+        viewModelScope.launch {
+            try {
+                catalogRepo.insertOilType(name.trim())
+                _uiState.update { it.copy(dialogState = CatalogDialogState.None, successMessage = "Tipo de aceite agregado") }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(error = e.message ?: "Error al agregar") }
+            }
+        }
+    }
+
+    fun confirmEditOilType(oilType: CatalogOilType, newName: String) {
+        if (newName.isBlank()) return
+        viewModelScope.launch {
+            try {
+                catalogRepo.updateOilType(oilType.copy(name = newName.trim()))
+                _uiState.update { it.copy(dialogState = CatalogDialogState.None, successMessage = "Tipo de aceite actualizado") }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(error = e.message ?: "Error al actualizar") }
+            }
+        }
+    }
+
     fun confirmDelete() {
         val dialog = _uiState.value.dialogState as? CatalogDialogState.ConfirmDelete ?: return
         viewModelScope.launch {
@@ -591,6 +638,10 @@ class CatalogViewModel(application: Application) : AndroidViewModel(application)
                     "diagnosis" -> {
                         val diagnosis = _uiState.value.diagnoses.find { it.id == dialog.id }
                         if (diagnosis != null) catalogRepo.deleteDiagnosis(diagnosis)
+                    }
+                    "oilType" -> {
+                        val oilType = _uiState.value.oilTypes.find { it.id == dialog.id }
+                        if (oilType != null) catalogRepo.deleteOilType(oilType)
                     }
                 }
                 _uiState.update { it.copy(dialogState = CatalogDialogState.None, successMessage = "Eliminado correctamente") }

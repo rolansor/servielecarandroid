@@ -144,6 +144,13 @@ def read_catalogos(wb):
                 data['services'][category] = []
             data['services'][category].append((service, price))
 
+    # Oil Types (Aceites)
+    if 'Aceites' in wb.sheetnames:
+        ws = wb['Aceites']
+        data['oil_types'] = read_single_column(ws)
+    else:
+        data['oil_types'] = []
+
     # Motivos (complaints)
     if 'Motivos' in wb.sheetnames:
         ws = wb['Motivos']
@@ -266,6 +273,14 @@ def generate():
     lines.append("-- ══════════════════════════════════════════════════════════")
     for acc in catalogs['accessories']:
         lines.append(f"INSERT INTO catalog_accessories (name) VALUES ({sql_escape(acc)});")
+    lines.append("")
+
+    # ── 7a. Catalog: Oil Types ──────────────────────────────────────────
+    lines.append("-- ══════════════════════════════════════════════════════════")
+    lines.append("-- CATALOG: OIL TYPES")
+    lines.append("-- ══════════════════════════════════════════════════════════")
+    for oil in catalogs['oil_types']:
+        lines.append(f"INSERT INTO catalog_oil_types (name) VALUES ({sql_escape(oil)});")
     lines.append("")
 
     # ── 7. Catalog: Services (duplicated per vehicle type) ──────────────
@@ -568,6 +583,7 @@ def generate():
         "Vehicle Types": "INSERT INTO catalog_vehicle_types",
         "Part Brands": "INSERT INTO catalog_part_brands",
         "Accessories": "INSERT INTO catalog_accessories",
+        "Oil Types": "INSERT INTO catalog_oil_types",
         "Services": "INSERT INTO catalog_services",
         "Complaints": "INSERT INTO catalog_complaints",
         "Diagnoses": "INSERT INTO catalog_diagnoses",

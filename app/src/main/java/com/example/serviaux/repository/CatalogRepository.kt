@@ -17,6 +17,7 @@ import com.example.serviaux.data.entity.CatalogVehicleType
 import com.example.serviaux.data.entity.CatalogAccessory
 import com.example.serviaux.data.entity.CatalogComplaint
 import com.example.serviaux.data.entity.CatalogDiagnosis
+import com.example.serviaux.data.entity.CatalogOilType
 import kotlinx.coroutines.flow.Flow
 import org.json.JSONObject
 import org.json.JSONArray
@@ -90,6 +91,13 @@ class CatalogRepository(private val dao: CatalogDao) {
     suspend fun updateDiagnosis(diagnosis: CatalogDiagnosis) = dao.updateDiagnosis(diagnosis)
     suspend fun deleteDiagnosis(diagnosis: CatalogDiagnosis) = dao.deleteDiagnosis(diagnosis)
 
+    // ── Tipos de aceite ────────────────────────────────────────────────
+    fun getAllOilTypes(): Flow<List<CatalogOilType>> = dao.getAllOilTypes()
+    suspend fun getAllOilTypesDirect(): List<CatalogOilType> = dao.getAllOilTypesDirect()
+    suspend fun insertOilType(name: String): Long = dao.insertOilType(CatalogOilType(name = name))
+    suspend fun updateOilType(oilType: CatalogOilType) = dao.updateOilType(oilType)
+    suspend fun deleteOilType(oilType: CatalogOilType) = dao.deleteOilType(oilType)
+
     // ── Exportación/Importación JSON ──────────────────────────────────
 
     /** Exporta todos los catálogos como cadena JSON estructurada. */
@@ -103,6 +111,7 @@ class CatalogRepository(private val dao: CatalogDao) {
         val accessories = dao.getAllAccessoriesDirect()
         val complaints = dao.getAllComplaintsDirect()
         val diagnoses = dao.getAllDiagnosesDirect()
+        val oilTypes = dao.getAllOilTypesDirect()
 
         val json = JSONObject()
 
@@ -150,6 +159,9 @@ class CatalogRepository(private val dao: CatalogDao) {
         }
         json.put("motivos", complaintsJson)
 
+        // Oil types
+        json.put("tipos_aceite", JSONArray(oilTypes.map { it.name }))
+
         return json.toString(2)
     }
 
@@ -167,6 +179,7 @@ class CatalogRepository(private val dao: CatalogDao) {
         dao.deleteAllServices()
         dao.deleteAllVehicleTypes()
         dao.deleteAllAccessories()
+        dao.deleteAllOilTypes()
 
         // Import brands and models
         if (json.has("marcas")) {
@@ -227,6 +240,14 @@ class CatalogRepository(private val dao: CatalogDao) {
             val arr = json.getJSONArray("accesorios")
             for (i in 0 until arr.length()) {
                 dao.insertAccessory(CatalogAccessory(name = arr.getString(i)))
+            }
+        }
+
+        // Import oil types
+        if (json.has("tipos_aceite")) {
+            val arr = json.getJSONArray("tipos_aceite")
+            for (i in 0 until arr.length()) {
+                dao.insertOilType(CatalogOilType(name = arr.getString(i)))
             }
         }
 

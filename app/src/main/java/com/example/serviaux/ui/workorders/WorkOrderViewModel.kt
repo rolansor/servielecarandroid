@@ -116,7 +116,8 @@ data class WorkOrderUiState(
     val selectedVehicle: Vehicle? = null,
     val pdfGenerating: Boolean = false,
     val pdfFile: File? = null,
-    val orderDeleted: Boolean = false
+    val orderDeleted: Boolean = false,
+    val isAdmin: Boolean = false
 )
 
 class WorkOrderViewModel(application: Application) : AndroidViewModel(application) {
@@ -139,6 +140,7 @@ class WorkOrderViewModel(application: Application) : AndroidViewModel(applicatio
     private var detailPendingPhotoFile: File? = null
 
     init {
+        _uiState.update { it.copy(isAdmin = session.isAdmin()) }
         loadOrders()
         loadVehicleAndCustomerMaps()
         loadCatalogServices()

@@ -54,14 +54,14 @@ class BackupRepository(private val database: ServiauxDatabase) {
         private const val PHOTOS_DIR = "vehicle_photos"
         private const val BACKUPS_DIR = "backups"
         private const val MANIFEST_FILE = "manifest.json"
-        private const val DB_VERSION = 7
+        private const val DB_VERSION = 8
 
         private val CATEGORY_TABLES = mapOf(
             BackupCategory.USERS to listOf("users"),
             BackupCategory.CLIENTS_VEHICLES to listOf("customers", "vehicles"),
             BackupCategory.PRODUCTS to listOf("parts"),
             BackupCategory.WORK_ORDERS to listOf("work_orders", "service_lines", "work_order_parts", "work_order_payments", "work_order_status_log", "work_order_mechanics"),
-            BackupCategory.CATALOGS to listOf("catalog_brands", "catalog_models", "catalog_colors", "catalog_part_brands", "catalog_services", "catalog_vehicle_types", "catalog_accessories", "catalog_complaints", "catalog_diagnoses")
+            BackupCategory.CATALOGS to listOf("catalog_brands", "catalog_models", "catalog_colors", "catalog_part_brands", "catalog_services", "catalog_vehicle_types", "catalog_accessories", "catalog_complaints", "catalog_diagnoses", "catalog_oil_types")
         )
     }
 
@@ -100,6 +100,7 @@ class BackupRepository(private val database: ServiauxDatabase) {
             val catalogAccessories = if ("catalog_accessories" in includedTables) database.catalogDao().getAllAccessoriesDirect() else emptyList()
             val catalogComplaints = if ("catalog_complaints" in includedTables) database.catalogDao().getAllComplaintsDirect() else emptyList()
             val catalogDiagnoses = if ("catalog_diagnoses" in includedTables) database.catalogDao().getAllDiagnosesDirect() else emptyList()
+            val catalogOilTypes = if ("catalog_oil_types" in includedTables) database.catalogDao().getAllOilTypesDirect() else emptyList()
 
             val counts = mutableMapOf<String, Int>()
             if ("users" in includedTables) counts["users"] = users.size
@@ -121,6 +122,7 @@ class BackupRepository(private val database: ServiauxDatabase) {
             if ("catalog_accessories" in includedTables) counts["catalog_accessories"] = catalogAccessories.size
             if ("catalog_complaints" in includedTables) counts["catalog_complaints"] = catalogComplaints.size
             if ("catalog_diagnoses" in includedTables) counts["catalog_diagnoses"] = catalogDiagnoses.size
+            if ("catalog_oil_types" in includedTables) counts["catalog_oil_types"] = catalogOilTypes.size
 
             ZipOutputStream(BufferedOutputStream(FileOutputStream(zipFile))).use { zip ->
                 // Manifest with categories
@@ -156,6 +158,7 @@ class BackupRepository(private val database: ServiauxDatabase) {
                 if ("catalog_accessories" in includedTables) writeZipEntry(zip, "data/catalog_accessories.json", catalogAccessoriesToJson(catalogAccessories))
                 if ("catalog_complaints" in includedTables) writeZipEntry(zip, "data/catalog_complaints.json", catalogComplaintsToJson(catalogComplaints))
                 if ("catalog_diagnoses" in includedTables) writeZipEntry(zip, "data/catalog_diagnoses.json", catalogDiagnosesToJson(catalogDiagnoses))
+                if ("catalog_oil_types" in includedTables) writeZipEntry(zip, "data/catalog_oil_types.json", catalogOilTypesToJson(catalogOilTypes))
 
                 // Photos (only if vehicles or work orders are included)
                 val photosDir = File(context.filesDir, PHOTOS_DIR)
@@ -241,6 +244,7 @@ class BackupRepository(private val database: ServiauxDatabase) {
             val catalogAccessories = database.catalogDao().getAllAccessoriesDirect()
             val catalogComplaints = database.catalogDao().getAllComplaintsDirect()
             val catalogDiagnoses = database.catalogDao().getAllDiagnosesDirect()
+            val catalogOilTypes = database.catalogDao().getAllOilTypesDirect()
 
             val counts = mapOf(
                 "users" to users.size,
@@ -286,6 +290,7 @@ class BackupRepository(private val database: ServiauxDatabase) {
                 writeZipEntry(zip, "data/catalog_accessories.json", catalogAccessoriesToJson(catalogAccessories))
                 writeZipEntry(zip, "data/catalog_complaints.json", catalogComplaintsToJson(catalogComplaints))
                 writeZipEntry(zip, "data/catalog_diagnoses.json", catalogDiagnosesToJson(catalogDiagnoses))
+                writeZipEntry(zip, "data/catalog_oil_types.json", catalogOilTypesToJson(catalogOilTypes))
 
                 // Photos only for orders in this year
                 val photosDir = File(context.filesDir, PHOTOS_DIR)
@@ -440,6 +445,7 @@ class BackupRepository(private val database: ServiauxDatabase) {
             if (BackupCategory.CATALOGS in categories) {
                 catalogDao.deleteAllDiagnoses()
                 catalogDao.deleteAllComplaints()
+                catalogDao.deleteAllOilTypes()
                 catalogDao.deleteAllAccessories()
                 catalogDao.deleteAllVehicleTypes()
                 catalogDao.deleteAllServices()
@@ -551,6 +557,13 @@ class BackupRepository(private val database: ServiauxDatabase) {
                     val items = jsonToCatalogDiagnoses(String(bytes))
                     items.forEach { catalogDao.insertDiagnosis(it) }
                     counts["catalog_diagnoses"] = items.size
+                }
+            }
+            if ("catalog_oil_types" in includedTables) {
+                entries["data/catalog_oil_types.json"]?.let { bytes ->
+                    val items = jsonToCatalogOilTypes(String(bytes))
+                    items.forEach { catalogDao.insertOilType(it) }
+                    counts["catalog_oil_types"] = items.size
                 }
             }
 
@@ -718,6 +731,8 @@ class BackupRepository(private val database: ServiauxDatabase) {
                 put("color", v.color ?: JSONObject.NULL)
                 put("vehicleType", v.vehicleType ?: JSONObject.NULL)
                 put("fuelType", v.fuelType ?: JSONObject.NULL)
+                put("oilType", v.oilType ?: JSONObject.NULL)
+                put("oilCapacity", v.oilCapacity ?: JSONObject.NULL)
                 put("currentMileage", v.currentMileage ?: JSONObject.NULL)
                 put("engineDisplacement", v.engineDisplacement ?: JSONObject.NULL)
                 put("engineNumber", v.engineNumber ?: JSONObject.NULL)
@@ -948,6 +963,17 @@ class BackupRepository(private val database: ServiauxDatabase) {
         return arr.toString(2)
     }
 
+    private fun catalogOilTypesToJson(oilTypes: List<CatalogOilType>): String {
+        val arr = JSONArray()
+        oilTypes.forEach { o ->
+            arr.put(JSONObject().apply {
+                put("id", o.id)
+                put("name", o.name)
+            })
+        }
+        return arr.toString(2)
+    }
+
     private fun catalogComplaintsToJson(complaints: List<CatalogComplaint>): String {
         val arr = JSONArray()
         complaints.forEach { c ->
@@ -1026,6 +1052,8 @@ class BackupRepository(private val database: ServiauxDatabase) {
                 color = o.optStringOrNull("color"),
                 vehicleType = o.optStringOrNull("vehicleType"),
                 fuelType = o.optStringOrNull("fuelType"),
+                oilType = o.optStringOrNull("oilType"),
+                oilCapacity = o.optStringOrNull("oilCapacity"),
                 currentMileage = o.optIntOrNull("currentMileage"),
                 engineDisplacement = o.optStringOrNull("engineDisplacement"),
                 engineNumber = o.optStringOrNull("engineNumber"),
@@ -1233,6 +1261,14 @@ class BackupRepository(private val database: ServiauxDatabase) {
         return (0 until arr.length()).map { i ->
             val o = arr.getJSONObject(i)
             CatalogAccessory(id = o.getLong("id"), name = o.getString("name"))
+        }
+    }
+
+    private fun jsonToCatalogOilTypes(json: String): List<CatalogOilType> {
+        val arr = JSONArray(json)
+        return (0 until arr.length()).map { i ->
+            val o = arr.getJSONObject(i)
+            CatalogOilType(id = o.getLong("id"), name = o.getString("name"))
         }
     }
 

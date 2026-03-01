@@ -104,3 +104,12 @@ data class CatalogDiagnosis(
     val complaintId: Long,
     val name: String
 )
+
+// ── Tipos de aceite ───────────────────────────────────────────────────
+
+/** Tipo de aceite de motor (ej. 5W-30, 10W-40). */
+@Entity(tableName = "catalog_oil_types")
+data class CatalogOilType(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val name: String
+)

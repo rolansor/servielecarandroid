@@ -44,9 +44,10 @@ import java.io.InputStreamReader
         CatalogAccessory::class,
         CatalogComplaint::class,
         CatalogDiagnosis::class,
-        WorkOrderMechanic::class
+        WorkOrderMechanic::class,
+        CatalogOilType::class
     ],
-    version = 7,
+    version = 8,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -83,6 +84,21 @@ abstract class ServiauxDatabase : RoomDatabase() {
         }
 
         // ── Migraciones ──────────────────────────────────────────────────
+
+        /** v7->v8: Agrega tabla de tipos de aceite y campos oilType/oilCapacity a vehículos. */
+        private val MIGRATION_7_8 = object : Migration(7, 8) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS catalog_oil_types (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        name TEXT NOT NULL
+                    )
+                """.trimIndent())
+                try { db.execSQL("ALTER TABLE vehicles ADD COLUMN oilType TEXT") } catch (_: Exception) {}
+                try { db.execSQL("ALTER TABLE vehicles ADD COLUMN oilCapacity TEXT") } catch (_: Exception) {}
+                Log.i("ServiauxDatabase", "Migration 7->8 completed successfully")
+            }
+        }
 
         /** v6->v7: Agrega condición de llegada y tipo de orden a órdenes. */
         private val MIGRATION_6_7 = object : Migration(6, 7) {
@@ -186,7 +202,7 @@ abstract class ServiauxDatabase : RoomDatabase() {
                 ServiauxDatabase::class.java,
                 "serviaux_v1"
             )
-                .addMigrations(MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7)
+                .addMigrations(MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8)
                 .addCallback(SeedCallback(context.applicationContext))
                 .build()
         }

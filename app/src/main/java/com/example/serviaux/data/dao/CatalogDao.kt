@@ -20,6 +20,7 @@ import com.example.serviaux.data.entity.CatalogVehicleType
 import com.example.serviaux.data.entity.CatalogAccessory
 import com.example.serviaux.data.entity.CatalogComplaint
 import com.example.serviaux.data.entity.CatalogDiagnosis
+import com.example.serviaux.data.entity.CatalogOilType
 import kotlinx.coroutines.flow.Flow
 
 /** DAO unificado para todas las entidades de catálogo. */
@@ -205,4 +206,23 @@ interface CatalogDao {
 
     @Query("DELETE FROM catalog_diagnoses")
     suspend fun deleteAllDiagnoses()
+
+    // ── Tipos de aceite ────────────────────────────────────────────────
+    @Query("SELECT * FROM catalog_oil_types ORDER BY name")
+    fun getAllOilTypes(): Flow<List<CatalogOilType>>
+
+    @Query("SELECT * FROM catalog_oil_types ORDER BY name")
+    suspend fun getAllOilTypesDirect(): List<CatalogOilType>
+
+    @Insert
+    suspend fun insertOilType(oilType: CatalogOilType): Long
+
+    @Update
+    suspend fun updateOilType(oilType: CatalogOilType)
+
+    @Delete
+    suspend fun deleteOilType(oilType: CatalogOilType)
+
+    @Query("DELETE FROM catalog_oil_types")
+    suspend fun deleteAllOilTypes()
 }

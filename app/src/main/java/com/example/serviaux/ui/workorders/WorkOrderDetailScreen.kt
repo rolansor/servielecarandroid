@@ -203,6 +203,7 @@ fun WorkOrderDetailScreen(
 
     val order = uiState.selectedOrder
     val isEntregado = order?.status == OrderStatus.ENTREGADO
+    val isAdmin = uiState.isAdmin
 
     // Status change dialog
     if (showStatusDialog) {

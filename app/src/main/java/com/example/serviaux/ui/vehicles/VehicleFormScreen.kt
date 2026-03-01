@@ -268,6 +268,33 @@ fun VehicleFormScreen(
 
             Spacer(modifier = Modifier.height(12.dp))
 
+            // Tipo de aceite (autocomplete from catalog)
+            val oilTypeItems = remember(uiState.availableOilTypes) {
+                uiState.availableOilTypes.mapIndexed { index, name -> SearchableItem(index.toLong(), name) }
+            }
+            SearchableDropdown(
+                value = uiState.formOilTypeSearch,
+                onValueChange = { viewModel.onFormOilTypeSearchChange(it) },
+                items = oilTypeItems,
+                onItemSelected = { viewModel.onFormOilTypeSelected(it.name) },
+                label = "Tipo de Aceite",
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Capacidad de aceite
+            OutlinedTextField(
+                value = uiState.formOilCapacity,
+                onValueChange = { viewModel.onFormOilCapacityChange(it) },
+                label = { Text("Capacidad de Aceite") },
+                placeholder = { Text("ej: 4 litros, 1 gal\u00f3n") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            Spacer(modifier = Modifier.height(12.dp))
+
             // 3. Placa
             OutlinedTextField(
                 value = uiState.formPlate,

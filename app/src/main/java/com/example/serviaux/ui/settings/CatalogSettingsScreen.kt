@@ -87,7 +87,7 @@ fun CatalogSettingsScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     var selectedTab by remember { mutableIntStateOf(0) }
     val context = LocalContext.current
-    val tabs = listOf("Marcas", "Colores", "Repuestos", "Servicios", "Tipos Veh.", "Accesorios", "Motivos", "Diagn\u00f3sticos")
+    val tabs = listOf("Marcas", "Colores", "Repuestos", "Servicios", "Tipos Veh.", "Accesorios", "Aceites", "Motivos", "Diagn\u00f3sticos")
 
     LaunchedEffect(uiState.error) {
         uiState.error?.let {
@@ -127,8 +127,9 @@ fun CatalogSettingsScreen(
                         3 -> viewModel.showAddServiceDialog()
                         4 -> viewModel.showAddVehicleTypeDialog()
                         5 -> viewModel.showAddAccessoryDialog()
-                        6 -> viewModel.showAddComplaintDialog()
-                        7 -> {
+                        6 -> viewModel.showAddOilTypeDialog()
+                        7 -> viewModel.showAddComplaintDialog()
+                        8 -> {
                             val complaintId = uiState.selectedComplaintId
                             if (complaintId != null) {
                                 viewModel.showAddDiagnosisDialog(complaintId)
@@ -183,8 +184,13 @@ fun CatalogSettingsScreen(
                     onEdit = { id -> uiState.accessories.find { it.id == id }?.let { viewModel.showEditAccessoryDialog(it) } },
                     onDelete = { id, name -> viewModel.showDeleteConfirmation("accessory", id, name) }
                 )
-                6 -> ComplaintsTab(uiState = uiState, viewModel = viewModel)
-                7 -> DiagnosesTab(uiState = uiState, viewModel = viewModel)
+                6 -> SimpleListTab(
+                    items = uiState.oilTypes.map { SimpleItem(it.id, it.name) },
+                    onEdit = { id -> uiState.oilTypes.find { it.id == id }?.let { viewModel.showEditOilTypeDialog(it) } },
+                    onDelete = { id, name -> viewModel.showDeleteConfirmation("oilType", id, name) }
+                )
+                7 -> ComplaintsTab(uiState = uiState, viewModel = viewModel)
+                8 -> DiagnosesTab(uiState = uiState, viewModel = viewModel)
             }
         }
     }
@@ -756,6 +762,28 @@ private fun CatalogDialogs(uiState: CatalogUiState, viewModel: CatalogViewModel)
                 value = dialog.name,
                 onValueChange = { viewModel.updateDialogText(it) },
                 onConfirm = { viewModel.confirmEditAccessory(dialog.acc, dialog.name) },
+                onDismiss = { viewModel.dismissDialog() }
+            )
+        }
+
+        is CatalogDialogState.AddOilType -> {
+            TextInputDialog(
+                title = "Agregar Tipo de Aceite",
+                label = "Tipo de aceite",
+                value = dialog.name,
+                onValueChange = { viewModel.updateDialogText(it) },
+                onConfirm = { viewModel.confirmAddOilType(dialog.name) },
+                onDismiss = { viewModel.dismissDialog() }
+            )
+        }
+
+        is CatalogDialogState.EditOilType -> {
+            TextInputDialog(
+                title = "Editar Tipo de Aceite",
+                label = "Tipo de aceite",
+                value = dialog.name,
+                onValueChange = { viewModel.updateDialogText(it) },
+                onConfirm = { viewModel.confirmEditOilType(dialog.oilType, dialog.name) },
                 onDismiss = { viewModel.dismissDialog() }
             )
         }
