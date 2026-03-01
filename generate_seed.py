@@ -553,9 +553,11 @@ def generate():
 
         lines.append(
             f"INSERT INTO work_orders (id, vehicleId, customerId, entryDate, status, priority, "
+            f"orderType, arrivalCondition, "
             f"customerComplaint, initialDiagnosis, assignedMechanicId, entryMileage, fuelLevel, "
             f"checklistNotes, totalLabor, totalParts, total, photoPaths, createdBy, updatedBy, createdAt, updatedAt) "
             f"VALUES ({order_id_int}, {vehicle_id_ref}, {customer_id_ref}, {entry_date}, '{status}', 'MEDIA', "
+            f"'SERVICIO_NUEVO', 'RODANDO', "
             f"{sql_escape(falla)}, NULL, NULL, {kms_sql}, NULL, "
             f"NULL, {total_val}, 0.0, {total_val}, NULL, {admin_user_id}, {admin_user_id}, {entry_date}, {entry_date});"
         )
