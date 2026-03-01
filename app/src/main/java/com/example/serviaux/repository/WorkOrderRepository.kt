@@ -1,16 +1,35 @@
+/**
+ * WorkOrderRepository.kt - Repositorio central de órdenes de trabajo.
+ *
+ * Es el repositorio más complejo del sistema. Coordina múltiples DAOs para:
+ * - CRUD de órdenes con registro automático de cambios de estado.
+ * - Gestión de líneas de servicio, repuestos y pagos.
+ * - Ajuste automático de stock al agregar/quitar repuestos.
+ * - Recálculo automático de totales (mano de obra + repuestos).
+ * - Eliminación completa de una orden con restauración de stock y limpieza de archivos.
+ * - Consultas para reportes (totales por rango de fechas, repuestos más usados).
+ */
 package com.example.serviaux.repository
 
 import com.example.serviaux.data.dao.*
 import com.example.serviaux.data.entity.*
 import kotlinx.coroutines.flow.Flow
 
+/**
+ * Repositorio de órdenes de trabajo.
+ *
+ * Coordina [WorkOrderDao], [ServiceLineDao], [WorkOrderPartDao],
+ * [WorkOrderPaymentDao], [WorkOrderStatusLogDao] y [PartDao] para
+ * mantener la consistencia de datos en todas las operaciones.
+ */
 class WorkOrderRepository(
     private val workOrderDao: WorkOrderDao,
     private val serviceLineDao: ServiceLineDao,
     private val workOrderPartDao: WorkOrderPartDao,
     private val workOrderPaymentDao: WorkOrderPaymentDao,
     private val workOrderStatusLogDao: WorkOrderStatusLogDao,
-    private val partDao: PartDao
+    private val partDao: PartDao,
+    private val workOrderMechanicDao: WorkOrderMechanicDao
 ) {
     fun getAll(): Flow<List<WorkOrder>> = workOrderDao.getAll()
     fun getById(id: Long): Flow<WorkOrder?> = workOrderDao.getById(id)
@@ -24,6 +43,7 @@ class WorkOrderRepository(
     fun getByStatusAndDateRange(status: OrderStatus, from: Long, to: Long): Flow<List<WorkOrder>> = workOrderDao.getByStatusAndDateRange(status, from, to)
     fun getTotalByDateRange(from: Long, to: Long): Flow<Double> = workOrderDao.getTotalByDateRange(from, to)
 
+    /** Inserta una orden y registra el estado inicial en el historial. */
     suspend fun insert(workOrder: WorkOrder): Long {
         val id = workOrderDao.insert(workOrder)
         workOrderStatusLogDao.insert(
@@ -42,6 +62,7 @@ class WorkOrderRepository(
         workOrderDao.update(workOrder.copy(updatedAt = System.currentTimeMillis()))
     }
 
+    /** Cambia el estado de una orden y registra la transición en el historial. */
     suspend fun changeStatus(orderId: Long, newStatus: OrderStatus, userId: Long, note: String? = null) {
         val order = workOrderDao.getByIdDirect(orderId) ?: return
         val oldStatus = order.status
@@ -62,7 +83,7 @@ class WorkOrderRepository(
         workOrderDao.update(order.copy(assignedMechanicId = mechanicId, updatedBy = userId, updatedAt = System.currentTimeMillis()))
     }
 
-    // Service Lines
+    // ── Líneas de servicio (mano de obra) ────────────────────────────
     fun getServiceLines(workOrderId: Long): Flow<List<ServiceLine>> = serviceLineDao.getByWorkOrder(workOrderId)
 
     suspend fun addServiceLine(serviceLine: ServiceLine): Long {
@@ -81,9 +102,10 @@ class WorkOrderRepository(
         recalculateTotals(serviceLine.workOrderId)
     }
 
-    // Work Order Parts
+    // ── Repuestos de la orden ────────────────────────────────────────
     fun getWorkOrderParts(workOrderId: Long): Flow<List<WorkOrderPart>> = workOrderPartDao.getByWorkOrder(workOrderId)
 
+    /** Agrega un repuesto a la orden, disminuye stock y recalcula totales. */
     suspend fun addWorkOrderPart(workOrderPart: WorkOrderPart): Long {
         val id = workOrderPartDao.insert(workOrderPart)
         partDao.decreaseStock(workOrderPart.partId, workOrderPart.quantity)
@@ -104,7 +126,7 @@ class WorkOrderRepository(
         recalculateTotals(workOrderPart.workOrderId)
     }
 
-    // Payments
+    // ── Pagos ──────────────────────────────────────────────────────────
     fun getPayments(workOrderId: Long): Flow<List<WorkOrderPayment>> = workOrderPaymentDao.getByWorkOrder(workOrderId)
     suspend fun getPaymentsDirect(workOrderId: Long): List<WorkOrderPayment> = workOrderPaymentDao.getByWorkOrderDirect(workOrderId)
     fun getTotalPayments(workOrderId: Long): Flow<Double> = workOrderPaymentDao.getTotalPayments(workOrderId)
@@ -114,7 +136,27 @@ class WorkOrderRepository(
     // Status Log
     fun getStatusLog(workOrderId: Long): Flow<List<WorkOrderStatusLog>> = workOrderStatusLogDao.getByWorkOrder(workOrderId)
 
-    // Delete work order and all related data, returns photo paths and file paths for cleanup
+    // ── Mecánicos de la orden ──────────────────────────────────────
+    fun getOrderMechanics(workOrderId: Long) = workOrderMechanicDao.getByWorkOrder(workOrderId)
+    suspend fun getOrderMechanicsDirect(workOrderId: Long) = workOrderMechanicDao.getByWorkOrderDirect(workOrderId)
+
+    suspend fun addMechanicToOrder(mechanic: WorkOrderMechanic): Long = workOrderMechanicDao.insert(mechanic)
+
+    suspend fun removeMechanicFromOrder(mechanic: WorkOrderMechanic) = workOrderMechanicDao.delete(mechanic)
+
+    suspend fun updateOrderMechanic(mechanic: WorkOrderMechanic) = workOrderMechanicDao.update(mechanic)
+
+    suspend fun toggleCommissionPaid(mechanic: WorkOrderMechanic) {
+        if (mechanic.commissionPaid) {
+            workOrderMechanicDao.markAsUnpaid(mechanic.id)
+        } else {
+            workOrderMechanicDao.markAsPaid(mechanic.id)
+        }
+    }
+
+    // ── Eliminación completa de orden ────────────────────────────────
+
+    /** Elimina la orden y todos sus datos relacionados. Restaura el stock y retorna rutas de archivos para limpieza. */
     suspend fun deleteOrder(orderId: Long): Pair<List<String>, List<String>> {
         val order = workOrderDao.getByIdDirect(orderId)
         val photoPaths = order?.photoPaths?.split(",")?.map { it.trim() }?.filter { it.isNotBlank() } ?: emptyList()
@@ -128,15 +170,18 @@ class WorkOrderRepository(
         workOrderDao.deletePartsByOrder(orderId)
         workOrderDao.deletePaymentsByOrder(orderId)
         workOrderDao.deleteStatusLogByOrder(orderId)
+        workOrderMechanicDao.deleteByWorkOrder(orderId)
         workOrderDao.deleteById(orderId)
         return photoPaths to filePaths
     }
 
-    // Reports
+    // ── Reportes ────────────────────────────────────────────────────────
     suspend fun getTopParts(from: Long, to: Long, limit: Int = 10): List<TopPartResult> =
         workOrderPartDao.getTopParts(from, to, limit)
 
-    // Recalculate totals
+    // ── Recálculo de totales ──────────────────────────────────────────
+
+    /** Recalcula totalLabor, totalParts y total sumando las líneas de servicio y repuestos. */
     private suspend fun recalculateTotals(workOrderId: Long) {
         val order = workOrderDao.getByIdDirect(workOrderId) ?: return
         val totalLabor = serviceLineDao.getTotalLabor(workOrderId)

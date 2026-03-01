@@ -1,3 +1,10 @@
+/**
+ * CustomerDetailScreen.kt - Pantalla de detalle de un cliente.
+ *
+ * Muestra la información completa del cliente, su lista de vehículos
+ * registrados y permite navegar a editar el cliente, ver un vehículo
+ * o agregar un nuevo vehículo preseleccionando al cliente.
+ */
 package com.example.serviaux.ui.customers
 
 import androidx.compose.foundation.clickable

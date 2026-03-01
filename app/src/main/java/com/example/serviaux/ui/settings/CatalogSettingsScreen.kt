@@ -1,9 +1,16 @@
+/**
+ * CatalogSettingsScreen.kt - Pantalla de configuración de catálogos.
+ *
+ * Interfaz de administración para los 9 tipos de catálogo del sistema:
+ * marcas de vehículos (con modelos), colores, marcas de repuestos,
+ * servicios predefinidos, tipos de vehículo, accesorios, quejas y diagnósticos.
+ *
+ * Cada sección es expandible y permite crear, editar y eliminar elementos.
+ * Incluye exportación e importación de catálogos en formato JSON.
+ * Solo accesible para administradores.
+ */
 package com.example.serviaux.ui.settings
 
-import android.content.ClipData
-import android.content.ClipboardManager
-import android.content.Context
-import android.content.Intent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -28,8 +35,6 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
-import androidx.compose.material.icons.filled.FileDownload
-import androidx.compose.material.icons.filled.FileUpload
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -43,7 +48,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.MenuAnchorType
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.ScrollableTabRow
@@ -99,25 +103,6 @@ fun CatalogSettingsScreen(
         }
     }
 
-    LaunchedEffect(uiState.exportJson) {
-        uiState.exportJson?.let { json ->
-            val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-            clipboard.setPrimaryClip(ClipData.newPlainText("Serviaux Catalog", json))
-
-            try {
-                val shareIntent = Intent(Intent.ACTION_SEND).apply {
-                    type = "application/json"
-                    putExtra(Intent.EXTRA_TEXT, json)
-                    putExtra(Intent.EXTRA_SUBJECT, "Serviaux - Cat\u00e1logos")
-                }
-                context.startActivity(Intent.createChooser(shareIntent, "Compartir cat\u00e1logo"))
-            } catch (_: Exception) { }
-
-            snackbarHostState.showSnackbar("JSON copiado al portapapeles")
-            viewModel.clearExportJson()
-        }
-    }
-
     CatalogDialogs(uiState = uiState, viewModel = viewModel)
 
     Scaffold(
@@ -161,31 +146,6 @@ fun CatalogSettingsScreen(
                 .fillMaxSize()
                 .padding(padding)
         ) {
-            // Import/Export buttons
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                OutlinedButton(
-                    onClick = { viewModel.exportCatalog() },
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Icon(Icons.Default.FileDownload, contentDescription = null, modifier = Modifier.size(18.dp))
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text("Exportar")
-                }
-                OutlinedButton(
-                    onClick = { viewModel.showImportDialog() },
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Icon(Icons.Default.FileUpload, contentDescription = null, modifier = Modifier.size(18.dp))
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text("Importar")
-                }
-            }
-
             // Scrollable tabs
             ScrollableTabRow(
                 selectedTabIndex = selectedTab,
@@ -866,63 +826,7 @@ private fun CatalogDialogs(uiState: CatalogUiState, viewModel: CatalogViewModel)
             )
         }
 
-        is CatalogDialogState.ImportDialog -> {
-            val exampleJson = """
-{
-  "marcas": {"TOYOTA": ["COROLLA","HILUX"]},
-  "colores": ["BLANCO","NEGRO"],
-  "marcas_repuestos": ["BOSCH","DENSO"],
-  "servicios": {
-    "MANTENIMIENTO": [
-      {"nombre":"CAMBIO DE ACEITE","precio":10.0,"tipo_vehiculo":null},
-      {"nombre":"CAMBIO DE ACEITE","precio":10.0,"tipo_vehiculo":"SEDAN"}
-    ]
-  },
-  "tipos_vehiculo": ["SEDAN","SUV","CAMIONETA"],
-  "accesorios": ["GATA","EXTINTOR"]
-}
-            """.trimIndent()
-
-            AlertDialog(
-                onDismissRequest = { viewModel.dismissDialog() },
-                title = { Text("Importar Cat\u00e1logo") },
-                text = {
-                    Column {
-                        Text(
-                            text = "Pegue el JSON del cat\u00e1logo. Esto reemplazar\u00e1 TODOS los datos de cat\u00e1logos.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Spacer(modifier = Modifier.height(4.dp))
-                        TextButton(onClick = { viewModel.updateDialogText(exampleJson) }) {
-                            Text("Cargar ejemplo JSON")
-                        }
-                        Spacer(modifier = Modifier.height(4.dp))
-                        OutlinedTextField(
-                            value = dialog.jsonText,
-                            onValueChange = { viewModel.updateDialogText(it) },
-                            label = { Text("JSON") },
-                            minLines = 10,
-                            maxLines = 15,
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                    }
-                },
-                confirmButton = {
-                    TextButton(
-                        onClick = { viewModel.confirmImport(dialog.jsonText) },
-                        enabled = dialog.jsonText.isNotBlank()
-                    ) {
-                        Text("Importar")
-                    }
-                },
-                dismissButton = {
-                    TextButton(onClick = { viewModel.dismissDialog() }) {
-                        Text("Cancelar")
-                    }
-                }
-            )
-        }
+        is CatalogDialogState.ImportDialog -> { /* Removed - use backup module */ }
     }
 }
 

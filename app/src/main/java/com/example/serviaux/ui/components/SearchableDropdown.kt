@@ -1,3 +1,12 @@
+/**
+ * SearchableDropdown.kt - Componente de dropdown con autocompletado.
+ *
+ * Campo de texto con menú desplegable que filtra opciones mientras el usuario
+ * escribe. Se usa en formularios de vehículos (cliente, marca, modelo) y
+ * en la asignación de repuestos a órdenes.
+ *
+ * El texto ingresado se convierte a mayúsculas automáticamente.
+ */
 package com.example.serviaux.ui.components
 
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -23,12 +32,23 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.unit.dp
 
+/** Elemento seleccionable del dropdown con ID, nombre y subtítulo opcional. */
 data class SearchableItem(
     val id: Long,
     val name: String,
     val subtitle: String? = null
 )
 
+/**
+ * Dropdown con búsqueda integrada.
+ *
+ * @param value Texto actual del campo.
+ * @param onValueChange Callback al cambiar el texto (ya en mayúsculas).
+ * @param items Lista completa de opciones disponibles.
+ * @param onItemSelected Callback al seleccionar un elemento del dropdown.
+ * @param label Etiqueta del campo de texto.
+ * @param maxSuggestions Máximo de sugerencias visibles (por defecto 3).
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SearchableDropdown(

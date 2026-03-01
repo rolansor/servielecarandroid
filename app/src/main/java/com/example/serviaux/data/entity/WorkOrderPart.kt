@@ -1,3 +1,11 @@
+/**
+ * WorkOrderPart.kt - Entidad de repuesto utilizado en una orden.
+ *
+ * Registra qué repuestos y en qué cantidad se usaron en una [WorkOrder].
+ * Al crear/eliminar registros, el stock del [Part] correspondiente se ajusta
+ * automáticamente desde el repositorio.
+ * Se elimina en cascada al borrar la orden padre.
+ */
 package com.example.serviaux.data.entity
 
 import androidx.room.Entity
@@ -5,6 +13,15 @@ import androidx.room.ForeignKey
 import androidx.room.Index
 import androidx.room.PrimaryKey
 
+/**
+ * Repuesto asignado a una orden de trabajo.
+ *
+ * @property workOrderId FK a la orden de trabajo (CASCADE al eliminar).
+ * @property partId FK al repuesto del inventario.
+ * @property quantity Cantidad de unidades utilizadas.
+ * @property appliedUnitPrice Precio unitario aplicado al momento del registro.
+ * @property subtotal Resultado de [quantity] * [appliedUnitPrice].
+ */
 @Entity(
     tableName = "work_order_parts",
     indices = [

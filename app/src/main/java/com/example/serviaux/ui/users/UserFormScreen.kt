@@ -1,3 +1,10 @@
+/**
+ * UserFormScreen.kt - Formulario de creación/edición de usuarios.
+ *
+ * Campos: nombre, username, rol (dropdown), contraseña, estado activo.
+ * En modo edición permite cambiar contraseña y activar/desactivar usuario.
+ * Solo accesible para administradores.
+ */
 package com.example.serviaux.ui.users
 
 import androidx.compose.foundation.layout.Column
@@ -43,6 +50,7 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.serviaux.data.entity.CommissionType
 import com.example.serviaux.data.entity.UserRole
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -80,6 +88,7 @@ fun UserFormScreen(
     }
 
     var roleDropdownExpanded by remember { mutableStateOf(false) }
+    var commissionTypeExpanded by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
@@ -158,6 +167,58 @@ fun UserFormScreen(
                             }
                         )
                     }
+                }
+            }
+
+            // Commission fields (only for MECANICO role)
+            if (uiState.formRole == UserRole.MECANICO) {
+                Spacer(modifier = Modifier.height(12.dp))
+
+                ExposedDropdownMenuBox(
+                    expanded = commissionTypeExpanded,
+                    onExpandedChange = { commissionTypeExpanded = it }
+                ) {
+                    OutlinedTextField(
+                        value = uiState.formCommissionType.displayName,
+                        onValueChange = {},
+                        readOnly = true,
+                        label = { Text("Tipo de Comisi\u00f3n") },
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = commissionTypeExpanded) },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .menuAnchor(MenuAnchorType.PrimaryNotEditable)
+                    )
+                    ExposedDropdownMenu(
+                        expanded = commissionTypeExpanded,
+                        onDismissRequest = { commissionTypeExpanded = false }
+                    ) {
+                        CommissionType.entries.forEach { type ->
+                            DropdownMenuItem(
+                                text = { Text(type.displayName) },
+                                onClick = {
+                                    viewModel.onFormCommissionTypeChange(type)
+                                    commissionTypeExpanded = false
+                                }
+                            )
+                        }
+                    }
+                }
+
+                if (uiState.formCommissionType != CommissionType.NINGUNA) {
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    OutlinedTextField(
+                        value = uiState.formCommissionValue,
+                        onValueChange = { viewModel.onFormCommissionValueChange(it) },
+                        label = { Text(if (uiState.formCommissionType == CommissionType.FIJA) "Valor por trabajo ($)" else "Porcentaje (%)") },
+                        singleLine = true,
+                        isError = uiState.formCommissionValueError != null,
+                        supportingText = uiState.formCommissionValueError?.let { error -> { Text(error) } },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .onFocusChanged { if (!it.isFocused) viewModel.validateFieldOnFocusLost("commissionValue") }
+                    )
                 }
             }
 

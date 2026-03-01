@@ -1,3 +1,13 @@
+/**
+ * CatalogDao.kt - DAO unificado para todas las tablas de catálogo.
+ *
+ * Centraliza las operaciones CRUD de los 9 tipos de catálogo del sistema:
+ * marcas, modelos, colores, marcas de repuestos, servicios, tipos de vehículo,
+ * accesorios, quejas y diagnósticos.
+ *
+ * Cada sección incluye variantes reactivas (Flow) para la UI y variantes
+ * directas (suspend) para exportación/importación de respaldos.
+ */
 package com.example.serviaux.data.dao
 
 import androidx.room.*
@@ -12,9 +22,10 @@ import com.example.serviaux.data.entity.CatalogComplaint
 import com.example.serviaux.data.entity.CatalogDiagnosis
 import kotlinx.coroutines.flow.Flow
 
+/** DAO unificado para todas las entidades de catálogo. */
 @Dao
 interface CatalogDao {
-    // Brands
+    // ── Marcas de vehículos ────────────────────────────────────────────
     @Query("SELECT * FROM catalog_brands ORDER BY name")
     fun getAllBrands(): Flow<List<CatalogBrand>>
 
@@ -33,7 +44,7 @@ interface CatalogDao {
     @Query("DELETE FROM catalog_brands")
     suspend fun deleteAllBrands()
 
-    // Models
+    // ── Modelos de vehículos ──────────────────────────────────────────
     @Query("SELECT * FROM catalog_models WHERE brandId = :brandId ORDER BY name")
     fun getModelsByBrand(brandId: Long): Flow<List<CatalogModel>>
 
@@ -52,7 +63,7 @@ interface CatalogDao {
     @Query("DELETE FROM catalog_models")
     suspend fun deleteAllModels()
 
-    // Colors
+    // ── Colores ─────────────────────────────────────────────────────────
     @Query("SELECT * FROM catalog_colors ORDER BY name")
     fun getAllColors(): Flow<List<CatalogColor>>
 
@@ -71,7 +82,7 @@ interface CatalogDao {
     @Query("DELETE FROM catalog_colors")
     suspend fun deleteAllColors()
 
-    // Part Brands
+    // ── Marcas de repuestos ───────────────────────────────────────────
     @Query("SELECT * FROM catalog_part_brands ORDER BY name")
     fun getAllPartBrands(): Flow<List<CatalogPartBrand>>
 
@@ -90,13 +101,14 @@ interface CatalogDao {
     @Query("DELETE FROM catalog_part_brands")
     suspend fun deleteAllPartBrands()
 
-    // Services
+    // ── Servicios predefinidos ──────────────────────────────────────────
     @Query("SELECT * FROM catalog_services ORDER BY category, name")
     fun getAllServices(): Flow<List<CatalogService>>
 
     @Query("SELECT * FROM catalog_services ORDER BY category, name")
     suspend fun getAllServicesDirect(): List<CatalogService>
 
+    /** Filtra servicios aplicables a un tipo de vehículo (incluye los genéricos sin tipo). */
     @Query("SELECT * FROM catalog_services WHERE vehicleType IS NULL OR vehicleType = :type ORDER BY category, name")
     fun getServicesByVehicleType(type: String): Flow<List<CatalogService>>
 
@@ -115,7 +127,7 @@ interface CatalogDao {
     @Query("DELETE FROM catalog_services")
     suspend fun deleteAllServices()
 
-    // Vehicle Types
+    // ── Tipos de vehículo ────────────────────────────────────────────
     @Query("SELECT * FROM catalog_vehicle_types ORDER BY name")
     fun getAllVehicleTypes(): Flow<List<CatalogVehicleType>>
 
@@ -134,7 +146,7 @@ interface CatalogDao {
     @Query("DELETE FROM catalog_vehicle_types")
     suspend fun deleteAllVehicleTypes()
 
-    // Accessories
+    // ── Accesorios ──────────────────────────────────────────────────────
     @Query("SELECT * FROM catalog_accessories ORDER BY name")
     fun getAllAccessories(): Flow<List<CatalogAccessory>>
 
@@ -153,7 +165,7 @@ interface CatalogDao {
     @Query("DELETE FROM catalog_accessories")
     suspend fun deleteAllAccessories()
 
-    // Complaints
+    // ── Quejas ──────────────────────────────────────────────────────────
     @Query("SELECT * FROM catalog_complaints ORDER BY name")
     fun getAllComplaints(): Flow<List<CatalogComplaint>>
 
@@ -172,7 +184,7 @@ interface CatalogDao {
     @Query("DELETE FROM catalog_complaints")
     suspend fun deleteAllComplaints()
 
-    // Diagnoses
+    // ── Diagnósticos ────────────────────────────────────────────────────
     @Query("SELECT * FROM catalog_diagnoses ORDER BY name")
     fun getAllDiagnoses(): Flow<List<CatalogDiagnosis>>
 

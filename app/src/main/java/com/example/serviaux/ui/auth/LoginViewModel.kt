@@ -1,3 +1,11 @@
+/**
+ * LoginViewModel.kt - ViewModel de la pantalla de inicio de sesión.
+ *
+ * Gestiona el flujo de autenticación:
+ * 1. Verifica si hay sesión guardada -> solicita autenticación biométrica.
+ * 2. Si no hay sesión o falla la biometría -> muestra formulario de usuario/contraseña.
+ * 3. Valida credenciales contra [AuthRepository] con hash SHA-256.
+ */
 package com.example.serviaux.ui.auth
 
 import android.app.Application
@@ -10,6 +18,13 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
+/**
+ * Estado de la UI de la pantalla de login.
+ *
+ * @property isCheckingSession True mientras se verifica si hay sesión previa.
+ * @property needsBiometric True si se requiere autenticación biométrica para restaurar sesión.
+ * @property isLoggedIn True tras un login exitoso; dispara la navegación al dashboard.
+ */
 data class LoginUiState(
     val username: String = "",
     val password: String = "",
@@ -20,6 +35,7 @@ data class LoginUiState(
     val needsBiometric: Boolean = false
 )
 
+/** ViewModel de la pantalla de login con soporte biométrico. */
 class LoginViewModel(application: Application) : AndroidViewModel(application) {
 
     private val app get() = getApplication<ServiauxApp>()

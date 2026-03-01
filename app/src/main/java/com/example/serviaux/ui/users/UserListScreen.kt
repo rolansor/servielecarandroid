@@ -1,3 +1,10 @@
+/**
+ * UserListScreen.kt - Pantalla de lista de usuarios del sistema.
+ *
+ * Solo accesible para administradores. Muestra todos los usuarios
+ * con su rol y estado (activo/inactivo). Permite crear nuevos usuarios
+ * o navegar al formulario de edición.
+ */
 package com.example.serviaux.ui.users
 
 import androidx.compose.foundation.clickable

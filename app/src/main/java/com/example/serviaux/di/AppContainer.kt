@@ -1,3 +1,13 @@
+/**
+ * AppContainer.kt - Contenedor de inyección de dependencias manual.
+ *
+ * Reemplaza a Hilt/Dagger para mantener compatibilidad con AGP 9.x.
+ * Instancia la base de datos, el gestor de sesión y todos los repositorios
+ * del sistema. Se inicializa una vez en [ServiauxApp.onCreate].
+ *
+ * Los ViewModels acceden a este contenedor mediante
+ * `(application as ServiauxApp).container`.
+ */
 package com.example.serviaux.di
 
 import android.content.Context
@@ -5,6 +15,11 @@ import com.example.serviaux.data.ServiauxDatabase
 import com.example.serviaux.repository.*
 import com.example.serviaux.util.SessionManager
 
+/**
+ * Contenedor de dependencias de la aplicación.
+ *
+ * Mantiene instancias singleton de la BD, el [SessionManager] y todos los repositorios.
+ */
 class AppContainer(context: Context) {
     val database = ServiauxDatabase.getInstance(context)
     val sessionManager = SessionManager(context)
@@ -20,7 +35,8 @@ class AppContainer(context: Context) {
         workOrderPartDao = database.workOrderPartDao(),
         workOrderPaymentDao = database.workOrderPaymentDao(),
         workOrderStatusLogDao = database.workOrderStatusLogDao(),
-        partDao = database.partDao()
+        partDao = database.partDao(),
+        workOrderMechanicDao = database.workOrderMechanicDao()
     )
     val backupRepository = BackupRepository(database)
 }

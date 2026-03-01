@@ -1,3 +1,10 @@
+/**
+ * VehicleDetailScreen.kt - Pantalla de detalle de un vehículo.
+ *
+ * Muestra información completa del vehículo (placa, marca, modelo, VIN, etc.),
+ * galería de fotos, datos del propietario y el historial de órdenes de trabajo.
+ * Permite navegar a editar el vehículo, ver el cliente o ver una orden.
+ */
 package com.example.serviaux.ui.vehicles
 
 import androidx.compose.foundation.border

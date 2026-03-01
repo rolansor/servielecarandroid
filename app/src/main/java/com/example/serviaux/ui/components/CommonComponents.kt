@@ -1,3 +1,15 @@
+/**
+ * CommonComponents.kt - Componentes Compose reutilizables de Serviaux.
+ *
+ * Incluye componentes comunes usados en múltiples pantallas:
+ * - [ServiauxSearchBar]: barra de búsqueda con ícono.
+ * - [StatusChip]: badge coloreado del estado de una orden.
+ * - [PriorityChip]: badge coloreado de la prioridad de una orden.
+ * - [SectionTitle]: título de sección con estilo consistente.
+ * - [InfoRow]: fila de etiqueta-valor para detalles.
+ * - [EmptyState]: indicador visual cuando no hay datos.
+ * - [ConfirmDialog]: diálogo de confirmación genérico.
+ */
 package com.example.serviaux.ui.components
 
 import androidx.compose.foundation.layout.Arrangement
@@ -40,6 +52,7 @@ import com.example.serviaux.ui.theme.StatusEsperaRepuesto
 import com.example.serviaux.ui.theme.StatusListo
 import com.example.serviaux.ui.theme.StatusRecibido
 
+/** Barra de búsqueda con ícono de lupa. Usada en listas de clientes, vehículos, repuestos, etc. */
 @Composable
 fun ServiauxSearchBar(
     query: String,
@@ -62,6 +75,7 @@ fun ServiauxSearchBar(
     )
 }
 
+/** Badge coloreado que muestra el estado de una orden de trabajo. */
 @Composable
 fun StatusChip(status: OrderStatus, modifier: Modifier = Modifier) {
     val color = when (status) {
@@ -88,6 +102,7 @@ fun StatusChip(status: OrderStatus, modifier: Modifier = Modifier) {
     }
 }
 
+/** Badge coloreado que muestra la prioridad de una orden (alta, media, baja). */
 @Composable
 fun PriorityChip(priority: Priority, modifier: Modifier = Modifier) {
     val color = when (priority) {
@@ -144,6 +159,7 @@ fun InfoRow(label: String, value: String, modifier: Modifier = Modifier) {
     }
 }
 
+/** Indicador visual con ícono y mensaje para listas vacías. */
 @Composable
 fun EmptyState(
     message: String,
@@ -172,6 +188,7 @@ fun EmptyState(
     }
 }
 
+/** Diálogo de confirmación genérico con botones "Confirmar" y "Cancelar". */
 @Composable
 fun ConfirmDialog(
     title: String,

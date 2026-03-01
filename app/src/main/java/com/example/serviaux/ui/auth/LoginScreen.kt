@@ -1,3 +1,13 @@
+/**
+ * LoginScreen.kt - Pantalla de inicio de sesión.
+ *
+ * Presenta dos flujos de autenticación:
+ * 1. Biométrico: si hay sesión guardada, solicita huella/rostro para restaurarla.
+ * 2. Formulario: campos de usuario y contraseña con validación.
+ *
+ * Muestra el logo de Servielecar y mensajes de error en español.
+ * Tras un login exitoso, invoca [onLoginSuccess] para navegar al dashboard.
+ */
 package com.example.serviaux.ui.auth
 
 import androidx.biometric.BiometricManager

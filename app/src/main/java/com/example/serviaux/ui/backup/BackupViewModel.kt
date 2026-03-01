@@ -1,3 +1,12 @@
+/**
+ * BackupViewModel.kt - ViewModel del módulo de respaldos.
+ *
+ * Gestiona la exportación e importación de respaldos ZIP:
+ * - Exportación selectiva por categoría o por año.
+ * - Importación desde archivo ZIP con selección de categorías a restaurar.
+ * - Muestra conteos de registros actuales y del respaldo a importar.
+ * - Compartir el archivo exportado vía Intent del sistema.
+ */
 package com.example.serviaux.ui.backup
 
 import android.app.Application
@@ -8,6 +17,7 @@ import androidx.core.content.FileProvider
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.serviaux.ServiauxApp
+import com.example.serviaux.repository.BackupCategory
 import com.example.serviaux.repository.BackupRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -27,7 +37,11 @@ data class BackupUiState(
     val importResult: Map<String, Int>? = null,
     val availableYears: List<Int> = emptyList(),
     val selectedYear: Int? = null,
-    val showYearPicker: Boolean = false
+    val showYearPicker: Boolean = false,
+    val exportCategories: Set<BackupCategory> = BackupCategory.entries.toSet(),
+    val importCategories: Set<BackupCategory> = BackupCategory.entries.toSet(),
+    val backupContents: Map<BackupCategory, Int> = emptyMap(),
+    val loadingContents: Boolean = false
 )
 
 class BackupViewModel(application: Application) : AndroidViewModel(application) {
@@ -68,6 +82,24 @@ class BackupViewModel(application: Application) : AndroidViewModel(application) 
         _uiState.update { it.copy(showYearPicker = false) }
     }
 
+    fun toggleExportCategory(category: BackupCategory) {
+        _uiState.update { state ->
+            val current = state.exportCategories
+            val updated = if (category in current) current - category else current + category
+            state.copy(exportCategories = updated)
+        }
+    }
+
+    fun toggleImportCategory(category: BackupCategory) {
+        _uiState.update { state ->
+            val current = state.importCategories
+            // Only allow toggling categories that exist in the backup
+            if (category !in state.backupContents) return@update state
+            val updated = if (category in current) current - category else current + category
+            state.copy(importCategories = updated)
+        }
+    }
+
     fun exportByYear(context: Context, year: Int) {
         _uiState.update { it.copy(showYearPicker = false, exporting = true, message = null) }
         viewModelScope.launch(Dispatchers.IO) {
@@ -86,9 +118,14 @@ class BackupViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     fun exportBackup(context: Context) {
+        val categories = _uiState.value.exportCategories
+        if (categories.isEmpty()) {
+            _uiState.update { it.copy(message = "Seleccione al menos una categoría") }
+            return
+        }
         viewModelScope.launch(Dispatchers.IO) {
             _uiState.update { it.copy(exporting = true, message = null) }
-            val result = backupRepository.exportToZip(context)
+            val result = backupRepository.exportToZip(context, categories)
             _uiState.update {
                 it.copy(
                     exporting = false,
@@ -121,20 +158,38 @@ class BackupViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     fun requestImport(uri: Uri) {
-        _uiState.update { it.copy(showConfirmDialog = true, pendingImportUri = uri) }
+        _uiState.update { it.copy(loadingContents = true, pendingImportUri = uri) }
+        viewModelScope.launch(Dispatchers.IO) {
+            val context = getApplication<Application>()
+            val contents = backupRepository.getBackupContents(context, uri)
+            _uiState.update {
+                it.copy(
+                    loadingContents = false,
+                    showConfirmDialog = true,
+                    backupContents = contents,
+                    importCategories = contents.keys.toSet()
+                )
+            }
+        }
     }
 
     fun confirmImport(context: Context) {
         val uri = _uiState.value.pendingImportUri ?: return
+        val categories = _uiState.value.importCategories
+        if (categories.isEmpty()) {
+            _uiState.update { it.copy(message = "Seleccione al menos una categoría") }
+            return
+        }
         _uiState.update { it.copy(showConfirmDialog = false, importing = true, message = null, importResult = null) }
         viewModelScope.launch(Dispatchers.IO) {
-            val result = backupRepository.importFromZip(context, uri)
+            val result = backupRepository.importFromZip(context, uri, categories)
             _uiState.update {
                 it.copy(
                     importing = false,
                     message = result.message,
                     pendingImportUri = null,
-                    importResult = if (result.success) result.counts else null
+                    importResult = if (result.success) result.counts else null,
+                    backupContents = emptyMap()
                 )
             }
             if (result.success) {
@@ -144,7 +199,7 @@ class BackupViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     fun cancelImport() {
-        _uiState.update { it.copy(showConfirmDialog = false, pendingImportUri = null) }
+        _uiState.update { it.copy(showConfirmDialog = false, pendingImportUri = null, backupContents = emptyMap()) }
     }
 
     fun clearMessage() {

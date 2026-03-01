@@ -1,3 +1,10 @@
+/**
+ * PartFormScreen.kt - Formulario de creación/edición de repuestos.
+ *
+ * Campos: nombre, descripción, código, marca (autocompletado desde catálogo),
+ * costo unitario, precio de venta, stock actual y estado activo/inactivo.
+ * Si recibe un [partId], carga los datos existentes para edición.
+ */
 package com.example.serviaux.ui.parts
 
 import androidx.compose.foundation.layout.Column

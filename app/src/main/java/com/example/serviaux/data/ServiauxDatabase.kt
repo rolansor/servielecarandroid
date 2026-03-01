@@ -1,3 +1,14 @@
+/**
+ * ServiauxDatabase.kt - Base de datos Room de la aplicación.
+ *
+ * Configuración central de la base de datos, incluyendo:
+ * - Declaración de las 18 entidades del sistema.
+ * - Migraciones incrementales (v2->v3, v3->v4, v4->v5).
+ * - Carga inicial de datos semilla desde `assets/seed/seed_data.sql`.
+ * - Patrón Singleton thread-safe para la instancia de la BD.
+ *
+ * La BD se almacena como `serviaux_v1` en el almacenamiento interno de la app.
+ */
 package com.example.serviaux.data
 
 import android.content.Context
@@ -32,12 +43,19 @@ import java.io.InputStreamReader
         CatalogVehicleType::class,
         CatalogAccessory::class,
         CatalogComplaint::class,
-        CatalogDiagnosis::class
+        CatalogDiagnosis::class,
+        WorkOrderMechanic::class
     ],
-    version = 5,
+    version = 7,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
+/**
+ * Base de datos principal de Serviaux.
+ *
+ * Expone todos los DAOs necesarios y gestiona migraciones y datos iniciales.
+ * Se obtiene la instancia mediante [getInstance].
+ */
 abstract class ServiauxDatabase : RoomDatabase() {
 
     abstract fun userDao(): UserDao
@@ -50,6 +68,7 @@ abstract class ServiauxDatabase : RoomDatabase() {
     abstract fun workOrderPaymentDao(): WorkOrderPaymentDao
     abstract fun workOrderStatusLogDao(): WorkOrderStatusLogDao
     abstract fun catalogDao(): CatalogDao
+    abstract fun workOrderMechanicDao(): WorkOrderMechanicDao
 
     companion object {
         @Volatile
@@ -63,6 +82,45 @@ abstract class ServiauxDatabase : RoomDatabase() {
             }
         }
 
+        // ── Migraciones ──────────────────────────────────────────────────
+
+        /** v6->v7: Agrega condición de llegada y tipo de orden a órdenes. */
+        private val MIGRATION_6_7 = object : Migration(6, 7) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE work_orders ADD COLUMN arrivalCondition TEXT NOT NULL DEFAULT 'RODANDO'")
+                db.execSQL("ALTER TABLE work_orders ADD COLUMN orderType TEXT NOT NULL DEFAULT 'SERVICIO_NUEVO'")
+                Log.i("ServiauxDatabase", "Migration 6->7 completed successfully")
+            }
+        }
+
+        /** v5->v6: Agrega tabla de mecánicos por orden y campos de comisión en usuarios. */
+        private val MIGRATION_5_6 = object : Migration(5, 6) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS work_order_mechanics (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        workOrderId INTEGER NOT NULL,
+                        mechanicId INTEGER NOT NULL,
+                        commissionType TEXT NOT NULL,
+                        commissionValue REAL NOT NULL,
+                        commissionAmount REAL NOT NULL,
+                        commissionPaid INTEGER NOT NULL DEFAULT 0,
+                        paidAt INTEGER,
+                        createdAt INTEGER NOT NULL,
+                        FOREIGN KEY (workOrderId) REFERENCES work_orders(id) ON DELETE CASCADE,
+                        FOREIGN KEY (mechanicId) REFERENCES users(id) ON DELETE CASCADE
+                    )
+                """.trimIndent())
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_work_order_mechanics_workOrderId ON work_order_mechanics(workOrderId)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_work_order_mechanics_mechanicId ON work_order_mechanics(mechanicId)")
+                try { db.execSQL("ALTER TABLE users ADD COLUMN commissionType TEXT NOT NULL DEFAULT 'NINGUNA'") } catch (_: Exception) {}
+                try { db.execSQL("ALTER TABLE users ADD COLUMN commissionValue REAL NOT NULL DEFAULT 0.0") } catch (_: Exception) {}
+                try { db.execSQL("ALTER TABLE vehicles ADD COLUMN fuelType TEXT") } catch (_: Exception) {}
+                Log.i("ServiauxDatabase", "Migration 5->6 completed successfully")
+            }
+        }
+
+        /** v4->v5: Agrega campo de descuento a la tabla de pagos. */
         private val MIGRATION_4_5 = object : Migration(4, 5) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL("ALTER TABLE work_order_payments ADD COLUMN discount REAL NOT NULL DEFAULT 0.0")
@@ -70,6 +128,7 @@ abstract class ServiauxDatabase : RoomDatabase() {
             }
         }
 
+        /** v3->v4: Agrega campos de fotos, nota de entrega, factura y notas a órdenes. */
         private val MIGRATION_3_4 = object : Migration(3, 4) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL("ALTER TABLE work_orders ADD COLUMN filePaths TEXT")
@@ -80,6 +139,7 @@ abstract class ServiauxDatabase : RoomDatabase() {
             }
         }
 
+        /** v2->v3: Agrega tablas de catálogos nuevos y campo vehicleType a vehículos. */
         private val MIGRATION_2_3 = object : Migration(2, 3) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 // Add tables that may not exist in version 2
@@ -124,14 +184,20 @@ abstract class ServiauxDatabase : RoomDatabase() {
             return Room.databaseBuilder(
                 context.applicationContext,
                 ServiauxDatabase::class.java,
-                "serviaux_v3"
+                "serviaux_v1"
             )
-                .addMigrations(MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
+                .addMigrations(MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7)
                 .addCallback(SeedCallback(context.applicationContext))
                 .build()
         }
     }
 
+    /**
+     * Callback que carga datos semilla al crear la BD por primera vez.
+     *
+     * Lee y ejecuta sentencias SQL desde `assets/seed/seed_data.sql`
+     * dentro de una transacción. Incluye catálogos iniciales y el usuario admin.
+     */
     private class SeedCallback(private val context: Context) : RoomDatabase.Callback() {
         override fun onCreate(db: SupportSQLiteDatabase) {
             super.onCreate(db)

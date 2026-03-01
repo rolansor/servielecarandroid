@@ -1,3 +1,9 @@
+/**
+ * DashboardViewModel.kt - ViewModel del panel principal.
+ *
+ * Recolecta en tiempo real los conteos de órdenes por estado
+ * y la información del usuario actual para mostrar en el dashboard.
+ */
 package com.example.serviaux.ui.dashboard
 
 import android.app.Application
@@ -13,6 +19,12 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
+/**
+ * Estado de la UI del dashboard.
+ *
+ * Cada campo de conteo corresponde a un estado de orden
+ * y se actualiza reactivamente desde la base de datos.
+ */
 data class DashboardUiState(
     val recibido: Int = 0,
     val enDiagnostico: Int = 0,
@@ -24,6 +36,7 @@ data class DashboardUiState(
     val currentUserRole: UserRole = UserRole.MECANICO
 )
 
+/** ViewModel del dashboard. Recolecta conteos por estado y datos del usuario actual. */
 class DashboardViewModel(application: Application) : AndroidViewModel(application) {
 
     private val app get() = getApplication<ServiauxApp>()

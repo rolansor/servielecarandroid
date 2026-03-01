@@ -1,18 +1,29 @@
+/**
+ * CustomerListScreen.kt - Pantalla de lista de clientes.
+ *
+ * Muestra todos los clientes con búsqueda por nombre, teléfono o cédula.
+ * Permite navegar al detalle de un cliente o crear uno nuevo mediante FAB.
+ */
 package com.example.serviaux.ui.customers
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.People
+oimport androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
@@ -23,11 +34,16 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import com.example.serviaux.data.entity.Customer
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -46,6 +62,33 @@ fun CustomerListScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
+    var customerToDelete by remember { mutableStateOf<Customer?>(null) }
+
+    // Delete confirmation dialog
+    customerToDelete?.let { customer ->
+        AlertDialog(
+            onDismissRequest = { customerToDelete = null },
+            title = { Text("Confirmar eliminación") },
+            text = {
+                Text("¿Está seguro de eliminar al cliente ${customer.fullName}${customer.idNumber?.let { " (ID: $it)" } ?: ""}?\n\nEsta acción no se puede deshacer.")
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        viewModel.deleteCustomer(customer)
+                        customerToDelete = null
+                    }
+                ) {
+                    Text("Eliminar", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { customerToDelete = null }) {
+                    Text("Cancelar")
+                }
+            }
+        )
+    }
 
     LaunchedEffect(uiState.error) {
         uiState.error?.let {
@@ -103,28 +146,31 @@ fun CustomerListScreen(
                                 .padding(horizontal = 16.dp, vertical = 4.dp)
                                 .clickable { onNavigateToDetail(customer.id) }
                         ) {
-                            Column(
+                            Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(16.dp)
+                                    .padding(start = 16.dp, top = 12.dp, bottom = 12.dp, end = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Text(
-                                    text = customer.fullName,
-                                    style = MaterialTheme.typography.titleMedium,
-                                    fontWeight = FontWeight.SemiBold
-                                )
-                                Spacer(modifier = Modifier.height(4.dp))
-                                Text(
-                                    text = customer.phone ?: "",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                                customer.idNumber?.let { id ->
+                                Column(modifier = Modifier.weight(1f)) {
                                     Text(
-                                        text = "ID: $id",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        text = customer.fullName,
+                                        style = MaterialTheme.typography.titleMedium,
+                                        fontWeight = FontWeight.SemiBold
                                     )
+                                    customer.idNumber?.let { id ->
+                                        Text(
+                                            text = "ID: $id",
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                }
+                                IconButton(onClick = { onNavigateToForm(customer.id) }) {
+                                    Icon(Icons.Default.Edit, contentDescription = "Editar", modifier = Modifier.size(20.dp))
+                                }
+                                IconButton(onClick = { customerToDelete = customer }) {
+                                    Icon(Icons.Default.Delete, contentDescription = "Eliminar", modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.error)
                                 }
                             }
                         }

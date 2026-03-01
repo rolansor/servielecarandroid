@@ -1,3 +1,10 @@
+/**
+ * WorkOrderDao.kt - DAO de acceso a datos de órdenes de trabajo.
+ *
+ * Es el DAO más complejo del sistema. Incluye consultas de filtrado por estado,
+ * rango de fechas, mecánico asignado, así como operaciones de eliminación en
+ * cascada manual de tablas relacionadas (service_lines, work_order_parts, etc.).
+ */
 package com.example.serviaux.data.dao
 
 import androidx.room.*
@@ -5,6 +12,9 @@ import com.example.serviaux.data.entity.OrderStatus
 import com.example.serviaux.data.entity.WorkOrder
 import kotlinx.coroutines.flow.Flow
 
+/**
+ * DAO para la entidad [WorkOrder] y operaciones de limpieza de tablas hijas.
+ */
 @Dao
 interface WorkOrderDao {
     @Insert
@@ -34,6 +44,7 @@ interface WorkOrderDao {
     @Query("SELECT * FROM work_orders WHERE assignedMechanicId = :mechanicId ORDER BY createdAt DESC")
     fun getByMechanic(mechanicId: Long): Flow<List<WorkOrder>>
 
+    /** Conteo reactivo por estado; alimenta los contadores del dashboard. */
     @Query("SELECT COUNT(*) FROM work_orders WHERE status = :status")
     fun countByStatus(status: OrderStatus): Flow<Int>
 
@@ -43,6 +54,7 @@ interface WorkOrderDao {
     @Query("SELECT * FROM work_orders WHERE status = :status AND createdAt BETWEEN :from AND :to ORDER BY createdAt DESC")
     fun getByStatusAndDateRange(status: OrderStatus, from: Long, to: Long): Flow<List<WorkOrder>>
 
+    /** Suma total facturada en un rango de fechas, excluyendo órdenes canceladas; usado en reportes. */
     @Query("SELECT COALESCE(SUM(total), 0.0) FROM work_orders WHERE createdAt BETWEEN :from AND :to AND status != 'CANCELADO'")
     fun getTotalByDateRange(from: Long, to: Long): Flow<Double>
 
@@ -55,6 +67,8 @@ interface WorkOrderDao {
     @Query("DELETE FROM work_orders WHERE id = :id")
     suspend fun deleteById(id: Long)
 
+    // ── Eliminación manual de tablas hijas (complementa CASCADE) ───────
+
     @Query("DELETE FROM service_lines WHERE workOrderId = :workOrderId")
     suspend fun deleteServiceLinesByOrder(workOrderId: Long)
 
@@ -66,4 +80,7 @@ interface WorkOrderDao {
 
     @Query("DELETE FROM work_order_status_log WHERE workOrderId = :workOrderId")
     suspend fun deleteStatusLogByOrder(workOrderId: Long)
+
+    @Query("DELETE FROM work_orders")
+    suspend fun deleteAll()
 }

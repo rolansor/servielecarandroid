@@ -1,5 +1,19 @@
+/**
+ * Routes.kt - Definición centralizada de rutas de navegación.
+ *
+ * Contiene las constantes de ruta para Navigation Compose y funciones
+ * auxiliares para construir rutas con parámetros (IDs, filtros de estado).
+ * Todas las pantallas del sistema se registran aquí.
+ */
 package com.example.serviaux.ui.navigation
 
+/**
+ * Constantes y constructores de rutas del grafo de navegación.
+ *
+ * Las rutas con parámetros usan la sintaxis de Navigation Compose:
+ * - Parámetros de ruta: `{param}` (obligatorios).
+ * - Parámetros de query: `?param={param}` (opcionales).
+ */
 object Routes {
     const val LOGIN = "login"
     const val DASHBOARD = "dashboard"

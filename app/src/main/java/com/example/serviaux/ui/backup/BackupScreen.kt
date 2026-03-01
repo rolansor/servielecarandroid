@@ -1,3 +1,13 @@
+/**
+ * BackupScreen.kt - Pantalla de gestión de respaldos.
+ *
+ * Permite exportar e importar respaldos ZIP del sistema:
+ * - Exportación: selección de categorías o exportación por año.
+ * - Importación: selección de archivo ZIP con checklist de categorías a restaurar.
+ * - Muestra resumen de datos actuales y resultados de la última importación.
+ *
+ * Solo accesible para administradores.
+ */
 package com.example.serviaux.ui.backup
 
 import android.widget.Toast
@@ -25,6 +35,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
@@ -48,6 +59,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.serviaux.repository.BackupCategory
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -105,7 +117,7 @@ fun BackupScreen(
         )
     }
 
-    // Confirm dialog
+    // Import confirm dialog with category checklist
     if (uiState.showConfirmDialog) {
         AlertDialog(
             onDismissRequest = { viewModel.cancelImport() },
@@ -118,21 +130,63 @@ fun BackupScreen(
             },
             title = { Text("Restaurar respaldo") },
             text = {
-                Text(
-                    "Esto reemplazar\u00e1 TODOS los datos actuales de la aplicaci\u00f3n " +
-                            "(usuarios, clientes, veh\u00edculos, \u00f3rdenes, repuestos, fotos, etc.).\n\n" +
-                            "Esta acci\u00f3n no se puede deshacer.\n\n" +
-                            "\u00bfDesea continuar?"
-                )
+                Column {
+                    if (uiState.loadingContents) {
+                        CircularProgressIndicator(modifier = Modifier.align(Alignment.CenterHorizontally))
+                    } else {
+                        Text(
+                            text = "Seleccione las categorías a restaurar.\nLos datos actuales de cada categoría seleccionada serán reemplazados.",
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                        Spacer(modifier = Modifier.height(12.dp))
+                        if (uiState.backupContents.isEmpty()) {
+                            Text(
+                                text = "No se encontraron datos en el respaldo.",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.error
+                            )
+                        } else {
+                            BackupCategory.entries.forEach { category ->
+                                val count = uiState.backupContents[category]
+                                if (count != null) {
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(vertical = 2.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Checkbox(
+                                            checked = category in uiState.importCategories,
+                                            onCheckedChange = { viewModel.toggleImportCategory(category) }
+                                        )
+                                        Column(modifier = Modifier.weight(1f)) {
+                                            Text(
+                                                text = category.label,
+                                                style = MaterialTheme.typography.bodyMedium,
+                                                fontWeight = FontWeight.Medium
+                                            )
+                                            Text(
+                                                text = "$count registros",
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
             },
             confirmButton = {
                 Button(
                     onClick = { viewModel.confirmImport(context) },
+                    enabled = uiState.importCategories.isNotEmpty() && uiState.backupContents.isNotEmpty(),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = MaterialTheme.colorScheme.error
                     )
                 ) {
-                    Text("S\u00ed, restaurar")
+                    Text("Restaurar")
                 }
             },
             dismissButton = {
@@ -230,16 +284,36 @@ fun BackupScreen(
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = "Genera un archivo ZIP con todos los datos y fotos. " +
-                                "Podr\u00e1s compartirlo por WhatsApp, Drive, email, etc.",
+                        text = "Seleccione las categorías a incluir en el respaldo.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         textAlign = TextAlign.Center
                     )
-                    Spacer(modifier = Modifier.height(16.dp))
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    // Export category checklist
+                    BackupCategory.entries.forEach { category ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 1.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Checkbox(
+                                checked = category in uiState.exportCategories,
+                                onCheckedChange = { viewModel.toggleExportCategory(category) }
+                            )
+                            Text(
+                                text = category.label,
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
                     Button(
                         onClick = { viewModel.exportBackup(context) },
-                        enabled = !uiState.exporting && !uiState.importing,
+                        enabled = !uiState.exporting && !uiState.importing && uiState.exportCategories.isNotEmpty(),
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         if (uiState.exporting) {
@@ -251,7 +325,12 @@ fun BackupScreen(
                             Spacer(modifier = Modifier.width(8.dp))
                             Text("Exportando...")
                         } else {
-                            Text("Exportar Todo")
+                            Text(
+                                if (uiState.exportCategories.size == BackupCategory.entries.size)
+                                    "Exportar Todo"
+                                else
+                                    "Exportar Selección"
+                            )
                         }
                     }
                     Spacer(modifier = Modifier.height(8.dp))
@@ -285,8 +364,7 @@ fun BackupScreen(
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = "Selecciona un archivo .zip de respaldo para restaurar. " +
-                                "Esto reemplazar\u00e1 todos los datos actuales.",
+                        text = "Selecciona un archivo .zip de respaldo. Podrás elegir qué categorías restaurar.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         textAlign = TextAlign.Center
@@ -323,7 +401,7 @@ fun BackupScreen(
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {
                         Text(
-                            text = "Resumen de restauraci\u00f3n",
+                            text = "Resumen de restauración",
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.SemiBold
                         )

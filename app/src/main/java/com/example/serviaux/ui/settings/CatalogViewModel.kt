@@ -1,3 +1,12 @@
+/**
+ * CatalogViewModel.kt - ViewModel de la pantalla de configuración de catálogos.
+ *
+ * Gestiona las operaciones CRUD de los 9 tipos de catálogo del sistema.
+ * Cada tipo tiene su propia sección con lista, formulario inline de creación
+ * y edición. Soporta exportación/importación de catálogos en formato JSON.
+ *
+ * Solo accesible para administradores.
+ */
 package com.example.serviaux.ui.settings
 
 import android.app.Application

@@ -1,9 +1,17 @@
+/**
+ * UserViewModel.kt - ViewModel del módulo de administración de usuarios.
+ *
+ * Solo accesible para administradores. Gestiona la lista de usuarios,
+ * la creación de nuevos usuarios con rol y contraseña, la edición de datos,
+ * el cambio de contraseña y la activación/desactivación de cuentas.
+ */
 package com.example.serviaux.ui.users
 
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.serviaux.ServiauxApp
+import com.example.serviaux.data.entity.CommissionType
 import com.example.serviaux.data.entity.User
 import com.example.serviaux.data.entity.UserRole
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -12,6 +20,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
+/** Estado de la UI del módulo de usuarios (lista y formulario). */
 data class UserUiState(
     val users: List<User> = emptyList(),
     val selectedUser: User? = null,
@@ -20,6 +29,9 @@ data class UserUiState(
     val formName: String = "",
     val formUsername: String = "",
     val formRole: UserRole = UserRole.MECANICO,
+    val formCommissionType: CommissionType = CommissionType.NINGUNA,
+    val formCommissionValue: String = "",
+    val formCommissionValueError: String? = null,
     val formPassword: String = "",
     val isEditing: Boolean = false,
     val editingUserId: Long? = null,
@@ -59,7 +71,31 @@ class UserViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun onFormRoleChange(value: UserRole) { _uiState.update { it.copy(formRole = value) } }
+    fun onFormRoleChange(value: UserRole) {
+        _uiState.update {
+            if (value != UserRole.MECANICO) {
+                it.copy(formRole = value, formCommissionType = CommissionType.NINGUNA, formCommissionValue = "", formCommissionValueError = null)
+            } else {
+                it.copy(formRole = value)
+            }
+        }
+    }
+
+    fun onFormCommissionTypeChange(value: CommissionType) {
+        _uiState.update {
+            it.copy(
+                formCommissionType = value,
+                formCommissionValue = if (value == CommissionType.NINGUNA) "" else it.formCommissionValue,
+                formCommissionValueError = null
+            )
+        }
+    }
+
+    fun onFormCommissionValueChange(value: String) {
+        if (value.length <= 10 && value.all { it.isDigit() || it == '.' }) {
+            _uiState.update { it.copy(formCommissionValue = value, formCommissionValueError = null) }
+        }
+    }
 
     fun onFormPasswordChange(value: String) {
         if (value.length <= 50) {
@@ -104,11 +140,39 @@ class UserViewModel(application: Application) : AndroidViewModel(application) {
         } else null
     }
 
+    private fun validateCommissionValue(): String? {
+        val state = _uiState.value
+        if (state.formRole == UserRole.MECANICO && state.formCommissionType != CommissionType.NINGUNA) {
+            val value = state.formCommissionValue.toDoubleOrNull()
+            return when {
+                value == null || value <= 0 -> "Ingrese un valor mayor a 0"
+                else -> null
+            }
+        }
+        return null
+    }
+
     fun validateFieldOnFocusLost(field: String) {
         when (field) {
             "name" -> _uiState.update { it.copy(formNameError = validateName()) }
-            "username" -> _uiState.update { it.copy(formUsernameError = validateUsername()) }
+            "username" -> {
+                val formatError = validateUsername()
+                _uiState.update { it.copy(formUsernameError = formatError) }
+                if (formatError == null) checkDuplicateUsername()
+            }
             "password" -> _uiState.update { it.copy(formPasswordError = validatePassword()) }
+            "commissionValue" -> _uiState.update { it.copy(formCommissionValueError = validateCommissionValue()) }
+        }
+    }
+
+    private fun checkDuplicateUsername() {
+        val username = _uiState.value.formUsername.trim()
+        if (username.isBlank()) return
+        viewModelScope.launch {
+            val existing = authRepo.getUserByUsername(username)
+            if (existing != null && existing.id != _uiState.value.editingUserId) {
+                _uiState.update { it.copy(formUsernameError = "Este usuario ya existe") }
+            }
         }
     }
 
@@ -116,16 +180,18 @@ class UserViewModel(application: Application) : AndroidViewModel(application) {
         val nameError = validateName()
         val usernameError = validateUsername()
         val passwordError = validatePassword()
+        val commissionError = validateCommissionValue()
 
         _uiState.update {
             it.copy(
                 formNameError = nameError,
                 formUsernameError = usernameError,
-                formPasswordError = passwordError
+                formPasswordError = passwordError,
+                formCommissionValueError = commissionError
             )
         }
 
-        return nameError == null && usernameError == null && passwordError == null
+        return nameError == null && usernameError == null && passwordError == null && commissionError == null
     }
 
     fun saveUser() {
@@ -142,7 +208,9 @@ class UserViewModel(application: Application) : AndroidViewModel(application) {
                             existing.copy(
                                 name = state.formName.trim(),
                                 username = state.formUsername.trim(),
-                                role = state.formRole
+                                role = state.formRole,
+                                commissionType = if (state.formRole == UserRole.MECANICO) state.formCommissionType.name else "NINGUNA",
+                                commissionValue = if (state.formRole == UserRole.MECANICO && state.formCommissionType != CommissionType.NINGUNA) state.formCommissionValue.toDoubleOrNull() ?: 0.0 else 0.0
                             )
                         )
                         result.onFailure { e ->
@@ -151,11 +219,15 @@ class UserViewModel(application: Application) : AndroidViewModel(application) {
                         }
                     }
                 } else {
+                    val commType = if (state.formRole == UserRole.MECANICO) state.formCommissionType.name else "NINGUNA"
+                    val commValue = if (state.formRole == UserRole.MECANICO && state.formCommissionType != CommissionType.NINGUNA) state.formCommissionValue.toDoubleOrNull() ?: 0.0 else 0.0
                     val result = authRepo.createUser(
                         name = state.formName.trim(),
                         username = state.formUsername.trim(),
                         role = state.formRole,
-                        password = state.formPassword
+                        password = state.formPassword,
+                        commissionType = commType,
+                        commissionValue = commValue
                     )
                     result.onFailure { e ->
                         _uiState.update { it.copy(isLoading = false, error = e.message) }
@@ -181,6 +253,7 @@ class UserViewModel(application: Application) : AndroidViewModel(application) {
         _uiState.update {
             it.copy(
                 formName = "", formUsername = "", formRole = UserRole.MECANICO,
+                formCommissionType = CommissionType.NINGUNA, formCommissionValue = "", formCommissionValueError = null,
                 formPassword = "", isEditing = false, editingUserId = null,
                 selectedUser = null, error = null,
                 formNameError = null, formUsernameError = null,
@@ -190,11 +263,15 @@ class UserViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun prepareEdit(user: User) {
+        val commType = try { CommissionType.valueOf(user.commissionType) } catch (_: Exception) { CommissionType.NINGUNA }
         _uiState.update {
             it.copy(
                 formName = user.name,
                 formUsername = user.username,
                 formRole = user.role,
+                formCommissionType = commType,
+                formCommissionValue = if (commType != CommissionType.NINGUNA && user.commissionValue > 0) user.commissionValue.toString() else "",
+                formCommissionValueError = null,
                 formPassword = "",
                 isEditing = true,
                 editingUserId = user.id,

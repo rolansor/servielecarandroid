@@ -1,3 +1,10 @@
+/**
+ * MainActivity.kt - Actividad principal (y única) de Serviaux.
+ *
+ * Extiende [FragmentActivity] (necesario para autenticación biométrica).
+ * Configura edge-to-edge, el tema [ServiauxTheme] y el grafo de navegación
+ * [ServiauxNavGraph] como contenido Compose.
+ */
 package com.example.serviaux
 
 import android.os.Bundle
@@ -11,6 +18,7 @@ import androidx.navigation.compose.rememberNavController
 import com.example.serviaux.ui.navigation.ServiauxNavGraph
 import com.example.serviaux.ui.theme.ServiauxTheme
 
+/** Actividad única de la aplicación; todo el contenido es Compose. */
 class MainActivity : FragmentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)

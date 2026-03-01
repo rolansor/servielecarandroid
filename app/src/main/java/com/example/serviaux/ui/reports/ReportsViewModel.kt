@@ -1,3 +1,12 @@
+/**
+ * ReportsViewModel.kt - ViewModel del módulo de reportes.
+ *
+ * Solo accesible para administradores. Genera reportes por rango de fechas:
+ * - Total facturado (excluyendo órdenes canceladas).
+ * - Cantidad de órdenes en el período.
+ * - Repuestos más utilizados con cantidades.
+ * - Lista de órdenes filtradas por estado y/o rango de fechas.
+ */
 package com.example.serviaux.ui.reports
 
 import android.app.Application

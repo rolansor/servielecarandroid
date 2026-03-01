@@ -1,3 +1,10 @@
+/**
+ * PartViewModel.kt - ViewModel del módulo de repuestos/inventario.
+ *
+ * Gestiona la lista de repuestos con búsqueda (incluyendo inactivos),
+ * y el formulario de creación/edición de piezas con campos de costo,
+ * precio de venta, stock y marca (alimentada desde catálogo).
+ */
 package com.example.serviaux.ui.parts
 
 import android.app.Application
@@ -12,9 +19,13 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
+/** Estado de la UI del módulo de repuestos (lista y formulario). */
 data class PartUiState(
     val parts: List<Part> = emptyList(),
     val searchQuery: String = "",
+    val currentPage: Int = 0,
+    val totalCount: Int = 0,
+    val pageSize: Int = 100,
     val selectedPart: Part? = null,
     val isLoading: Boolean = false,
     val error: String? = null,
@@ -50,7 +61,8 @@ class PartViewModel(application: Application) : AndroidViewModel(application) {
     private var searchJob: Job? = null
 
     init {
-        loadAllParts()
+        loadPartsPage(0)
+        loadTotalCount()
         loadPartBrands()
     }
 
@@ -62,11 +74,20 @@ class PartViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    private fun loadAllParts() {
+    private fun loadTotalCount() {
+        viewModelScope.launch {
+            partRepo.getTotalCount().collect { count ->
+                _uiState.update { it.copy(totalCount = count) }
+            }
+        }
+    }
+
+    private fun loadPartsPage(page: Int) {
         searchJob?.cancel()
         searchJob = viewModelScope.launch {
-            partRepo.getAll().collect { list ->
-                _uiState.update { it.copy(parts = list) }
+            val offset = page * _uiState.value.pageSize
+            partRepo.getPaginated(_uiState.value.pageSize, offset).collect { list ->
+                _uiState.update { it.copy(parts = list, currentPage = page) }
             }
         }
     }
@@ -76,7 +97,8 @@ class PartViewModel(application: Application) : AndroidViewModel(application) {
         searchJob?.cancel()
         searchJob = viewModelScope.launch {
             if (query.isBlank()) {
-                partRepo.getAll().collect { list ->
+                val offset = _uiState.value.currentPage * _uiState.value.pageSize
+                partRepo.getPaginated(_uiState.value.pageSize, offset).collect { list ->
                     _uiState.update { it.copy(parts = list) }
                 }
             } else {
@@ -84,6 +106,22 @@ class PartViewModel(application: Application) : AndroidViewModel(application) {
                     _uiState.update { it.copy(parts = list) }
                 }
             }
+        }
+    }
+
+    fun nextPage() {
+        val state = _uiState.value
+        if ((state.currentPage + 1) * state.pageSize < state.totalCount) {
+            _uiState.update { it.copy(searchQuery = "") }
+            loadPartsPage(state.currentPage + 1)
+        }
+    }
+
+    fun previousPage() {
+        val state = _uiState.value
+        if (state.currentPage > 0) {
+            _uiState.update { it.copy(searchQuery = "") }
+            loadPartsPage(state.currentPage - 1)
         }
     }
 

@@ -1,3 +1,11 @@
+/**
+ * ReportsScreen.kt - Pantalla de reportes del sistema.
+ *
+ * Solo accesible para administradores. Permite seleccionar un rango de
+ * fechas y muestra: total facturado, cantidad de órdenes, repuestos más
+ * utilizados con cantidades y lista de órdenes del período.
+ * Los filtros de fecha usan DatePickerDialog nativo.
+ */
 package com.example.serviaux.ui.reports
 
 import android.app.DatePickerDialog

@@ -1,3 +1,10 @@
+/**
+ * CatalogRepository.kt - Repositorio de catálogos del sistema.
+ *
+ * Centraliza las operaciones CRUD para los 9 tipos de catálogo y proporciona
+ * funciones de exportación/importación en formato JSON para respaldos.
+ * Los catálogos alimentan los dropdowns y autocompletados de toda la aplicación.
+ */
 package com.example.serviaux.repository
 
 import com.example.serviaux.data.dao.CatalogDao
@@ -14,33 +21,37 @@ import kotlinx.coroutines.flow.Flow
 import org.json.JSONObject
 import org.json.JSONArray
 
+/**
+ * Repositorio unificado de catálogos.
+ * Cada sección corresponde a un tipo de catálogo con operaciones CRUD completas.
+ */
 class CatalogRepository(private val dao: CatalogDao) {
-    // Brands
+    // ── Marcas de vehículos ────────────────────────────────────────────
     fun getAllBrands(): Flow<List<CatalogBrand>> = dao.getAllBrands()
     suspend fun getAllBrandsDirect(): List<CatalogBrand> = dao.getAllBrandsDirect()
     suspend fun insertBrand(name: String): Long = dao.insertBrand(CatalogBrand(name = name))
     suspend fun updateBrand(brand: CatalogBrand) = dao.updateBrand(brand)
     suspend fun deleteBrand(brand: CatalogBrand) = dao.deleteBrand(brand)
 
-    // Models
+    // ── Modelos ─────────────────────────────────────────────────────────
     fun getModelsByBrand(brandId: Long): Flow<List<CatalogModel>> = dao.getModelsByBrand(brandId)
     suspend fun insertModel(brandId: Long, name: String): Long = dao.insertModel(CatalogModel(brandId = brandId, name = name))
     suspend fun updateModel(model: CatalogModel) = dao.updateModel(model)
     suspend fun deleteModel(model: CatalogModel) = dao.deleteModel(model)
 
-    // Colors
+    // ── Colores ─────────────────────────────────────────────────────────
     fun getAllColors(): Flow<List<CatalogColor>> = dao.getAllColors()
     suspend fun insertColor(name: String): Long = dao.insertColor(CatalogColor(name = name))
     suspend fun updateColor(color: CatalogColor) = dao.updateColor(color)
     suspend fun deleteColor(color: CatalogColor) = dao.deleteColor(color)
 
-    // Part Brands
+    // ── Marcas de repuestos ───────────────────────────────────────────
     fun getAllPartBrands(): Flow<List<CatalogPartBrand>> = dao.getAllPartBrands()
     suspend fun insertPartBrand(name: String): Long = dao.insertPartBrand(CatalogPartBrand(name = name))
     suspend fun updatePartBrand(partBrand: CatalogPartBrand) = dao.updatePartBrand(partBrand)
     suspend fun deletePartBrand(partBrand: CatalogPartBrand) = dao.deletePartBrand(partBrand)
 
-    // Services
+    // ── Servicios predefinidos ──────────────────────────────────────────
     fun getAllServices(): Flow<List<CatalogService>> = dao.getAllServices()
     suspend fun getAllServicesDirect(): List<CatalogService> = dao.getAllServicesDirect()
     fun getServiceCategories(): Flow<List<String>> = dao.getServiceCategories()
@@ -50,28 +61,28 @@ class CatalogRepository(private val dao: CatalogDao) {
     suspend fun updateService(service: CatalogService) = dao.updateService(service)
     suspend fun deleteService(service: CatalogService) = dao.deleteService(service)
 
-    // Vehicle Types
+    // ── Tipos de vehículo ────────────────────────────────────────────
     fun getAllVehicleTypes(): Flow<List<CatalogVehicleType>> = dao.getAllVehicleTypes()
     suspend fun getAllVehicleTypesDirect(): List<CatalogVehicleType> = dao.getAllVehicleTypesDirect()
     suspend fun insertVehicleType(name: String): Long = dao.insertVehicleType(CatalogVehicleType(name = name))
     suspend fun updateVehicleType(vt: CatalogVehicleType) = dao.updateVehicleType(vt)
     suspend fun deleteVehicleType(vt: CatalogVehicleType) = dao.deleteVehicleType(vt)
 
-    // Accessories
+    // ── Accesorios ──────────────────────────────────────────────────────
     fun getAllAccessories(): Flow<List<CatalogAccessory>> = dao.getAllAccessories()
     suspend fun getAllAccessoriesDirect(): List<CatalogAccessory> = dao.getAllAccessoriesDirect()
     suspend fun insertAccessory(name: String): Long = dao.insertAccessory(CatalogAccessory(name = name))
     suspend fun updateAccessory(acc: CatalogAccessory) = dao.updateAccessory(acc)
     suspend fun deleteAccessory(acc: CatalogAccessory) = dao.deleteAccessory(acc)
 
-    // Complaints
+    // ── Quejas ──────────────────────────────────────────────────────────
     fun getAllComplaints(): Flow<List<CatalogComplaint>> = dao.getAllComplaints()
     suspend fun getAllComplaintsDirect(): List<CatalogComplaint> = dao.getAllComplaintsDirect()
     suspend fun insertComplaint(name: String): Long = dao.insertComplaint(CatalogComplaint(name = name))
     suspend fun updateComplaint(complaint: CatalogComplaint) = dao.updateComplaint(complaint)
     suspend fun deleteComplaint(complaint: CatalogComplaint) = dao.deleteComplaint(complaint)
 
-    // Diagnoses
+    // ── Diagnósticos ────────────────────────────────────────────────────
     fun getAllDiagnoses(): Flow<List<CatalogDiagnosis>> = dao.getAllDiagnoses()
     fun getDiagnosesByComplaint(complaintId: Long): Flow<List<CatalogDiagnosis>> = dao.getDiagnosesByComplaint(complaintId)
     suspend fun getAllDiagnosesDirect(): List<CatalogDiagnosis> = dao.getAllDiagnosesDirect()
@@ -79,7 +90,9 @@ class CatalogRepository(private val dao: CatalogDao) {
     suspend fun updateDiagnosis(diagnosis: CatalogDiagnosis) = dao.updateDiagnosis(diagnosis)
     suspend fun deleteDiagnosis(diagnosis: CatalogDiagnosis) = dao.deleteDiagnosis(diagnosis)
 
-    // Export all catalogs as JSON string
+    // ── Exportación/Importación JSON ──────────────────────────────────
+
+    /** Exporta todos los catálogos como cadena JSON estructurada. */
     suspend fun exportToJson(): String {
         val brands = dao.getAllBrandsDirect()
         val models = dao.getAllModelsDirect()
@@ -140,7 +153,7 @@ class CatalogRepository(private val dao: CatalogDao) {
         return json.toString(2)
     }
 
-    // Import from JSON string, replaces all existing data
+    /** Importa catálogos desde JSON, reemplazando todos los datos existentes. */
     suspend fun importFromJson(jsonString: String) {
         val json = JSONObject(jsonString)
 

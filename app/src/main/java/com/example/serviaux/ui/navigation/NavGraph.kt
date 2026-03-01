@@ -1,3 +1,13 @@
+/**
+ * NavGraph.kt - Grafo de navegación principal de Serviaux.
+ *
+ * Define todas las pantallas de la aplicación y sus transiciones.
+ * Cada `composable` registra una ruta con sus argumentos y conecta
+ * los callbacks de navegación entre pantallas.
+ *
+ * La pantalla de inicio es [Routes.LOGIN]; tras un login exitoso se
+ * navega al [Routes.DASHBOARD] eliminando el login del back stack.
+ */
 package com.example.serviaux.ui.navigation
 
 import androidx.compose.runtime.Composable
@@ -52,6 +62,7 @@ fun ServiauxNavGraph(navController: NavHostController) {
                 onNavigateToCatalogSettings = { navController.navigate(Routes.CATALOG_SETTINGS) },
                 onNavigateToNewOrder = { navController.navigate(Routes.WORK_ORDER_FORM) },
                 onNavigateToNewCustomer = { navController.navigate(Routes.customerForm()) },
+                onNavigateToNewVehicle = { navController.navigate(Routes.vehicleForm()) },
                 onNavigateToBackup = { navController.navigate(Routes.BACKUP) },
                 onLogout = {
                     navController.navigate(Routes.LOGIN) {
@@ -107,7 +118,8 @@ fun ServiauxNavGraph(navController: NavHostController) {
             VehicleListScreen(
                 onNavigateBack = { navController.popBackStack() },
                 onNavigateToDetail = { navController.navigate(Routes.vehicleDetail(it)) },
-                onNavigateToForm = { navController.navigate(Routes.vehicleForm()) }
+                onNavigateToForm = { navController.navigate(Routes.vehicleForm()) },
+                onNavigateToEdit = { navController.navigate(Routes.vehicleForm(vehicleId = it)) }
             )
         }
 

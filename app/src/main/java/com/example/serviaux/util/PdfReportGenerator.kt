@@ -1,3 +1,17 @@
+/**
+ * PdfReportGenerator.kt - Generador de reportes PDF de órdenes de trabajo.
+ *
+ * Genera un documento PDF profesional multipágina con:
+ * - Encabezado con logo, número de orden y badge de estado.
+ * - Datos del cliente y vehículo en columnas paralelas.
+ * - Tablas de servicios (mano de obra), repuestos y pagos.
+ * - Cuadro de totales con saldo pendiente.
+ * - Miniaturas de fotos adjuntas.
+ * - Pie de página con fecha de generación.
+ *
+ * Utiliza directamente la API de [PdfDocument] de Android (sin librerías externas).
+ * El PDF se guarda en `filesDir/reports/` y se puede compartir vía [ShareUtils].
+ */
 package com.example.serviaux.util
 
 import android.content.Context
@@ -16,6 +30,10 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
+/**
+ * Datos necesarios para generar el reporte PDF de una orden de trabajo.
+ * Agrupa información de la orden, cliente, vehículo, servicios, repuestos y pagos.
+ */
 data class WorkOrderReportData(
     val order: WorkOrder,
     val customerName: String,
@@ -37,8 +55,15 @@ data class WorkOrderReportData(
     val photoPaths: List<String> = emptyList()
 )
 
+/**
+ * Generador de reportes PDF para órdenes de trabajo.
+ *
+ * Renderiza un PDF tamaño A4 (595x842 pts) con márgenes de 36pt,
+ * soporte automático de paginación y tablas con filas alternadas.
+ */
 object PdfReportGenerator {
 
+    // ── Dimensiones de página A4 en puntos ─────────────────────────────
     private const val PAGE_WIDTH = 595
     private const val PAGE_HEIGHT = 842
     private const val ML = 36f          // margin left
@@ -68,6 +93,13 @@ object PdfReportGenerator {
     private const val COL_TOTAL_TEXT = 0xFF1B5E20.toInt()
     private const val COL_DIVIDER = 0xFFBDBDBD.toInt()
 
+    /**
+     * Genera el PDF completo de una orden de trabajo.
+     *
+     * @param context Contexto para acceder a recursos (logo) y filesDir.
+     * @param data Datos consolidados de la orden.
+     * @return Archivo PDF guardado en `filesDir/reports/`.
+     */
     fun generateWorkOrderPdf(context: Context, data: WorkOrderReportData): File {
         val doc = PdfDocument()
         var pageNum = 1
@@ -257,6 +289,11 @@ object PdfReportGenerator {
                 y += 11f
             }
             y += 2f
+        }
+        run {
+            ensureSpace(24f)
+            c.drawText("Condición de Llegada: ${data.order.arrivalCondition.displayName}", ML + pad, y, pBody)
+            y += 12f
         }
         data.order.initialDiagnosis?.let { d ->
             if (d.isNotBlank()) {
@@ -522,7 +559,7 @@ object PdfReportGenerator {
         return file
     }
 
-    // ── Utility functions ──
+    // ── Funciones auxiliares ──────────────────────────────────────────
 
     private fun getLogoBitmap(context: Context, sizePx: Int): Bitmap? {
         return try {
@@ -537,6 +574,7 @@ object PdfReportGenerator {
         }
     }
 
+    /** Decodifica una foto como miniatura eficiente usando muestreo reducido. */
     private fun decodeThumbnail(file: File, sizePx: Int): Bitmap? {
         return try {
             val opts = BitmapFactory.Options().apply { inJustDecodeBounds = true }
@@ -553,6 +591,7 @@ object PdfReportGenerator {
         }
     }
 
+    /** Mapea cada estado de orden a su color representativo para el badge del PDF. */
     private fun statusColor(status: OrderStatus): Int = when (status) {
         OrderStatus.RECIBIDO -> 0xFF2196F3.toInt()
         OrderStatus.EN_DIAGNOSTICO -> 0xFFFF9800.toInt()
@@ -577,6 +616,7 @@ object PdfReportGenerator {
         isAntiAlias = true
     }
 
+    /** Divide texto en líneas que no excedan el ancho máximo dado. */
     private fun wrapText(text: String, paint: Paint, maxWidth: Float): List<String> {
         if (maxWidth <= 0 || text.isEmpty()) return listOf(text)
         val words = text.split(" ")

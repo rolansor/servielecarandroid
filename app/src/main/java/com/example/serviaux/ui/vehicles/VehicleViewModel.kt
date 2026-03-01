@@ -1,3 +1,12 @@
+/**
+ * VehicleViewModel.kt - ViewModel del módulo de vehículos.
+ *
+ * Gestiona la lista de vehículos con búsqueda, el detalle de un
+ * vehículo (con historial de órdenes y datos del propietario),
+ * el formulario de creación/edición y la gestión de fotos.
+ * Los campos de marca, modelo, color y tipo de vehículo se alimentan
+ * desde los catálogos del sistema.
+ */
 package com.example.serviaux.ui.vehicles
 
 import android.app.Application
@@ -20,6 +29,7 @@ import java.io.File
 
 val DRIVETRAINS = listOf("4x2", "4x4")
 val TRANSMISSIONS = listOf("Manual", "Autom\u00e1tico")
+val FUEL_TYPES = listOf("Gasolina", "Di\u00e9sel", "El\u00e9ctrico", "H\u00edbrido")
 
 data class VehicleUiState(
     val vehicles: List<Vehicle> = emptyList(),
@@ -32,6 +42,9 @@ data class VehicleUiState(
     val availableBrands: List<String> = emptyList(),
     val availableModels: List<String> = emptyList(),
     val availableColors: List<String> = emptyList(),
+    val availableVehicleTypes: List<String> = emptyList(),
+    val formVehicleType: String = "",
+    val formFuelType: String = "",
     val formPlate: String = "",
     val formBrand: String = "",
     val formModel: String = "",
@@ -47,6 +60,9 @@ data class VehicleUiState(
     val formCustomerId: Long? = null,
     val formCustomerSearch: String = "",
     val formBrandSearch: String = "",
+    val formModelSearch: String = "",
+    val formColorSearch: String = "",
+    val formVehicleTypeSearch: String = "",
     val isEditing: Boolean = false,
     val editingVehicleId: Long? = null,
     val customers: List<Customer> = emptyList(),
@@ -58,7 +74,9 @@ data class VehicleUiState(
     val formModelError: String? = null,
     val formYearError: String? = null,
     val formVinError: String? = null,
+    val formRegistrationPhotoPaths: List<String> = emptyList(),
     val formPhotoPaths: List<String> = emptyList(),
+    val pendingPhotoTarget: String = "vehicle",
     val pendingPhotoUri: Uri? = null
 )
 
@@ -93,6 +111,11 @@ class VehicleViewModel(application: Application) : AndroidViewModel(application)
         viewModelScope.launch {
             catalogRepo.getAllColors().collect { colors ->
                 _uiState.update { it.copy(availableColors = colors.map { c -> c.name }) }
+            }
+        }
+        viewModelScope.launch {
+            catalogRepo.getAllVehicleTypes().collect { types ->
+                _uiState.update { it.copy(availableVehicleTypes = types.map { t -> t.name }) }
             }
         }
     }
@@ -178,6 +201,12 @@ class VehicleViewModel(application: Application) : AndroidViewModel(application)
     fun onFormColorChange(value: String) {
         _uiState.update { it.copy(formColor = value) }
     }
+    fun onFormColorSearchChange(value: String) {
+        _uiState.update { it.copy(formColorSearch = value.uppercase(), formColor = value.uppercase()) }
+    }
+    fun onFormColorSelected(colorName: String) {
+        _uiState.update { it.copy(formColor = colorName, formColorSearch = colorName) }
+    }
     fun onFormEngineDisplacementChange(value: String) {
         if (value.length <= 5 && value.all { it.isDigit() || it == '.' }) {
             _uiState.update { it.copy(formEngineDisplacement = value) }
@@ -193,6 +222,18 @@ class VehicleViewModel(application: Application) : AndroidViewModel(application)
     }
     fun onFormTransmissionChange(value: String) {
         _uiState.update { it.copy(formTransmission = value) }
+    }
+    fun onFormVehicleTypeChange(value: String) {
+        _uiState.update { it.copy(formVehicleType = value) }
+    }
+    fun onFormVehicleTypeSearchChange(value: String) {
+        _uiState.update { it.copy(formVehicleTypeSearch = value.uppercase(), formVehicleType = value.uppercase()) }
+    }
+    fun onFormVehicleTypeSelected(typeName: String) {
+        _uiState.update { it.copy(formVehicleType = typeName, formVehicleTypeSearch = typeName) }
+    }
+    fun onFormFuelTypeChange(value: String) {
+        _uiState.update { it.copy(formFuelType = value) }
     }
     fun onFormNotesChange(value: String) { _uiState.update { it.copy(formNotes = value.uppercase()) } }
     fun onFormVersionChange(value: String) {
@@ -218,7 +259,7 @@ class VehicleViewModel(application: Application) : AndroidViewModel(application)
     }
 
     fun onFormBrandSearchChange(value: String) {
-        _uiState.update { it.copy(formBrandSearch = value.uppercase(), formBrand = value.uppercase(), formModel = "", formBrandError = null) }
+        _uiState.update { it.copy(formBrandSearch = value.uppercase(), formBrand = value.uppercase(), formModel = "", formModelSearch = "", formBrandError = null) }
         loadModelsForBrand(value.uppercase())
     }
 
@@ -228,10 +269,25 @@ class VehicleViewModel(application: Application) : AndroidViewModel(application)
                 formBrand = brandName,
                 formBrandSearch = brandName,
                 formModel = "",
+                formModelSearch = "",
                 formBrandError = null
             )
         }
         loadModelsForBrand(brandName)
+    }
+
+    fun onFormModelSearchChange(value: String) {
+        _uiState.update { it.copy(formModelSearch = value.uppercase(), formModel = value.uppercase(), formModelError = null) }
+    }
+
+    fun onFormModelSelected(modelName: String) {
+        _uiState.update {
+            it.copy(
+                formModel = modelName,
+                formModelSearch = modelName,
+                formModelError = null
+            )
+        }
     }
 
     private val plateRegex = Regex("^[A-Z]{1,4}-?[0-9]{1,4}$")
@@ -276,11 +332,26 @@ class VehicleViewModel(application: Application) : AndroidViewModel(application)
 
     fun validateFieldOnFocusLost(field: String) {
         when (field) {
-            "plate" -> _uiState.update { it.copy(formPlateError = validatePlate()) }
+            "plate" -> {
+                val formatError = validatePlate()
+                _uiState.update { it.copy(formPlateError = formatError) }
+                if (formatError == null) checkDuplicatePlate()
+            }
             "brand" -> _uiState.update { it.copy(formBrandError = validateBrand()) }
             "model" -> _uiState.update { it.copy(formModelError = validateModel()) }
             "year" -> _uiState.update { it.copy(formYearError = validateYear()) }
             "vin" -> _uiState.update { it.copy(formVinError = validateVin()) }
+        }
+    }
+
+    private fun checkDuplicatePlate() {
+        val plate = _uiState.value.formPlate.trim().uppercase()
+        if (plate.isBlank()) return
+        viewModelScope.launch {
+            val existing = vehicleRepo.findByPlate(plate)
+            if (existing != null && existing.id != _uiState.value.editingVehicleId) {
+                _uiState.update { it.copy(formPlateError = "Ya existe un veh\u00edculo con esta placa") }
+            }
         }
     }
 
@@ -325,11 +396,14 @@ class VehicleViewModel(application: Application) : AndroidViewModel(application)
                                 year = state.formYear.toIntOrNull(),
                                 vin = state.formVin.trim().ifBlank { null },
                                 color = state.formColor.trim().ifBlank { null },
+                                vehicleType = state.formVehicleType.ifBlank { null },
+                                fuelType = state.formFuelType.ifBlank { null },
                                 engineDisplacement = state.formEngineDisplacement.trim().ifBlank { null },
                                 engineNumber = state.formEngineNumber.trim().ifBlank { null },
                                 drivetrain = state.formDrivetrain,
                                 transmission = state.formTransmission,
                                 notes = state.formNotes.trim().ifBlank { null },
+                                registrationPhotoPaths = PhotoUtils.serializePaths(state.formRegistrationPhotoPaths),
                                 photoPaths = PhotoUtils.serializePaths(state.formPhotoPaths),
                                 customerId = state.formCustomerId!!
                             )
@@ -345,6 +419,8 @@ class VehicleViewModel(application: Application) : AndroidViewModel(application)
                             year = state.formYear.toIntOrNull(),
                             vin = state.formVin.trim().ifBlank { null },
                             color = state.formColor.trim().ifBlank { null },
+                            vehicleType = state.formVehicleType.ifBlank { null },
+                            fuelType = state.formFuelType.ifBlank { null },
                             engineDisplacement = state.formEngineDisplacement.trim().ifBlank { null },
                             engineNumber = state.formEngineNumber.trim().ifBlank { null },
                             drivetrain = state.formDrivetrain,
@@ -366,14 +442,14 @@ class VehicleViewModel(application: Application) : AndroidViewModel(application)
         _uiState.update {
             it.copy(
                 formPlate = "", formBrand = "", formModel = "", formVersion = "",
-                formYear = "", formVin = "", formColor = "",
+                formYear = "", formVin = "", formColor = "", formVehicleType = "", formFuelType = "",
                 formNotes = "", formEngineDisplacement = "", formEngineNumber = "",
                 formDrivetrain = "4x2", formTransmission = "Manual",
-                formCustomerId = customerId, formCustomerSearch = "", formBrandSearch = "",
+                formCustomerId = customerId, formCustomerSearch = "", formBrandSearch = "", formModelSearch = "", formColorSearch = "", formVehicleTypeSearch = "",
                 isEditing = false, editingVehicleId = null, error = null,
                 formCustomerError = null, formPlateError = null, formBrandError = null,
                 formModelError = null, formYearError = null, formVinError = null,
-                formPhotoPaths = emptyList(), pendingPhotoUri = null
+                formRegistrationPhotoPaths = emptyList(), formPhotoPaths = emptyList(), pendingPhotoUri = null
             )
         }
     }
@@ -388,6 +464,10 @@ class VehicleViewModel(application: Application) : AndroidViewModel(application)
                 formYear = vehicle.year?.toString() ?: "",
                 formVin = vehicle.vin ?: "",
                 formColor = vehicle.color ?: "",
+                formColorSearch = vehicle.color ?: "",
+                formVehicleType = vehicle.vehicleType ?: "",
+                formVehicleTypeSearch = vehicle.vehicleType ?: "",
+                formFuelType = vehicle.fuelType ?: "",
                 formEngineDisplacement = vehicle.engineDisplacement ?: "",
                 formEngineNumber = vehicle.engineNumber ?: "",
                 formDrivetrain = vehicle.drivetrain,
@@ -395,11 +475,13 @@ class VehicleViewModel(application: Application) : AndroidViewModel(application)
                 formNotes = vehicle.notes ?: "",
                 formCustomerId = vehicle.customerId,
                 formBrandSearch = vehicle.brand,
+                formModelSearch = vehicle.model,
                 isEditing = true,
                 editingVehicleId = vehicle.id,
                 error = null,
                 formCustomerError = null, formPlateError = null, formBrandError = null,
                 formModelError = null, formYearError = null, formVinError = null,
+                formRegistrationPhotoPaths = PhotoUtils.parsePaths(vehicle.registrationPhotoPaths),
                 formPhotoPaths = PhotoUtils.parsePaths(vehicle.photoPaths),
                 pendingPhotoUri = null
             )
@@ -428,23 +510,32 @@ class VehicleViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
-    fun prepareCameraFile(): Uri? {
+    fun prepareCameraFile(target: String = "vehicle"): Uri? {
         val context = getApplication<Application>()
-        val file = PhotoUtils.createTempPhotoFile(context)
+        val prefix = if (target == "registration") "MAT" else "VEH"
+        val file = PhotoUtils.createTempPhotoFile(context, prefix)
         pendingPhotoFile = file
         val uri = PhotoUtils.getUriForFile(context, file)
-        _uiState.update { it.copy(pendingPhotoUri = uri) }
+        _uiState.update { it.copy(pendingPhotoUri = uri, pendingPhotoTarget = target) }
         return uri
     }
 
     fun onPhotoTaken(success: Boolean) {
         val file = pendingPhotoFile
+        val target = _uiState.value.pendingPhotoTarget
         if (success && file != null && file.exists() && file.length() > 0) {
             _uiState.update {
-                it.copy(
-                    formPhotoPaths = it.formPhotoPaths + file.absolutePath,
-                    pendingPhotoUri = null
-                )
+                if (target == "registration") {
+                    it.copy(
+                        formRegistrationPhotoPaths = it.formRegistrationPhotoPaths + file.absolutePath,
+                        pendingPhotoUri = null
+                    )
+                } else {
+                    it.copy(
+                        formPhotoPaths = it.formPhotoPaths + file.absolutePath,
+                        pendingPhotoUri = null
+                    )
+                }
             }
         } else {
             file?.delete()
@@ -453,11 +544,79 @@ class VehicleViewModel(application: Application) : AndroidViewModel(application)
         pendingPhotoFile = null
     }
 
-    fun addPhotoFromGallery(uri: Uri) {
+    fun addPhotoFromGallery(uri: Uri, target: String = "vehicle") {
         val context = getApplication<Application>()
-        val file = PhotoUtils.copyUriToInternalStorage(context, uri)
+        val prefix = if (target == "registration") "MAT" else "VEH"
+        val file = PhotoUtils.copyUriToInternalStorage(context, uri, prefix)
         if (file != null) {
-            _uiState.update { it.copy(formPhotoPaths = it.formPhotoPaths + file.absolutePath) }
+            _uiState.update {
+                if (target == "registration") {
+                    it.copy(formRegistrationPhotoPaths = it.formRegistrationPhotoPaths + file.absolutePath)
+                } else {
+                    it.copy(formPhotoPaths = it.formPhotoPaths + file.absolutePath)
+                }
+            }
+        }
+    }
+
+    fun onPhotoTakenForReplace(success: Boolean, target: String, index: Int) {
+        val file = pendingPhotoFile
+        if (success && file != null && file.exists() && file.length() > 0) {
+            _uiState.update {
+                if (target == "registration") {
+                    val paths = it.formRegistrationPhotoPaths.toMutableList()
+                    if (index in paths.indices) {
+                        PhotoUtils.deletePhoto(paths[index])
+                        paths[index] = file.absolutePath
+                    }
+                    it.copy(formRegistrationPhotoPaths = paths, pendingPhotoUri = null)
+                } else {
+                    val paths = it.formPhotoPaths.toMutableList()
+                    if (index in paths.indices) {
+                        PhotoUtils.deletePhoto(paths[index])
+                        paths[index] = file.absolutePath
+                    }
+                    it.copy(formPhotoPaths = paths, pendingPhotoUri = null)
+                }
+            }
+        } else {
+            file?.delete()
+            _uiState.update { it.copy(pendingPhotoUri = null) }
+        }
+        pendingPhotoFile = null
+    }
+
+    fun replacePhotoFromGallery(uri: Uri, target: String, index: Int) {
+        val context = getApplication<Application>()
+        val prefix = if (target == "registration") "MAT" else "VEH"
+        val file = PhotoUtils.copyUriToInternalStorage(context, uri, prefix)
+        if (file != null) {
+            _uiState.update {
+                if (target == "registration") {
+                    val paths = it.formRegistrationPhotoPaths.toMutableList()
+                    if (index in paths.indices) {
+                        PhotoUtils.deletePhoto(paths[index])
+                        paths[index] = file.absolutePath
+                    }
+                    it.copy(formRegistrationPhotoPaths = paths)
+                } else {
+                    val paths = it.formPhotoPaths.toMutableList()
+                    if (index in paths.indices) {
+                        PhotoUtils.deletePhoto(paths[index])
+                        paths[index] = file.absolutePath
+                    }
+                    it.copy(formPhotoPaths = paths)
+                }
+            }
+        }
+    }
+
+    fun removeRegistrationPhoto(index: Int) {
+        val paths = _uiState.value.formRegistrationPhotoPaths.toMutableList()
+        if (index in paths.indices) {
+            PhotoUtils.deletePhoto(paths[index])
+            paths.removeAt(index)
+            _uiState.update { it.copy(formRegistrationPhotoPaths = paths) }
         }
     }
 
@@ -467,6 +626,16 @@ class VehicleViewModel(application: Application) : AndroidViewModel(application)
             PhotoUtils.deletePhoto(paths[index])
             paths.removeAt(index)
             _uiState.update { it.copy(formPhotoPaths = paths) }
+        }
+    }
+
+    fun deleteVehicle(vehicle: Vehicle) {
+        viewModelScope.launch {
+            if (vehicleRepo.canDelete(vehicle.id)) {
+                vehicleRepo.delete(vehicle)
+            } else {
+                _uiState.update { it.copy(error = "No se puede eliminar: tiene \u00f3rdenes asociadas") }
+            }
         }
     }
 

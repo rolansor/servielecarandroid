@@ -1,3 +1,15 @@
+/**
+ * WorkOrderViewModel.kt - ViewModel del módulo de órdenes de trabajo.
+ *
+ * Es el ViewModel más complejo del sistema. Gestiona:
+ * - Lista de órdenes con filtro por estado.
+ * - Detalle completo de una orden (servicios, repuestos, pagos, historial de estado).
+ * - Formulario de creación/edición de órdenes con selección de cliente y vehículo.
+ * - Cambios de estado con registro de auditoría.
+ * - Gestión de fotos y archivos adjuntos.
+ * - Generación de reportes PDF.
+ * - Eliminación de órdenes con restauración de stock.
+ */
 package com.example.serviaux.ui.workorders
 
 import android.app.Application
@@ -28,6 +40,7 @@ data class WorkOrderUiState(
     val orderParts: List<WorkOrderPart> = emptyList(),
     val payments: List<WorkOrderPayment> = emptyList(),
     val statusLog: List<WorkOrderStatusLog> = emptyList(),
+    val orderMechanics: List<WorkOrderMechanic> = emptyList(),
     val availableParts: List<Part> = emptyList(),
     val mechanics: List<User> = emptyList(),
     val customers: List<Customer> = emptyList(),
@@ -46,8 +59,9 @@ data class WorkOrderUiState(
     val formCustomerSearch: String = "",
     val formVehicleId: Long? = null,
     val formComplaint: String = "",
-    val formDiagnosis: String = "",
     val formPriority: Priority = Priority.MEDIA,
+    val formOrderType: OrderType = OrderType.SERVICIO_NUEVO,
+    val formArrivalCondition: ArrivalCondition = ArrivalCondition.RODANDO,
     val formEntryMileage: String = "",
     val formFuelLevel: String = "",
     val formChecklistNotes: String = "",
@@ -261,6 +275,11 @@ class WorkOrderViewModel(application: Application) : AndroidViewModel(applicatio
                 _uiState.update { it.copy(statusLog = log) }
             }
         }
+        viewModelScope.launch {
+            workOrderRepo.getOrderMechanics(orderId).collect { mechanics ->
+                _uiState.update { it.copy(orderMechanics = mechanics) }
+            }
+        }
     }
 
     // Edit mode: prepare form with existing order data
@@ -283,8 +302,9 @@ class WorkOrderViewModel(application: Application) : AndroidViewModel(applicatio
                     formCustomerSearch = customer?.fullName ?: "",
                     formVehicleId = order.vehicleId,
                     formComplaint = order.customerComplaint,
-                    formDiagnosis = order.initialDiagnosis ?: "",
                     formPriority = order.priority,
+                    formOrderType = order.orderType,
+                    formArrivalCondition = order.arrivalCondition,
                     formEntryMileage = order.entryMileage?.toString() ?: "",
                     formFuelLevel = order.fuelLevel ?: "",
                     formChecklist = checklistMap,
@@ -335,8 +355,9 @@ class WorkOrderViewModel(application: Application) : AndroidViewModel(applicatio
                 val checkedItems = state.formChecklist.filter { it.value }.keys.joinToString(",")
                 val updated = existing.copy(
                     customerComplaint = state.formComplaint.trim(),
-                    initialDiagnosis = state.formDiagnosis.trim().ifBlank { null },
                     priority = state.formPriority,
+                    orderType = state.formOrderType,
+                    arrivalCondition = state.formArrivalCondition,
                     entryMileage = state.formEntryMileage.toIntOrNull(),
                     fuelLevel = state.formFuelLevel.trim().ifBlank { null },
                     checklistNotes = checkedItems.ifBlank { null },
@@ -408,8 +429,9 @@ class WorkOrderViewModel(application: Application) : AndroidViewModel(applicatio
                     customerId = state.formCustomerId!!,
                     vehicleId = state.formVehicleId!!,
                     customerComplaint = state.formComplaint.trim(),
-                    initialDiagnosis = state.formDiagnosis.trim().ifBlank { null },
                     priority = state.formPriority,
+                    orderType = state.formOrderType,
+                    arrivalCondition = state.formArrivalCondition,
                     entryMileage = state.formEntryMileage.toIntOrNull(),
                     fuelLevel = state.formFuelLevel.trim().ifBlank { null },
                     checklistNotes = checkedItems.ifBlank { null },
@@ -451,6 +473,73 @@ class WorkOrderViewModel(application: Application) : AndroidViewModel(applicatio
                 workOrderRepo.assignMechanic(orderId, mechanicId, session.currentUserId)
             } catch (e: Exception) {
                 _uiState.update { it.copy(error = e.message ?: "Error al asignar mecanico") }
+            }
+        }
+    }
+
+    fun addMechanicToOrder(mechanicId: Long, commissionType: String, commissionValue: Double) {
+        val state = _uiState.value
+        val orderId = state.selectedOrder?.id ?: return
+        val totalLabor = state.selectedOrder.totalLabor
+        val commissionAmount = when (commissionType) {
+            "PORCENTAJE" -> totalLabor * (commissionValue / 100.0)
+            "FIJA" -> commissionValue
+            else -> 0.0
+        }
+        viewModelScope.launch {
+            try {
+                workOrderRepo.addMechanicToOrder(
+                    WorkOrderMechanic(
+                        workOrderId = orderId,
+                        mechanicId = mechanicId,
+                        commissionType = commissionType,
+                        commissionValue = commissionValue,
+                        commissionAmount = commissionAmount
+                    )
+                )
+                // Also set as assigned mechanic if first one
+                if (state.orderMechanics.isEmpty()) {
+                    workOrderRepo.assignMechanic(orderId, mechanicId, session.currentUserId)
+                }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(error = e.message ?: "Error al agregar mec\u00e1nico") }
+            }
+        }
+    }
+
+    fun removeMechanicFromOrder(mechanic: WorkOrderMechanic) {
+        viewModelScope.launch {
+            try {
+                workOrderRepo.removeMechanicFromOrder(mechanic)
+            } catch (e: Exception) {
+                _uiState.update { it.copy(error = e.message ?: "Error al eliminar mec\u00e1nico") }
+            }
+        }
+    }
+
+    fun toggleCommissionPaid(mechanic: WorkOrderMechanic) {
+        viewModelScope.launch {
+            try {
+                workOrderRepo.toggleCommissionPaid(mechanic)
+            } catch (e: Exception) {
+                _uiState.update { it.copy(error = e.message ?: "Error al actualizar comisi\u00f3n") }
+            }
+        }
+    }
+
+    fun recalculateCommissions() {
+        val state = _uiState.value
+        val totalLabor = state.selectedOrder?.totalLabor ?: return
+        viewModelScope.launch {
+            state.orderMechanics.forEach { m ->
+                val newAmount = when (m.commissionType) {
+                    "PORCENTAJE" -> totalLabor * (m.commissionValue / 100.0)
+                    "FIJA" -> m.commissionValue
+                    else -> 0.0
+                }
+                if (newAmount != m.commissionAmount) {
+                    workOrderRepo.updateOrderMechanic(m.copy(commissionAmount = newAmount))
+                }
             }
         }
     }
@@ -718,12 +807,9 @@ class WorkOrderViewModel(application: Application) : AndroidViewModel(applicatio
         }
     }
 
-    fun onFormDiagnosisChange(value: String) {
-        if (value.length <= 500) {
-            _uiState.update { it.copy(formDiagnosis = value) }
-        }
-    }
     fun onFormPriorityChange(value: Priority) { _uiState.update { it.copy(formPriority = value) } }
+    fun onFormOrderTypeChange(value: OrderType) { _uiState.update { it.copy(formOrderType = value) } }
+    fun onFormArrivalConditionChange(value: ArrivalCondition) { _uiState.update { it.copy(formArrivalCondition = value) } }
     fun onFormEntryMileageChange(value: String) {
         val filtered = value.filter { it.isDigit() }.take(7)
         _uiState.update { it.copy(formEntryMileage = filtered, formMileageError = null) }

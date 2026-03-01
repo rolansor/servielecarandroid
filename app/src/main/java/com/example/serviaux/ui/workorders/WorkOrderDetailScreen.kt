@@ -1,3 +1,19 @@
+/**
+ * WorkOrderDetailScreen.kt - Pantalla de detalle de una orden de trabajo.
+ *
+ * Es la pantalla más compleja del sistema. Muestra:
+ * - Información del vehículo y cliente.
+ * - Queja del cliente y diagnóstico.
+ * - Checklist de accesorios recibidos.
+ * - Tabla de servicios (mano de obra) con CRUD inline.
+ * - Tabla de repuestos con búsqueda, precios y ajuste de stock.
+ * - Registro de pagos con descuentos y múltiples métodos de pago.
+ * - Historial de cambios de estado.
+ * - Galería de fotos y archivos adjuntos.
+ * - Cambio de estado, asignación de mecánico, generación de PDF.
+ * - Notas de entrega, número de factura.
+ * - Eliminación de la orden (solo admin).
+ */
 package com.example.serviaux.ui.workorders
 
 import android.Manifest
@@ -10,6 +26,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.material3.Checkbox
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.text.input.KeyboardCapitalization
@@ -203,8 +220,9 @@ fun WorkOrderDetailScreen(
     if (showMechanicDialog) {
         MechanicAssignDialog(
             mechanics = uiState.mechanics,
-            onMechanicSelected = { mechanicId ->
-                viewModel.assignMechanic(mechanicId)
+            assignedMechanicIds = uiState.orderMechanics.map { it.mechanicId },
+            onMechanicAdded = { mechanicId, commType, commValue ->
+                viewModel.addMechanicToOrder(mechanicId, commType, commValue)
                 showMechanicDialog = false
             },
             onDismiss = { showMechanicDialog = false }
@@ -601,8 +619,9 @@ fun WorkOrderDetailScreen(
                             InfoRow(label = "Fecha Ingreso", value = dateFormat.format(Date(order.entryDate)))
                             InfoRow(label = "Cliente", value = uiState.customerName.ifBlank { "Cliente #${order.customerId}" })
                             InfoRow(label = "Veh\u00edculo", value = uiState.vehicleName.ifBlank { "Veh\u00edculo #${order.vehicleId}" })
+                            InfoRow(label = "Tipo de Orden", value = order.orderType.displayName)
                             InfoRow(label = "Queja del Cliente", value = order.customerComplaint)
-                            InfoRow(label = "Diagn\u00f3stico Inicial", value = order.initialDiagnosis ?: "N/A")
+                            InfoRow(label = "Condición de Llegada", value = order.arrivalCondition.displayName)
                             InfoRow(label = "Mec\u00e1nico Asignado", value = uiState.mechanics.find { it.id == order.assignedMechanicId }?.name ?: "Sin asignar")
                             // Checklist items
                             val checklistItems = remember(order.checklistNotes) {
@@ -859,6 +878,77 @@ fun WorkOrderDetailScreen(
                                             modifier = Modifier.size(18.dp),
                                             tint = MaterialTheme.colorScheme.error
                                         )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Mecánicos
+                item {
+                    Card(modifier = Modifier.fillMaxWidth()) {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                SectionTitle("Mec\u00e1nicos", modifier = Modifier.weight(1f))
+                                if (!isEntregado && isAdmin) {
+                                    IconButton(onClick = { showMechanicDialog = true }) {
+                                        Icon(Icons.Default.Add, contentDescription = "Agregar mec\u00e1nico")
+                                    }
+                                }
+                            }
+
+                            if (uiState.orderMechanics.isEmpty()) {
+                                Text(
+                                    "Sin mec\u00e1nicos asignados",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            } else {
+                                uiState.orderMechanics.forEach { wm ->
+                                    val mechName = uiState.mechanics.find { it.id == wm.mechanicId }?.name ?: "Mec\u00e1nico #${wm.mechanicId}"
+                                    val typeLabel = when (wm.commissionType) {
+                                        "FIJA" -> "Fija"
+                                        "PORCENTAJE" -> "${wm.commissionValue}%"
+                                        else -> "Sin comisi\u00f3n"
+                                    }
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(vertical = 4.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Column(modifier = Modifier.weight(1f)) {
+                                            Text(mechName, style = MaterialTheme.typography.bodyMedium)
+                                            Text(
+                                                "$typeLabel \u2022 $${String.format("%.2f", wm.commissionAmount)}",
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                        }
+                                        if (isAdmin) {
+                                            Checkbox(
+                                                checked = wm.commissionPaid,
+                                                onCheckedChange = { viewModel.toggleCommissionPaid(wm) }
+                                            )
+                                            Text(
+                                                if (wm.commissionPaid) "Pagada" else "Pendiente",
+                                                style = MaterialTheme.typography.bodySmall
+                                            )
+                                        }
+                                        if (!isEntregado && isAdmin) {
+                                            IconButton(onClick = { viewModel.removeMechanicFromOrder(wm) }) {
+                                                Icon(
+                                                    Icons.Default.Close,
+                                                    contentDescription = "Eliminar",
+                                                    modifier = Modifier.size(18.dp),
+                                                    tint = MaterialTheme.colorScheme.error
+                                                )
+                                            }
+                                        }
                                     }
                                 }
                             }
@@ -1193,13 +1283,9 @@ fun WorkOrderDetailScreen(
                             ) {
                                 logEntry.oldStatus?.let { old ->
                                     Text(
-                                        text = old.displayName,
+                                        text = "${old.displayName}  >>  ",
                                         style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                    Text(
-                                        text = " \u2192 ",
-                                        style = MaterialTheme.typography.bodySmall
                                     )
                                 }
                                 Text(
@@ -1266,35 +1352,130 @@ private fun StatusChangeDialog(
     )
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun MechanicAssignDialog(
     mechanics: List<com.example.serviaux.data.entity.User>,
-    onMechanicSelected: (Long) -> Unit,
+    assignedMechanicIds: List<Long>,
+    onMechanicAdded: (mechanicId: Long, commissionType: String, commissionValue: Double) -> Unit,
     onDismiss: () -> Unit
 ) {
+    var selectedMechanic by remember { mutableStateOf<com.example.serviaux.data.entity.User?>(null) }
+    var commissionType by remember { mutableStateOf("") }
+    var commissionValue by remember { mutableStateOf("") }
+
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Asignar Mec\u00e1nico") },
+        title = { Text("Agregar Mec\u00e1nico") },
         text = {
             Column {
-                if (mechanics.isEmpty()) {
-                    Text("No hay mec\u00e1nicos disponibles")
-                } else {
-                    mechanics.forEach { mechanic ->
-                        TextButton(
-                            onClick = { onMechanicSelected(mechanic.id) },
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Text(mechanic.name)
+                if (selectedMechanic == null) {
+                    val available = mechanics.filter { it.id !in assignedMechanicIds }
+                    if (available.isEmpty()) {
+                        Text("No hay mec\u00e1nicos disponibles")
+                    } else {
+                        available.forEach { mechanic ->
+                            val commLabel = try {
+                                com.example.serviaux.data.entity.CommissionType.valueOf(mechanic.commissionType).displayName
+                            } catch (_: Exception) { "" }
+                            TextButton(
+                                onClick = {
+                                    selectedMechanic = mechanic
+                                    commissionType = mechanic.commissionType
+                                    commissionValue = if (mechanic.commissionValue > 0) mechanic.commissionValue.toString() else ""
+                                },
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Column(modifier = Modifier.fillMaxWidth()) {
+                                    Text(mechanic.name)
+                                    if (commLabel.isNotBlank() && mechanic.commissionType != "NINGUNA") {
+                                        Text(
+                                            commLabel + if (mechanic.commissionValue > 0) " - ${mechanic.commissionValue}" else "",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                }
+                            }
                         }
+                    }
+                } else {
+                    Text("Mec\u00e1nico: ${selectedMechanic!!.name}", style = MaterialTheme.typography.titleSmall)
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    var typeExpanded by remember { mutableStateOf(false) }
+                    val typeLabel = when (commissionType) {
+                        "FIJA" -> "Por trabajo ($)"
+                        "PORCENTAJE" -> "Porcentaje (%)"
+                        else -> "No comisiona"
+                    }
+                    ExposedDropdownMenuBox(
+                        expanded = typeExpanded,
+                        onExpandedChange = { typeExpanded = it }
+                    ) {
+                        OutlinedTextField(
+                            value = typeLabel,
+                            onValueChange = {},
+                            readOnly = true,
+                            label = { Text("Tipo de Comisi\u00f3n") },
+                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = typeExpanded) },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .menuAnchor(MenuAnchorType.PrimaryNotEditable)
+                        )
+                        ExposedDropdownMenu(
+                            expanded = typeExpanded,
+                            onDismissRequest = { typeExpanded = false }
+                        ) {
+                            listOf("NINGUNA" to "No comisiona", "FIJA" to "Por trabajo ($)", "PORCENTAJE" to "Porcentaje (%)").forEach { (value, label) ->
+                                DropdownMenuItem(
+                                    text = { Text(label) },
+                                    onClick = {
+                                        commissionType = value
+                                        typeExpanded = false
+                                    }
+                                )
+                            }
+                        }
+                    }
+
+                    if (commissionType != "NINGUNA") {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        OutlinedTextField(
+                            value = commissionValue,
+                            onValueChange = { if (it.length <= 10 && it.all { c -> c.isDigit() || c == '.' }) commissionValue = it },
+                            label = { Text(if (commissionType == "FIJA") "Valor ($)" else "Porcentaje (%)") },
+                            singleLine = true,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                            modifier = Modifier.fillMaxWidth()
+                        )
                     }
                 }
             }
         },
-        confirmButton = {},
+        confirmButton = {
+            if (selectedMechanic != null) {
+                TextButton(
+                    onClick = {
+                        val mechId = selectedMechanic!!.id
+                        val cv = commissionValue.toDoubleOrNull() ?: 0.0
+                        onMechanicAdded(mechId, commissionType, cv)
+                    },
+                    enabled = commissionType == "NINGUNA" || (commissionValue.toDoubleOrNull() ?: 0.0) > 0
+                ) {
+                    Text("Agregar")
+                }
+            }
+        },
         dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Cancelar")
+            TextButton(onClick = {
+                if (selectedMechanic != null) {
+                    selectedMechanic = null
+                } else {
+                    onDismiss()
+                }
+            }) {
+                Text(if (selectedMechanic != null) "Atr\u00e1s" else "Cancelar")
             }
         }
     )

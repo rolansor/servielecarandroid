@@ -330,11 +330,9 @@ def generate():
         stock = int(p.get('stock', 0))
         if stock < 0:
             stock = 0
-        sale_price = round(precio * 1.4, 2)
-
         lines.append(
             f"INSERT INTO parts (name, description, code, brand, unitCost, salePrice, currentStock, active, createdAt, updatedAt) "
-            f"VALUES ({sql_escape(nombre)}, {sql_escape(description)}, {sql_escape(codigo)}, 'GENERICO', {precio}, {sale_price}, {stock}, 1, {now_ms}, {now_ms});"
+            f"VALUES ({sql_escape(nombre)}, {sql_escape(description)}, {sql_escape(codigo)}, 'GENERICO', {precio}, {precio}, {stock}, 1, {now_ms}, {now_ms});"
         )
     lines.append("")
 
@@ -345,8 +343,8 @@ def generate():
 
     # First insert "Consumidor Final" as customer ID 1
     lines.append(
-        f"INSERT INTO customers (id, fullName, idNumber, phone, email, address, notes, createdAt, updatedAt) "
-        f"VALUES (1, 'CONSUMIDOR FINAL', '9999999999', '', NULL, NULL, 'CLIENTE GENERICO PARA VEHICULOS SIN PROPIETARIO ASIGNADO', {now_ms}, {now_ms});"
+        f"INSERT INTO customers (id, fullName, docType, idNumber, phone, email, address, notes, createdAt, updatedAt) "
+        f"VALUES (1, 'CONSUMIDOR FINAL', 'CEDULA', '9999999999', '', NULL, NULL, 'CLIENTE GENERICO PARA VEHICULOS SIN PROPIETARIO ASIGNADO', {now_ms}, {now_ms});"
     )
 
     print("Reading Clientes.xlsx...")
@@ -371,8 +369,8 @@ def generate():
             phone = phone.replace(".0", "")
 
         lines.append(
-            f"INSERT INTO customers (id, fullName, idNumber, phone, email, address, notes, createdAt, updatedAt) "
-            f"VALUES ({customer_id}, {sql_escape(full_name)}, {sql_escape(id_number)}, {sql_escape(phone)}, NULL, NULL, NULL, {created_at}, {created_at});"
+            f"INSERT INTO customers (id, fullName, docType, idNumber, phone, email, address, notes, createdAt, updatedAt) "
+            f"VALUES ({customer_id}, {sql_escape(full_name)}, 'CEDULA', {sql_escape(id_number)}, {sql_escape(phone)}, NULL, NULL, NULL, {created_at}, {created_at});"
         )
 
         normalized = full_name.lower().strip()

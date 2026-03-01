@@ -1,3 +1,11 @@
+/**
+ * WorkOrderListScreen.kt - Pantalla de lista de órdenes de trabajo.
+ *
+ * Muestra todas las órdenes con filtro por estado (chips horizontales
+ * scrolleables). Cada tarjeta muestra: número de orden, placa, estado,
+ * prioridad y total. Permite navegar al detalle o crear una nueva orden.
+ * Soporta filtro inicial desde el dashboard al clickear un estado.
+ */
 package com.example.serviaux.ui.workorders
 
 import androidx.compose.foundation.clickable
@@ -186,6 +194,12 @@ fun WorkOrderListScreen(
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
                                     PriorityChip(priority = order.priority)
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        text = order.orderType.displayName,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
                                     Spacer(modifier = Modifier.width(8.dp))
                                     Text(
                                         text = dateFormat.format(Date(order.entryDate)),

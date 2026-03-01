@@ -1,3 +1,10 @@
+/**
+ * PartListScreen.kt - Pantalla de lista de repuestos del inventario.
+ *
+ * Muestra todos los repuestos (incluyendo inactivos) con búsqueda por nombre
+ * o código. Indica stock actual y estado activo/inactivo. Permite crear nuevos
+ * repuestos o editar existentes.
+ */
 package com.example.serviaux.ui.parts
 
 import androidx.compose.foundation.clickable
@@ -13,6 +20,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.NavigateBefore
+import androidx.compose.material.icons.automirrored.filled.NavigateNext
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Handyman
 import androidx.compose.material3.Card
@@ -25,6 +34,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -88,6 +98,35 @@ fun PartListScreen(
                 placeholder = "Buscar repuesto...",
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
             )
+
+            // Pagination controls (only when not searching)
+            if (uiState.searchQuery.isBlank() && uiState.totalCount > uiState.pageSize) {
+                val totalPages = (uiState.totalCount + uiState.pageSize - 1) / uiState.pageSize
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    IconButton(
+                        onClick = { viewModel.previousPage() },
+                        enabled = uiState.currentPage > 0
+                    ) {
+                        Icon(Icons.AutoMirrored.Filled.NavigateBefore, contentDescription = "Anterior")
+                    }
+                    Text(
+                        text = "P\u00e1g. ${uiState.currentPage + 1} de $totalPages (${uiState.totalCount} repuestos)",
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                    IconButton(
+                        onClick = { viewModel.nextPage() },
+                        enabled = (uiState.currentPage + 1) * uiState.pageSize < uiState.totalCount
+                    ) {
+                        Icon(Icons.AutoMirrored.Filled.NavigateNext, contentDescription = "Siguiente")
+                    }
+                }
+            }
 
             if (uiState.parts.isEmpty()) {
                 EmptyState(

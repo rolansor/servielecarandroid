@@ -1,3 +1,15 @@
+/**
+ * DashboardScreen.kt - Pantalla principal del panel de control.
+ *
+ * Muestra:
+ * - Saludo al usuario con su rol.
+ * - Tarjetas de conteo de órdenes por estado (clickeables para filtrar).
+ * - Acciones rápidas (nuevo cliente, vehículo, orden).
+ * - Grid de módulos del sistema (filtrado por rol).
+ *
+ * Los módulos de Usuarios, Reportes, Catálogos y Respaldos solo son
+ * visibles para administradores.
+ */
 package com.example.serviaux.ui.dashboard
 
 import androidx.compose.foundation.clickable
@@ -70,6 +82,7 @@ fun DashboardScreen(
     onNavigateToCatalogSettings: () -> Unit,
     onNavigateToNewOrder: () -> Unit,
     onNavigateToNewCustomer: () -> Unit,
+    onNavigateToNewVehicle: () -> Unit,
     onNavigateToBackup: () -> Unit,
     onLogout: () -> Unit,
     viewModel: DashboardViewModel = viewModel()
@@ -177,9 +190,9 @@ fun DashboardScreen(
 
             QuickActionCard("Nuevo Cliente", Icons.Default.PersonAdd, onNavigateToNewCustomer)
             Spacer(modifier = Modifier.height(8.dp))
-            QuickActionCard("Nueva Orden", Icons.Default.NoteAdd, onNavigateToNewOrder)
+            QuickActionCard("Nuevo Veh\u00edculo", Icons.Default.DirectionsCar, onNavigateToNewVehicle)
             Spacer(modifier = Modifier.height(8.dp))
-            QuickActionCard("Buscar Veh\u00edculo", Icons.Default.DirectionsCar, onNavigateToVehicles)
+            QuickActionCard("Nueva Orden", Icons.Default.NoteAdd, onNavigateToNewOrder)
 
             Spacer(modifier = Modifier.height(24.dp))
 

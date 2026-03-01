@@ -1,3 +1,9 @@
+/**
+ * Type.kt - Configuración de tipografía Material 3 de Serviaux.
+ *
+ * Personaliza los estilos de texto (headlines, titles, body, labels)
+ * con pesos y tamaños adaptados a la interfaz del taller.
+ */
 package com.example.serviaux.ui.theme
 
 import androidx.compose.material3.Typography

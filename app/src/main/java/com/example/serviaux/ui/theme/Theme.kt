@@ -1,3 +1,10 @@
+/**
+ * Theme.kt - Configuración del tema Material 3 de Serviaux.
+ *
+ * Define los esquemas de color oscuro y claro basados en la paleta
+ * de taller mecánico definida en [Color.kt]. El tema se aplica
+ * automáticamente según la preferencia del sistema.
+ */
 package com.example.serviaux.ui.theme
 
 import androidx.compose.foundation.isSystemInDarkTheme
@@ -6,6 +13,7 @@ import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 
+/** Esquema de colores para tema oscuro. */
 private val DarkColorScheme = darkColorScheme(
     primary = SteelBlue80,
     onPrimary = OnDarkPrimary,
@@ -32,6 +40,7 @@ private val DarkColorScheme = darkColorScheme(
     outline = OutlineDark,
 )
 
+/** Esquema de colores para tema claro. */
 private val LightColorScheme = lightColorScheme(
     primary = SteelBlue40,
     onPrimary = OnLightPrimary,
@@ -58,6 +67,7 @@ private val LightColorScheme = lightColorScheme(
     outline = OutlineLight,
 )
 
+/** Tema principal de la aplicación. Selecciona automáticamente el esquema de color según el sistema. */
 @Composable
 fun ServiauxTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),

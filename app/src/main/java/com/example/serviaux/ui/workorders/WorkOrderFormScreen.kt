@@ -1,3 +1,14 @@
+/**
+ * WorkOrderFormScreen.kt - Formulario de creación/edición de órdenes de trabajo.
+ *
+ * Campos principales: cliente (searchable), vehículo (filtrado por cliente),
+ * prioridad, queja del cliente, diagnóstico inicial, mecánico asignado,
+ * kilometraje de entrada, nivel de combustible, checklist de accesorios,
+ * notas y fotos.
+ *
+ * En modo edición (con orderId) carga los datos existentes.
+ * Al crear una orden, navega automáticamente al detalle de la nueva orden.
+ */
 package com.example.serviaux.ui.workorders
 
 import android.Manifest
@@ -73,6 +84,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil3.compose.AsyncImage
 import coil3.request.ImageRequest
+import com.example.serviaux.data.entity.ArrivalCondition
+import com.example.serviaux.data.entity.OrderType
 import com.example.serviaux.data.entity.Priority
 import com.example.serviaux.ui.components.SearchableDropdown
 import com.example.serviaux.ui.components.SearchableItem
@@ -170,16 +183,8 @@ fun WorkOrderFormScreen(
         uiState.catalogComplaints.map { SearchableItem(it.id, it.name) }
     }
 
-    // Diagnosis suggestions (filtered by selected complaint, or show all)
-    val diagnosisItems = remember(uiState.catalogDiagnoses, uiState.selectedComplaintId) {
-        val complaintId = uiState.selectedComplaintId
-        val filtered = if (complaintId != null) {
-            uiState.catalogDiagnoses.filter { it.complaintId == complaintId }
-        } else {
-            uiState.catalogDiagnoses
-        }
-        filtered.map { SearchableItem(it.id, it.name) }
-    }
+    var orderTypeDropdownExpanded by remember { mutableStateOf(false) }
+    var arrivalDropdownExpanded by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
@@ -294,6 +299,39 @@ fun WorkOrderFormScreen(
 
             Spacer(modifier = Modifier.height(12.dp))
 
+            // Order type dropdown
+            ExposedDropdownMenuBox(
+                expanded = orderTypeDropdownExpanded,
+                onExpandedChange = { orderTypeDropdownExpanded = it }
+            ) {
+                OutlinedTextField(
+                    value = uiState.formOrderType.displayName,
+                    onValueChange = {},
+                    readOnly = true,
+                    label = { Text("Tipo de Orden") },
+                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = orderTypeDropdownExpanded) },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .menuAnchor(MenuAnchorType.PrimaryNotEditable)
+                )
+                ExposedDropdownMenu(
+                    expanded = orderTypeDropdownExpanded,
+                    onDismissRequest = { orderTypeDropdownExpanded = false }
+                ) {
+                    OrderType.entries.forEach { type ->
+                        DropdownMenuItem(
+                            text = { Text(type.displayName) },
+                            onClick = {
+                                viewModel.onFormOrderTypeChange(type)
+                                orderTypeDropdownExpanded = false
+                            }
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
             // Priority radio group
             Text(
                 text = "Prioridad",
@@ -315,18 +353,117 @@ fun WorkOrderFormScreen(
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // Diagnosis with suggestions
-            SearchableDropdown(
-                value = uiState.formDiagnosis,
-                onValueChange = { viewModel.onFormDiagnosisChange(it) },
-                items = diagnosisItems,
-                onItemSelected = { item ->
-                    viewModel.onFormDiagnosisChange(item.name)
-                },
-                label = "Diagn\u00f3stico inicial",
-                supportingText = { Text("${uiState.formDiagnosis.length}/500") },
-                modifier = Modifier.fillMaxWidth()
+            // Arrival condition dropdown
+            Text(
+                text = "Condición de llegada",
+                style = MaterialTheme.typography.labelLarge
             )
+            Spacer(modifier = Modifier.height(4.dp))
+            ExposedDropdownMenuBox(
+                expanded = arrivalDropdownExpanded,
+                onExpandedChange = { arrivalDropdownExpanded = it }
+            ) {
+                OutlinedTextField(
+                    value = uiState.formArrivalCondition.displayName,
+                    onValueChange = {},
+                    readOnly = true,
+                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = arrivalDropdownExpanded) },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .menuAnchor(MenuAnchorType.PrimaryNotEditable)
+                )
+                ExposedDropdownMenu(
+                    expanded = arrivalDropdownExpanded,
+                    onDismissRequest = { arrivalDropdownExpanded = false }
+                ) {
+                    ArrivalCondition.entries.forEach { condition ->
+                        DropdownMenuItem(
+                            text = { Text(condition.displayName) },
+                            onClick = {
+                                viewModel.onFormArrivalConditionChange(condition)
+                                arrivalDropdownExpanded = false
+                            }
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Photos section for vehicle reception condition
+            Text(
+                text = "Fotos de recepción",
+                style = MaterialTheme.typography.titleSmall
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = "Rayones, estado general del vehículo",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+
+            if (uiState.formPhotoPaths.isNotEmpty()) {
+                LazyRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    itemsIndexed(uiState.formPhotoPaths) { index, path ->
+                        Box(modifier = Modifier.size(100.dp)) {
+                            AsyncImage(
+                                model = ImageRequest.Builder(context)
+                                    .data(File(path))
+                                    .build(),
+                                contentDescription = "Foto ${index + 1}",
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(8.dp)),
+                                contentScale = ContentScale.Crop
+                            )
+                            IconButton(
+                                onClick = { viewModel.removeFormPhoto(index) },
+                                modifier = Modifier
+                                    .align(Alignment.TopEnd)
+                                    .size(24.dp)
+                                    .background(
+                                        MaterialTheme.colorScheme.errorContainer,
+                                        CircleShape
+                                    )
+                            ) {
+                                Icon(
+                                    Icons.Default.Close,
+                                    contentDescription = "Eliminar",
+                                    modifier = Modifier.size(14.dp),
+                                    tint = MaterialTheme.colorScheme.onErrorContainer
+                                )
+                            }
+                        }
+                    }
+                }
+                Spacer(modifier = Modifier.height(8.dp))
+            }
+
+            if (uiState.formPhotoPaths.size < 6) {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Button(onClick = { launchCamera() }) {
+                        Icon(Icons.Default.AddAPhoto, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("Cámara")
+                    }
+                    Button(onClick = { galleryLauncher.launch("image/*") }) {
+                        Icon(Icons.Default.Image, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("Galería")
+                    }
+                }
+            } else {
+                Text(
+                    text = "Máximo 6 fotos alcanzado",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error
+                )
+            }
 
             Spacer(modifier = Modifier.height(12.dp))
 
