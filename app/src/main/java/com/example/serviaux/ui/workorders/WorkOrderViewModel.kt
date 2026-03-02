@@ -136,6 +136,7 @@ class WorkOrderViewModel(application: Application) : AndroidViewModel(applicatio
 
     private var ordersJob: Job? = null
     private var diagnosesJob: Job? = null
+    private var vehiclesJob: Job? = null
     private var pendingPhotoFile: File? = null
     private var detailPendingPhotoFile: File? = null
 
@@ -458,7 +459,16 @@ class WorkOrderViewModel(application: Application) : AndroidViewModel(applicatio
     }
 
     fun changeStatus(newStatus: OrderStatus, note: String? = null) {
-        val orderId = _uiState.value.selectedOrder?.id ?: return
+        val state = _uiState.value
+        val orderId = state.selectedOrder?.id ?: return
+
+        // Validar mecánico asignado para cerrar orden
+        if (newStatus in listOf(OrderStatus.LISTO, OrderStatus.ENTREGADO)
+            && state.orderMechanics.isEmpty()) {
+            _uiState.update { it.copy(error = "Debe asignar al menos un mecánico antes de marcar como ${newStatus.displayName}") }
+            return
+        }
+
         viewModelScope.launch {
             try {
                 workOrderRepo.changeStatus(orderId, newStatus, session.currentUserId, note)
@@ -755,7 +765,8 @@ class WorkOrderViewModel(application: Application) : AndroidViewModel(applicatio
     }
 
     fun loadVehiclesForCustomer(customerId: Long) {
-        viewModelScope.launch {
+        vehiclesJob?.cancel()
+        vehiclesJob = viewModelScope.launch {
             vehicleRepo.getByCustomer(customerId).collect { list ->
                 _uiState.update { it.copy(customerVehicles = list) }
             }
@@ -922,6 +933,38 @@ class WorkOrderViewModel(application: Application) : AndroidViewModel(applicatio
         val file = PhotoUtils.copyUriToInternalStorage(context, uri, "WO")
         if (file != null) {
             _uiState.update { it.copy(formPhotoPaths = it.formPhotoPaths + file.absolutePath) }
+        }
+    }
+
+    private var replacingPhotoIndex: Int = -1
+
+    fun onPhotoTakenForReplace(success: Boolean, index: Int) {
+        val file = pendingPhotoFile
+        if (success && file != null && file.exists() && file.length() > 0 && index >= 0) {
+            val paths = _uiState.value.formPhotoPaths.toMutableList()
+            if (index in paths.indices) {
+                PhotoUtils.deletePhoto(paths[index])
+                paths[index] = file.absolutePath
+                _uiState.update { it.copy(formPhotoPaths = paths, pendingPhotoUri = null) }
+            }
+        } else {
+            file?.delete()
+            _uiState.update { it.copy(pendingPhotoUri = null) }
+        }
+        pendingPhotoFile = null
+        replacingPhotoIndex = -1
+    }
+
+    fun replacePhotoFromGallery(uri: Uri, index: Int) {
+        val context = getApplication<Application>()
+        val file = PhotoUtils.copyUriToInternalStorage(context, uri, "WO")
+        if (file != null && index >= 0) {
+            val paths = _uiState.value.formPhotoPaths.toMutableList()
+            if (index in paths.indices) {
+                PhotoUtils.deletePhoto(paths[index])
+                paths[index] = file.absolutePath
+                _uiState.update { it.copy(formPhotoPaths = paths) }
+            }
         }
     }
 

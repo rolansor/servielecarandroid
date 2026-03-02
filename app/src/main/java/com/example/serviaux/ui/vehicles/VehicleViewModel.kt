@@ -464,7 +464,7 @@ class VehicleViewModel(application: Application) : AndroidViewModel(application)
         _uiState.update {
             it.copy(
                 formPlate = "", formBrand = "", formModel = "", formVersion = "",
-                formYear = "", formVin = "", formColor = "", formVehicleType = "", formFuelType = "",
+                formYear = "", formVin = "", formColor = "", formVehicleType = "", formFuelType = "Gasolina",
                 formOilType = "", formOilTypeSearch = "", formOilCapacity = "",
                 formNotes = "", formEngineDisplacement = "", formEngineNumber = "",
                 formDrivetrain = "4x2", formTransmission = "Manual",

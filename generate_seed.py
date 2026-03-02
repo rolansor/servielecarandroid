@@ -366,70 +366,41 @@ def generate():
     wb_clients = openpyxl.load_workbook(CLIENTES_FILE)
     ws_clients = wb_clients.active
 
-    client_name_to_id = {}
-    client_id_number_to_db_id = {}
-    customer_id = 1  # Start after "Consumidor Final"
+    # Columns: 0=IdCliente, 1=Nombre, 2=ID(cédula), 3=Telefono, 4=Fecha, 5=Cuenta
+    xlsx_id_to_db_id = {}  # IdCliente from xlsx -> database customer id
 
     for row in ws_clients.iter_rows(min_row=2, max_row=ws_clients.max_row, values_only=True):
-        full_name = str(row[0]).strip().upper() if row[0] else None
-        if not full_name:
+        xlsx_id = row[0]
+        full_name = str(row[1]).strip().upper() if row[1] else None
+        if not full_name or xlsx_id is None:
             continue
 
-        customer_id += 1
-        id_number = str(row[1]).strip() if row[1] else None
-        phone = str(row[2]).strip() if row[2] else ""
-        created_at = to_epoch_ms(row[3])
+        xlsx_id = int(xlsx_id)
+        db_id = xlsx_id + 1  # Offset by 1 because CONSUMIDOR FINAL is id=1
+        xlsx_id_to_db_id[xlsx_id] = db_id
+
+        id_number = str(row[2]).strip() if row[2] else None
+        phone = str(row[3]).strip() if row[3] else ""
+        created_at = to_epoch_ms(row[4])
 
         if phone:
             phone = phone.replace(".0", "")
 
         lines.append(
             f"INSERT INTO customers (id, fullName, docType, idNumber, phone, email, address, notes, createdAt, updatedAt) "
-            f"VALUES ({customer_id}, {sql_escape(full_name)}, 'CEDULA', {sql_escape(id_number)}, {sql_escape(phone)}, NULL, NULL, NULL, {created_at}, {created_at});"
+            f"VALUES ({db_id}, {sql_escape(full_name)}, 'CEDULA', {sql_escape(id_number)}, {sql_escape(phone)}, NULL, NULL, NULL, {created_at}, {created_at});"
         )
-
-        normalized = full_name.lower().strip()
-        client_name_to_id[normalized] = customer_id
-        if id_number:
-            client_id_number_to_db_id[id_number] = customer_id
 
     lines.append("")
 
-    # ── 12. Read Work Orders to build plate -> customer mapping ────────────
+    # ── 12. Read Work Orders ───────────────────────────────────────────────
     print("Reading Ordenes de trabajo.xlsx...")
     wb_orders = openpyxl.load_workbook(ORDENES_FILE)
     ws_orders = wb_orders.active
 
-    plate_to_customer_id = {}
     order_rows = []
-
     for row in ws_orders.iter_rows(min_row=2, max_row=ws_orders.max_row, values_only=True):
-        order_id_raw = str(row[0]).strip() if row[0] else None
-        if not order_id_raw:
-            continue
-
-        nombre = str(row[2]).strip() if row[2] else ""
-        apellidos = str(row[3]).strip() if row[3] else ""
-        plate = str(row[5]).strip() if row[5] else ""
-
-        full_name_order = f"{nombre} {apellidos}".strip()
-        normalized_order = full_name_order.lower().strip()
-
-        matched_customer_id = None
-        if normalized_order in client_name_to_id:
-            matched_customer_id = client_name_to_id[normalized_order]
-        else:
-            for client_name, cid in client_name_to_id.items():
-                if normalized_order in client_name or client_name in normalized_order:
-                    matched_customer_id = cid
-                    break
-
-        if matched_customer_id and plate:
-            plate_to_customer_id[plate.upper()] = matched_customer_id
-
-        order_rows.append((row, matched_customer_id))
-
-    print(f"  Mapped {len(plate_to_customer_id)} plates to customers")
+        order_rows.append(row)
 
     # ── 13. Vehicles from Excel ───────────────────────────────────────────
     lines.append("-- ══════════════════════════════════════════════════════════")
@@ -441,6 +412,7 @@ def generate():
     ws_vehicles = wb_vehicles.active
 
     plate_to_vehicle_id = {}
+    plate_to_customer_db_id = {}
     vehicle_id = 0
 
     for row in ws_vehicles.iter_rows(min_row=2, max_row=ws_vehicles.max_row, values_only=True):
@@ -475,7 +447,12 @@ def generate():
         num_motor = str(row[12]).strip().upper() if row[12] else None
         created_at = to_epoch_ms(row[13])
 
-        cust_id = plate_to_customer_id.get(plate_upper, 1)
+        # ID_CLIENTE from Vehiculos.xlsx (column 14) -> map to DB id
+        xlsx_client_id = row[14]
+        if xlsx_client_id is not None:
+            cust_id = xlsx_id_to_db_id.get(int(xlsx_client_id), 1)
+        else:
+            cust_id = 1
 
         year_sql = str(anio) if anio else "NULL"
         kms_sql = str(kms) if kms else "NULL"
@@ -490,6 +467,7 @@ def generate():
         )
 
         plate_to_vehicle_id[plate_upper] = vehicle_id
+        plate_to_customer_db_id[plate_upper] = cust_id
 
     lines.append("")
 
@@ -500,8 +478,7 @@ def generate():
 
     admin_user_id = 1
 
-    for row_data, matched_customer_id in order_rows:
-        row = row_data
+    for row in order_rows:
         order_id_raw = str(row[0]).strip() if row[0] else None
         if not order_id_raw:
             continue
@@ -547,7 +524,7 @@ def generate():
         if not vehicle_id_ref:
             continue
 
-        customer_id_ref = matched_customer_id or plate_to_customer_id.get(plate_upper, 1)
+        customer_id_ref = plate_to_customer_db_id.get(plate_upper, 1)
 
         kms_sql = str(kms) if kms else "NULL"
 
