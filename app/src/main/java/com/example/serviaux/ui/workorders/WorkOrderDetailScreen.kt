@@ -64,6 +64,9 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.FilterChip
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -116,7 +119,7 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun WorkOrderDetailScreen(
     orderId: Long,
@@ -204,18 +207,6 @@ fun WorkOrderDetailScreen(
     val order = uiState.selectedOrder
     val isEntregado = order?.status == OrderStatus.ENTREGADO
     val isAdmin = uiState.isAdmin
-
-    // Status change dialog
-    if (showStatusDialog) {
-        StatusChangeDialog(
-            currentStatus = order?.status ?: OrderStatus.RECIBIDO,
-            onStatusSelected = { newStatus ->
-                viewModel.changeStatus(newStatus)
-                showStatusDialog = false
-            },
-            onDismiss = { showStatusDialog = false }
-        )
-    }
 
     // Mechanic assignment dialog
     if (showMechanicDialog) {
@@ -588,24 +579,37 @@ fun WorkOrderDetailScreen(
                                     PriorityChip(priority = order.priority)
                                 }
                             }
-                            Spacer(modifier = Modifier.height(12.dp))
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                OutlinedButton(
-                                    onClick = { showStatusDialog = true },
-                                    modifier = Modifier.weight(1f)
+                            if (!isEntregado && isAdmin) {
+                                Spacer(modifier = Modifier.height(12.dp))
+                                Text(
+                                    text = "Cambiar Estado",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Spacer(modifier = Modifier.height(4.dp))
+                                val hasMechanics = uiState.orderMechanics.isNotEmpty()
+                                FlowRow(
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                    verticalArrangement = Arrangement.spacedBy(4.dp)
                                 ) {
-                                    Icon(Icons.Default.SwapHoriz, contentDescription = null, modifier = Modifier.size(16.dp))
-                                    Spacer(modifier = Modifier.width(4.dp))
-                                    Text("Cambiar Estado")
+                                    OrderStatus.entries.forEach { status ->
+                                        val needsMechanic = status in listOf(OrderStatus.LISTO, OrderStatus.ENTREGADO)
+                                        val isEnabled = status != order.status && !(needsMechanic && !hasMechanics)
+                                        FilterChip(
+                                            selected = status == order.status,
+                                            onClick = { if (isEnabled) viewModel.changeStatus(status) },
+                                            enabled = isEnabled,
+                                            label = { Text(status.displayName, style = MaterialTheme.typography.labelSmall) }
+                                        )
+                                    }
                                 }
-                                OutlinedButton(
-                                    onClick = { showMechanicDialog = true },
-                                    modifier = Modifier.weight(1f)
-                                ) {
-                                    Text("Asignar Mec\u00e1nico")
+                                if (!hasMechanics) {
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    Text(
+                                        text = "Asigne un mec\u00e1nico para marcar como Listo o Entregado",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.error
+                                    )
                                 }
                             }
                         }
@@ -1322,6 +1326,7 @@ fun WorkOrderDetailScreen(
 @Composable
 private fun StatusChangeDialog(
     currentStatus: OrderStatus,
+    hasMechanics: Boolean,
     onStatusSelected: (OrderStatus) -> Unit,
     onDismiss: () -> Unit
 ) {
@@ -1330,10 +1335,20 @@ private fun StatusChangeDialog(
         title = { Text("Cambiar Estado") },
         text = {
             Column {
+                if (!hasMechanics) {
+                    Text(
+                        text = "Debe asignar al menos un mecánico para marcar como Listo o Entregado.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.padding(bottom = 8.dp)
+                    )
+                }
                 OrderStatus.entries.forEach { status ->
+                    val needsMechanic = status in listOf(OrderStatus.LISTO, OrderStatus.ENTREGADO)
+                    val isEnabled = status != currentStatus && !(needsMechanic && !hasMechanics)
                     TextButton(
                         onClick = { onStatusSelected(status) },
-                        enabled = status != currentStatus,
+                        enabled = isEnabled,
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Text(

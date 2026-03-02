@@ -135,6 +135,10 @@ fun VehicleDetailScreen(
                             InfoRow(label = "Kilometraje", value = vehicle.currentMileage?.let { "$it km" } ?: "N/A")
                             InfoRow(label = "Tracci\u00f3n", value = vehicle.drivetrain)
                             InfoRow(label = "Transmisi\u00f3n", value = vehicle.transmission)
+                            InfoRow(label = "Tipo de Veh\u00edculo", value = vehicle.vehicleType ?: "N/A")
+                            InfoRow(label = "Tipo de Combustible", value = vehicle.fuelType ?: "N/A")
+                            InfoRow(label = "Tipo de Aceite", value = vehicle.oilType ?: "N/A")
+                            InfoRow(label = "Capacidad de Aceite", value = vehicle.oilCapacity ?: "N/A")
                         }
                     }
 

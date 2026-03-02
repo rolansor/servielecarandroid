@@ -62,7 +62,9 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.AlertDialog
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -132,13 +134,32 @@ fun WorkOrderFormScreen(
 
     // Camera & Gallery
     val context = LocalContext.current
+    var showPhotoDialog by remember { mutableStateOf(false) }
+    var dialogPhotoPath by remember { mutableStateOf("") }
+    var dialogPhotoIndex by remember { mutableStateOf(0) }
+    var replacingPhoto by remember { mutableStateOf(false) }
+
     val cameraLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.TakePicture()
-    ) { success -> viewModel.onPhotoTaken(success) }
+    ) { success ->
+        if (replacingPhoto) {
+            viewModel.onPhotoTakenForReplace(success, dialogPhotoIndex)
+            replacingPhoto = false
+        } else {
+            viewModel.onPhotoTaken(success)
+        }
+    }
 
     val galleryLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetMultipleContents()
-    ) { uris -> uris.forEach { uri -> viewModel.addPhotoFromGallery(uri) } }
+    ) { uris ->
+        if (replacingPhoto && uris.isNotEmpty()) {
+            viewModel.replacePhotoFromGallery(uris.first(), dialogPhotoIndex)
+            replacingPhoto = false
+        } else {
+            uris.forEach { uri -> viewModel.addPhotoFromGallery(uri) }
+        }
+    }
 
     val fileLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenMultipleDocuments()
@@ -174,7 +195,7 @@ fun WorkOrderFormScreen(
     // Customer search items
     val customerItems = remember(uiState.customers) {
         uiState.customers.sortedByDescending { it.createdAt }.map {
-            SearchableItem(it.id, it.fullName, it.phone)
+            SearchableItem(it.id, it.fullName, it.idNumber)
         }
     }
 
@@ -392,77 +413,48 @@ fun WorkOrderFormScreen(
 
             // Photos section for vehicle reception condition
             Text(
-                text = "Fotos de recepción",
-                style = MaterialTheme.typography.titleSmall
-            )
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                text = "Rayones, estado general del vehículo",
-                style = MaterialTheme.typography.bodySmall,
+                text = "Fotos de recepci\u00f3n (${uiState.formPhotoPaths.size}/6)",
+                style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
-            Spacer(modifier = Modifier.height(8.dp))
-
-            if (uiState.formPhotoPaths.isNotEmpty()) {
-                LazyRow(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    itemsIndexed(uiState.formPhotoPaths) { index, path ->
-                        Box(modifier = Modifier.size(100.dp)) {
-                            AsyncImage(
-                                model = ImageRequest.Builder(context)
-                                    .data(File(path))
-                                    .build(),
-                                contentDescription = "Foto ${index + 1}",
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .clip(RoundedCornerShape(8.dp))
-                                    .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(8.dp)),
-                                contentScale = ContentScale.Crop
-                            )
-                            IconButton(
-                                onClick = { viewModel.removeFormPhoto(index) },
-                                modifier = Modifier
-                                    .align(Alignment.TopEnd)
-                                    .size(24.dp)
-                                    .background(
-                                        MaterialTheme.colorScheme.errorContainer,
-                                        CircleShape
-                                    )
-                            ) {
-                                Icon(
-                                    Icons.Default.Close,
-                                    contentDescription = "Eliminar",
-                                    modifier = Modifier.size(14.dp),
-                                    tint = MaterialTheme.colorScheme.onErrorContainer
-                                )
+            Spacer(modifier = Modifier.height(4.dp))
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                itemsIndexed(uiState.formPhotoPaths) { index, path ->
+                    AsyncImage(
+                        model = ImageRequest.Builder(context).data(File(path)).build(),
+                        contentDescription = "Foto ${index + 1}",
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier
+                            .size(100.dp)
+                            .clip(RoundedCornerShape(8.dp))
+                            .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(8.dp))
+                            .clickable {
+                                dialogPhotoPath = path
+                                dialogPhotoIndex = index
+                                showPhotoDialog = true
+                            }
+                    )
+                }
+                if (uiState.formPhotoPaths.size < 6) {
+                    item {
+                        Box(
+                            modifier = Modifier
+                                .size(100.dp)
+                                .clip(RoundedCornerShape(8.dp))
+                                .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(8.dp)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                IconButton(onClick = { launchCamera() }) {
+                                    Icon(Icons.Default.AddAPhoto, contentDescription = "Tomar foto", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(28.dp))
+                                }
+                                IconButton(onClick = { galleryLauncher.launch("image/*") }) {
+                                    Icon(Icons.Default.Image, contentDescription = "Elegir de galer\u00eda", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(28.dp))
+                                }
                             }
                         }
                     }
                 }
-                Spacer(modifier = Modifier.height(8.dp))
-            }
-
-            if (uiState.formPhotoPaths.size < 6) {
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Button(onClick = { launchCamera() }) {
-                        Icon(Icons.Default.AddAPhoto, contentDescription = null, modifier = Modifier.size(18.dp))
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text("Cámara")
-                    }
-                    Button(onClick = { galleryLauncher.launch("image/*") }) {
-                        Icon(Icons.Default.Image, contentDescription = null, modifier = Modifier.size(18.dp))
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text("Galería")
-                    }
-                }
-            } else {
-                Text(
-                    text = "Máximo 6 fotos alcanzado",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.error
-                )
             }
 
             Spacer(modifier = Modifier.height(12.dp))
@@ -534,5 +526,50 @@ fun WorkOrderFormScreen(
                 }
             }
         }
+    }
+
+    // Photo action dialog
+    if (showPhotoDialog) {
+        AlertDialog(
+            onDismissRequest = { showPhotoDialog = false },
+            title = { Text("Foto") },
+            text = {
+                AsyncImage(
+                    model = ImageRequest.Builder(context).data(File(dialogPhotoPath)).build(),
+                    contentDescription = "Vista previa",
+                    contentScale = ContentScale.Fit,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(250.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                )
+            },
+            confirmButton = {
+                Row {
+                    TextButton(onClick = {
+                        showPhotoDialog = false
+                        replacingPhoto = true
+                        launchCamera()
+                    }) {
+                        Text("Reemplazar")
+                    }
+                    TextButton(onClick = {
+                        showPhotoDialog = false
+                        replacingPhoto = true
+                        galleryLauncher.launch("image/*")
+                    }) {
+                        Text("Cambiar")
+                    }
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    showPhotoDialog = false
+                    viewModel.removeFormPhoto(dialogPhotoIndex)
+                }) {
+                    Text("Eliminar", color = MaterialTheme.colorScheme.error)
+                }
+            }
+        )
     }
 }

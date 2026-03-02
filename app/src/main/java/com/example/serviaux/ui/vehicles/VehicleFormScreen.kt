@@ -249,52 +249,6 @@ fun VehicleFormScreen(
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // Combustible
-            Text(
-                text = "Combustible",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Spacer(modifier = Modifier.height(4.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                FUEL_TYPES.forEach { fuel ->
-                    FilterChip(
-                        selected = uiState.formFuelType == fuel,
-                        onClick = { viewModel.onFormFuelTypeChange(if (uiState.formFuelType == fuel) "" else fuel) },
-                        label = { Text(fuel) }
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            // Tipo de aceite (autocomplete from catalog)
-            val oilTypeItems = remember(uiState.availableOilTypes) {
-                uiState.availableOilTypes.mapIndexed { index, name -> SearchableItem(index.toLong(), name) }
-            }
-            SearchableDropdown(
-                value = uiState.formOilTypeSearch,
-                onValueChange = { viewModel.onFormOilTypeSearchChange(it) },
-                items = oilTypeItems,
-                onItemSelected = { viewModel.onFormOilTypeSelected(it.name) },
-                label = "Tipo de Aceite",
-                modifier = Modifier.fillMaxWidth()
-            )
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            // Capacidad de aceite
-            OutlinedTextField(
-                value = uiState.formOilCapacity,
-                onValueChange = { viewModel.onFormOilCapacityChange(it) },
-                label = { Text("Capacidad de Aceite") },
-                placeholder = { Text("ej: 4 litros, 1 gal\u00f3n") },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth()
-            )
-
-            Spacer(modifier = Modifier.height(12.dp))
-
             // 3. Placa
             OutlinedTextField(
                 value = uiState.formPlate,
@@ -484,6 +438,101 @@ fun VehicleFormScreen(
                     onClick = { viewModel.onFormTransmissionChange("Autom\u00e1tico") },
                     label = { Text("Autom\u00e1tico") }
                 )
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Combustible
+            Text(
+                text = "Combustible",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                FUEL_TYPES.take(2).forEach { fuel ->
+                    FilterChip(
+                        selected = uiState.formFuelType == fuel,
+                        onClick = { viewModel.onFormFuelTypeChange(if (uiState.formFuelType == fuel) "" else fuel) },
+                        label = { Text(fuel) }
+                    )
+                }
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                FUEL_TYPES.drop(2).forEach { fuel ->
+                    FilterChip(
+                        selected = uiState.formFuelType == fuel,
+                        onClick = { viewModel.onFormFuelTypeChange(if (uiState.formFuelType == fuel) "" else fuel) },
+                        label = { Text(fuel) }
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Tipo de aceite + Capacidad de aceite
+            val oilTypeItems = remember(uiState.availableOilTypes) {
+                uiState.availableOilTypes.mapIndexed { index, name -> SearchableItem(index.toLong(), name) }
+            }
+            val oilCapacityOptions = remember {
+                buildList {
+                    add("")
+                    var v = 0.5
+                    while (v <= 10.0) {
+                        val label = if (v % 1.0 == 0.0) "${v.toInt()} gal\u00f3n${if (v > 1.0) "es" else ""}"
+                        else "${v.toInt()} 1/2 gal\u00f3n${if (v > 1.5) "es" else ""}"
+                        add(label)
+                        v += 0.5
+                    }
+                }
+            }
+            var oilCapacityExpanded by remember { mutableStateOf(false) }
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                SearchableDropdown(
+                    value = uiState.formOilTypeSearch,
+                    onValueChange = { viewModel.onFormOilTypeSearchChange(it) },
+                    items = oilTypeItems,
+                    onItemSelected = { viewModel.onFormOilTypeSelected(it.name) },
+                    label = "Tipo de Aceite",
+                    modifier = Modifier.weight(1f)
+                )
+
+                // Capacidad de aceite (step selector)
+                ExposedDropdownMenuBox(
+                    expanded = oilCapacityExpanded,
+                    onExpandedChange = { oilCapacityExpanded = it },
+                    modifier = Modifier.weight(1f)
+                ) {
+                    OutlinedTextField(
+                        value = uiState.formOilCapacity,
+                        onValueChange = {},
+                        readOnly = true,
+                        label = { Text("Capacidad de Aceite") },
+                        singleLine = true,
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = oilCapacityExpanded) },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .menuAnchor(MenuAnchorType.PrimaryNotEditable)
+                    )
+                    ExposedDropdownMenu(
+                        expanded = oilCapacityExpanded,
+                        onDismissRequest = { oilCapacityExpanded = false }
+                    ) {
+                        oilCapacityOptions.forEach { option ->
+                            DropdownMenuItem(
+                                text = { Text(option.ifBlank { "Sin especificar" }) },
+                                onClick = {
+                                    viewModel.onFormOilCapacityChange(option)
+                                    oilCapacityExpanded = false
+                                }
+                            )
+                        }
+                    }
+                }
             }
 
             Spacer(modifier = Modifier.height(12.dp))

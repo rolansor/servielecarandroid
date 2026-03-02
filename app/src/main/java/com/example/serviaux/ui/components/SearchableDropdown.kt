@@ -67,7 +67,10 @@ fun SearchableDropdown(
 
     val filtered = remember(value, items) {
         if (value.isBlank()) emptyList()
-        else items.filter { it.name.contains(value, ignoreCase = true) }.take(maxSuggestions)
+        else items.filter {
+            it.name.contains(value, ignoreCase = true) ||
+            it.subtitle?.contains(value, ignoreCase = true) == true
+        }.take(maxSuggestions)
     }
 
     ExposedDropdownMenuBox(
