@@ -9,16 +9,23 @@ App Android para gestion integral de talleres mecanicos automotrices. Permite ad
 - Login con roles (Administrador, Recepcionista, Mecanico)
 - CRUD completo de Clientes, Vehiculos, Repuestos, Usuarios
 - Ordenes de trabajo con lineas de servicio, repuestos y pagos
-- Fotos de vehiculos y ordenes de trabajo (max 6 por entidad, tomadas con camara)
-- Catalogo de servicios predefinidos con precios por defecto
-- Flujo de estados de ordenes (Recibido -> Diagnostico -> Cotizacion -> Aprobado -> En Progreso -> Completado -> Entregado)
+- Asignacion de multiples mecanicos por orden con comisiones personalizables (porcentaje o fija)
+- Validacion de mecanico asignado para cerrar ordenes (Listo/Entregado)
+- Cambio de estado de ordenes mediante chips interactivos (FilterChips)
+- Fotos de vehiculos, matriculas y recepcion de ordenes (max 6 por entidad, con preview/reemplazar/eliminar)
+- Catalogo de servicios predefinidos con precios por defecto y variantes por tipo de vehiculo
+- Flujo de estados de ordenes (Recibido -> En Diagnostico -> En Proceso -> En Espera Repuesto -> Listo -> Entregado)
+- Tipo de orden (Servicio Nuevo, Garantia, Retrabajo) y condicion de llegada (Rodando, Grua, Empujado)
+- Campos de vehiculo: tipo, combustible, tipo aceite, capacidad aceite, traccion, transmision
 - Control de inventario de repuestos con ajuste automatico de stock
+- Busqueda de clientes por nombre o cedula en formularios
 - Generacion de reportes PDF (ordenes de trabajo) con compartir
 - Reportes de ingresos por rango de fechas y repuestos mas usados
 - Respaldo completo exportar/importar (ZIP con JSON + fotos) para migrar entre dispositivos
 - Auditoria de cambios de estado con historial
 - Soporte offline (Room database local)
 - Tema mecanico/industrial con logo personalizado
+- Descuentos en pagos con soporte de multiples metodos de pago
 
 ## Tecnologias
 
@@ -36,10 +43,10 @@ App Android para gestion integral de talleres mecanicos automotrices. Permite ad
 ```
 app/src/main/java/com/example/serviaux/
 ├── data/
-│   ├── entity/              # Entidades Room (User, Customer, Vehicle, WorkOrder, Part, CatalogService, etc.)
+│   ├── entity/              # Entidades Room (User, Customer, Vehicle, WorkOrder, Part, CatalogService, WorkOrderMechanic, etc.)
 │   ├── dao/                 # Data Access Objects
 │   ├── Converters.kt        # TypeConverters para enums
-│   └── ServiauxDatabase.kt  # Base de datos con seed data (version 5)
+│   └── ServiauxDatabase.kt  # Base de datos con seed data y migraciones (version 8)
 ├── repository/              # Repositorios (Auth, Customer, Vehicle, Part, WorkOrder, Catalog, Backup)
 ├── di/
 │   └── AppContainer.kt      # Inyeccion de dependencias manual
@@ -51,13 +58,13 @@ app/src/main/java/com/example/serviaux/
 │   └── ShareUtils.kt        # Compartir archivos via Intent
 ├── ui/
 │   ├── theme/               # Tema mecanico (colores industriales, logo)
-│   ├── components/          # Componentes reutilizables
+│   ├── components/          # Componentes reutilizables (SearchableDropdown, StatusChip, etc.)
 │   ├── navigation/          # Routes + NavGraph
 │   ├── auth/                # LoginScreen
 │   ├── dashboard/           # Dashboard con accesos rapidos
 │   ├── customers/           # CRUD Clientes
-│   ├── vehicles/            # CRUD Vehiculos (con fotos)
-│   ├── workorders/          # Ordenes de trabajo (con fotos y servicios predefinidos)
+│   ├── vehicles/            # CRUD Vehiculos (con fotos, tipo aceite, combustible)
+│   ├── workorders/          # Ordenes de trabajo (fotos recepcion, mecanicos, comisiones)
 │   ├── parts/               # CRUD Repuestos
 │   ├── users/               # Gestion de usuarios (solo Admin)
 │   ├── reports/             # Reportes e ingresos
@@ -65,6 +72,16 @@ app/src/main/java/com/example/serviaux/
 │   └── backup/              # Exportar/importar respaldos
 ├── ServiauxApp.kt           # Application class
 └── MainActivity.kt          # Activity principal
+
+data/                        # Archivos Excel fuente para seed
+├── Clientes.xlsx            # Clientes (IdCliente, Nombre, Cedula, Telefono)
+├── Vehiculos.xlsx           # Vehiculos (con ID_CLIENTE para vincular)
+├── Ordenes de trabajo.xlsx  # Ordenes de trabajo
+├── Catalogos.xlsx           # Usuarios, tipos vehiculo, colores, accesorios, servicios, aceites, motivos, diagnosticos
+├── Marcas y Modelos.xlsx    # Marcas y modelos de vehiculos
+└── productos.json           # Inventario de repuestos
+
+generate_seed.py             # Script Python para generar seed_data.sql desde los Excel
 ```
 
 ## Roles y Permisos
@@ -82,33 +99,39 @@ app/src/main/java/com/example/serviaux/
 
 ## Datos de prueba (Seed)
 
-La app viene con datos precargados:
+La app viene con datos precargados generados desde archivos Excel:
 
-- **Usuarios:** servielecar/f4d3s2a1 (Admin), maria/f4d3s2a1 (Recepcionista), jose/f4d3s2a1 (Mecanico), pedro/f4d3s2a1 (Mecanico)
-- **Clientes:** 5 clientes con datos realistas
-- **Vehiculos:** 8 vehiculos (Toyota, Hyundai, Nissan, Mitsubishi, etc.)
-- **Repuestos:** 15 repuestos con codigos, marcas y precios
-- **Ordenes:** 3 ordenes de ejemplo en diferentes estados
-- **Servicios predefinidos:** ~40 servicios organizados por categoria con precio base de $10.00
+- **Usuarios:** servielecar/f4d3s2a1 (Admin), nicopla/f4d3s2a1 (Recepcionista), smimos/f4d3s2a1 (Mecanico), marciano/f4d3s2a1 (Mecanico)
+- **Clientes:** 250 clientes importados desde Clientes.xlsx
+- **Vehiculos:** 262 vehiculos vinculados a clientes via ID_CLIENTE
+- **Repuestos:** ~15,800 productos importados desde productos.json
+- **Ordenes:** 16 ordenes de trabajo
+- **Servicios predefinidos:** 135 servicios (duplicados por tipo vehiculo: SEDAN, SUV, CAMIONETA)
+- **Catalogos:** 92 marcas, 1020 modelos, 32 colores, 11 tipos vehiculo, 34 tipos aceite, 26 motivos, 54 diagnosticos
+
+Para regenerar el seed: `python generate_seed.py`
 
 ## Catalogo de Servicios Predefinidos
 
-- Mantenimiento Preventivo (9 servicios)
-- Sistema de Frenos (5 servicios)
-- Motor y Sistema de Combustible (7 servicios)
-- Suspension y Direccion (5 servicios)
-- Sistema Electrico y Aire Acondicionado (5 servicios)
-- Otros Servicios (7 servicios)
+- Mantenimiento Preventivo
+- Sistema de Frenos
+- Motor y Sistema de Combustible
+- Suspension y Direccion
+- Sistema Electrico y Aire Acondicionado
+- Otros Servicios
+
+Cada servicio se duplica para los tipos de vehiculo SEDAN, SUV y CAMIONETA.
 
 ## Modelo de datos
 
 Las entidades principales y sus relaciones:
 
 - **Customer** -> tiene muchos **Vehicle** (CASCADE on delete)
-- **Vehicle** -> tiene muchas **WorkOrder**, campo `photoPaths` para fotos
-- **WorkOrder** -> tiene muchas **ServiceLine**, **WorkOrderPart**, **Payment**, **StatusLog**, campo `photoPaths` para fotos
+- **Vehicle** -> tiene muchas **WorkOrder**, campos: photoPaths, vehicleType, fuelType, oilType, oilCapacity
+- **WorkOrder** -> tiene muchas **ServiceLine**, **WorkOrderPart**, **Payment**, **StatusLog**, **WorkOrderMechanic**, campos: photoPaths, orderType, arrivalCondition
+- **WorkOrderMechanic** -> vincula mecanico a orden con commissionType, commissionValue, commissionAmount
 - **Part** -> referenciado por **WorkOrderPart** (gestion de stock automatica)
-- **CatalogService** -> servicios predefinidos con categoria y precio por defecto
+- **CatalogService** -> servicios predefinidos con categoria, precio y tipo vehiculo
 
 ## Como ejecutar
 
@@ -120,7 +143,8 @@ Las entidades principales y sus relaciones:
 ## Flujo de estados de ordenes
 
 ```
-RECIBIDO → EN_DIAGNOSTICO → COTIZADO → APROBADO → EN_PROGRESO → COMPLETADO → ENTREGADO
+RECIBIDO → EN_DIAGNOSTICO → EN_PROCESO → EN_ESPERA_REPUESTO → LISTO → ENTREGADO
+                                                                ↘ CANCELADO
 ```
 
-Cada transicion de estado queda registrada en la tabla `StatusLog` con fecha, usuario y comentario opcional, proporcionando un historial de auditoria completo para cada orden de trabajo.
+Cada transicion de estado queda registrada en la tabla `StatusLog` con fecha, usuario y comentario opcional. Las ordenes no pueden marcarse como LISTO o ENTREGADO sin al menos un mecanico asignado.
