@@ -939,7 +939,7 @@ fun WorkOrderDetailScreen(
                                         Column(modifier = Modifier.weight(1f)) {
                                             Text(mechName, style = MaterialTheme.typography.bodyMedium)
                                             Text(
-                                                "$typeLabel \u2022 $${String.format("%.2f", wm.commissionAmount)}",
+                                                "$typeLabel \u2022 $${String.format(Locale.US, "%.2f", wm.commissionAmount)}",
                                                 style = MaterialTheme.typography.bodySmall,
                                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                                             )
@@ -1148,7 +1148,7 @@ fun WorkOrderDetailScreen(
                                 )
                                 if (orderPart.discount > 0) {
                                     Text(
-                                        text = "Cant: ${orderPart.quantity} x $${String.format("%.2f", orderPart.appliedUnitPrice)} = $${String.format("%.2f", orderPart.subtotal)}",
+                                        text = "Cant: ${orderPart.quantity} x $${String.format(Locale.US, "%.2f", orderPart.appliedUnitPrice)} = $${String.format(Locale.US, "%.2f", orderPart.subtotal)}",
                                         style = MaterialTheme.typography.bodySmall,
                                         textDecoration = TextDecoration.LineThrough,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -1166,7 +1166,7 @@ fun WorkOrderDetailScreen(
                                     )
                                 } else {
                                     Text(
-                                        text = "Cant: ${orderPart.quantity} x $${String.format("%.2f", orderPart.appliedUnitPrice)} = $${String.format("%.2f", orderPart.subtotal)}",
+                                        text = "Cant: ${orderPart.quantity} x $${String.format(Locale.US, "%.2f", orderPart.appliedUnitPrice)} = $${String.format(Locale.US, "%.2f", orderPart.subtotal)}",
                                         style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
@@ -1656,7 +1656,7 @@ private fun ServiceLineDialog(
                                     },
                                     onClick = {
                                         onDescriptionChange(service.name)
-                                        onLaborCostChange(String.format("%.2f", service.defaultPrice))
+                                        onLaborCostChange(String.format(Locale.US, "%.2f", service.defaultPrice))
                                         descriptionError = null
                                         laborCostError = null
                                         suggestionsExpanded = false
@@ -1827,7 +1827,7 @@ private fun PartDialog(
                                         Column {
                                             Text("${part.code ?: ""} - ${part.name}")
                                             Text(
-                                                text = "Stock: ${part.currentStock} | $${String.format("%.2f", part.salePrice ?: part.unitCost)}",
+                                                text = "Stock: ${part.currentStock} | $${String.format(Locale.US, "%.2f", part.salePrice ?: part.unitCost)}",
                                                 style = MaterialTheme.typography.bodySmall,
                                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                                             )
@@ -1967,7 +1967,7 @@ private fun PaymentDialog(
                     supportingText = if (amountError != null) {
                         { Text(amountError!!, color = MaterialTheme.colorScheme.error) }
                     } else {
-                        { Text("Balance pendiente: $${String.format("%.2f", remainingBalance)}") }
+                        { Text("Balance pendiente: $${String.format(Locale.US, "%.2f", remainingBalance)}") }
                     },
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -2032,7 +2032,7 @@ private fun PaymentDialog(
                 } else if (totalPayment <= 0) {
                     amountError = "Ingrese un monto o descuento mayor a 0"
                 } else if (totalPayment > remainingBalance + 0.01) {
-                    amountError = "El total (monto + descuento) excede el balance pendiente ($${String.format("%.2f", remainingBalance)})"
+                    amountError = "El total (monto + descuento) excede el balance pendiente ($${String.format(Locale.US, "%.2f", remainingBalance)})"
                 } else {
                     onSave()
                 }

@@ -261,7 +261,7 @@ object CommissionPdfGenerator {
         }
     }
 
-    private fun money(amount: Double): String = "$${String.format("%.2f", amount)}"
+    private fun money(amount: Double): String = "$${String.format(Locale.US, "%.2f", amount)}"
 
     private fun paint(size: Float, color: Int, bold: Boolean = false) = Paint().apply {
         textSize = size

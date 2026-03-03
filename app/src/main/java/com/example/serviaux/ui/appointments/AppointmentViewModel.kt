@@ -1,16 +1,21 @@
 package com.example.serviaux.ui.appointments
 
 import android.app.Application
+import android.content.Context
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.serviaux.ServiauxApp
 import com.example.serviaux.data.entity.*
+import com.example.serviaux.util.AppointmentPdfGenerator
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.io.File
 
 data class AppointmentUiState(
     val appointments: List<Appointment> = emptyList(),
@@ -38,7 +43,10 @@ data class AppointmentUiState(
     val isEditing: Boolean = false,
     val editingAppointmentId: Long? = null,
     val savedSuccessfully: Boolean = false,
-    val isListLoaded: Boolean = false
+    val isListLoaded: Boolean = false,
+    // PDF
+    val pdfGenerating: Boolean = false,
+    val pdfFile: File? = null
 )
 
 class AppointmentViewModel(application: Application) : AndroidViewModel(application) {
@@ -260,4 +268,52 @@ class AppointmentViewModel(application: Application) : AndroidViewModel(applicat
 
     fun clearError() { _uiState.update { it.copy(error = null) } }
     fun clearSaved() { _uiState.update { it.copy(savedSuccessfully = false) } }
+
+    fun generatePdf(context: Context) {
+        val state = _uiState.value
+        if (state.appointments.isEmpty()) {
+            _uiState.update { it.copy(error = "No hay turnos para exportar") }
+            return
+        }
+        _uiState.update { it.copy(pdfGenerating = true) }
+        viewModelScope.launch {
+            try {
+                val file = withContext(Dispatchers.IO) {
+                    AppointmentPdfGenerator.generate(
+                        context = context,
+                        appointments = state.appointments,
+                        customerNames = state.customerMap,
+                        vehicleDescriptions = state.vehicleMap
+                    )
+                }
+                _uiState.update { it.copy(pdfGenerating = false, pdfFile = file) }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(pdfGenerating = false, error = e.message ?: "Error al generar PDF") }
+            }
+        }
+    }
+
+    fun generateSinglePdf(context: Context, appointment: Appointment) {
+        val state = _uiState.value
+        _uiState.update { it.copy(pdfGenerating = true) }
+        viewModelScope.launch {
+            try {
+                val customerName = state.customerMap[appointment.customerId] ?: "Cliente #${appointment.customerId}"
+                val vehicleDesc = state.vehicleMap[appointment.vehicleId] ?: "Vehiculo #${appointment.vehicleId}"
+                val file = withContext(Dispatchers.IO) {
+                    AppointmentPdfGenerator.generateSingle(
+                        context = context,
+                        appointment = appointment,
+                        customerName = customerName,
+                        vehicleDescription = vehicleDesc
+                    )
+                }
+                _uiState.update { it.copy(pdfGenerating = false, pdfFile = file) }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(pdfGenerating = false, error = e.message ?: "Error al generar PDF") }
+            }
+        }
+    }
+
+    fun clearPdf() { _uiState.update { it.copy(pdfFile = null) } }
 }

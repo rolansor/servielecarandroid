@@ -12,6 +12,9 @@ import com.example.serviaux.data.entity.OrderStatus
 import com.example.serviaux.data.entity.WorkOrder
 import kotlinx.coroutines.flow.Flow
 
+data class WorkOrderServiceDesc(val workOrderId: Long, val description: String)
+data class WorkOrderPartName(val workOrderId: Long, val partName: String)
+
 /**
  * DAO para la entidad [WorkOrder] y operaciones de limpieza de tablas hijas.
  */
@@ -83,4 +86,10 @@ interface WorkOrderDao {
 
     @Query("DELETE FROM work_orders")
     suspend fun deleteAll()
+
+    @Query("SELECT sl.workOrderId, sl.description FROM service_lines sl")
+    suspend fun getAllServiceDescriptions(): List<WorkOrderServiceDesc>
+
+    @Query("SELECT wop.workOrderId, p.name as partName FROM work_order_parts wop JOIN parts p ON wop.partId = p.id")
+    suspend fun getAllPartNames(): List<WorkOrderPartName>
 }

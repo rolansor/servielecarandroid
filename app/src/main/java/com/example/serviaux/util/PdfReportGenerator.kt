@@ -668,7 +668,7 @@ object PdfReportGenerator {
         OrderStatus.CANCELADO -> 0xFF9E9E9E.toInt()
     }
 
-    private fun money(amount: Double): String = "$${String.format("%.2f", amount)}"
+    private fun money(amount: Double): String = "$${String.format(Locale.US, "%.2f", amount)}"
 
     private fun paint(size: Float, color: Int, bold: Boolean = false) = Paint().apply {
         textSize = size

@@ -28,7 +28,10 @@ import androidx.compose.material.icons.filled.Cancel
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.PictureAsPdf
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.SwapHoriz
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -59,7 +62,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.compose.ui.platform.LocalContext
 import com.example.serviaux.data.entity.AppointmentStatus
+import com.example.serviaux.util.ShareUtils
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -75,11 +80,19 @@ fun AppointmentListScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
     var deleteConfirmId by remember { mutableStateOf<Long?>(null) }
+    val context = LocalContext.current
 
     LaunchedEffect(uiState.error) {
         uiState.error?.let {
             snackbarHostState.showSnackbar(it)
             viewModel.clearError()
+        }
+    }
+
+    LaunchedEffect(uiState.pdfFile) {
+        uiState.pdfFile?.let { file ->
+            ShareUtils.sharePdf(context, file)
+            viewModel.clearPdf()
         }
     }
 
@@ -92,6 +105,18 @@ fun AppointmentListScreen(
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Volver")
+                    }
+                },
+                actions = {
+                    if (uiState.pdfGenerating) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(24.dp),
+                            strokeWidth = 2.dp
+                        )
+                    } else {
+                        IconButton(onClick = { viewModel.generatePdf(context) }) {
+                            Icon(Icons.Default.PictureAsPdf, contentDescription = "Exportar PDF")
+                        }
                     }
                 }
             )
@@ -235,13 +260,17 @@ fun AppointmentListScreen(
                                     }
 
                                     // Actions
-                                    if (appointment.status != AppointmentStatus.CONVERTIDO) {
-                                        Row(
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                .padding(top = 4.dp),
-                                            horizontalArrangement = Arrangement.End
-                                        ) {
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(top = 4.dp),
+                                        horizontalArrangement = Arrangement.End
+                                    ) {
+                                        // Share single appointment PDF
+                                        IconButton(onClick = { viewModel.generateSinglePdf(context, appointment) }, modifier = Modifier.size(36.dp)) {
+                                            Icon(Icons.Default.Share, "Compartir", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+                                        }
+                                        if (appointment.status != AppointmentStatus.CONVERTIDO) {
                                             if (appointment.status == AppointmentStatus.PENDIENTE) {
                                                 IconButton(onClick = { viewModel.confirm(appointment.id) }, modifier = Modifier.size(36.dp)) {
                                                     Icon(Icons.Default.CheckCircle, "Confirmar", tint = Color(0xFF4CAF50), modifier = Modifier.size(20.dp))

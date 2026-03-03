@@ -113,7 +113,7 @@ fun CommissionScreen(
                                 color = MaterialTheme.colorScheme.onPrimaryContainer
                             )
                             Text(
-                                text = "Total: $${String.format("%.2f", selectedTotal)}",
+                                text = "Total: $${String.format(Locale.US, "%.2f", selectedTotal)}",
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.onPrimaryContainer
@@ -259,7 +259,7 @@ private fun PendingCommissionsList(
                             )
                         }
                         Text(
-                            text = "$${String.format("%.2f", mechanicTotal)}",
+                            text = "$${String.format(Locale.US, "%.2f", mechanicTotal)}",
                             style = MaterialTheme.typography.titleSmall,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.primary
@@ -292,7 +292,7 @@ private fun PendingCommissionsList(
                         )
                     }
                     Text(
-                        text = "$${String.format("%.2f", commission.commissionAmount)}",
+                        text = "$${String.format(Locale.US, "%.2f", commission.commissionAmount)}",
                         style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.Medium
                     )
@@ -363,7 +363,7 @@ private fun PaidHistoryList(
                             )
                         }
                         Text(
-                            text = "$${String.format("%.2f", mechanicTotal)}",
+                            text = "$${String.format(Locale.US, "%.2f", mechanicTotal)}",
                             style = MaterialTheme.typography.titleSmall,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.primary
@@ -400,7 +400,7 @@ private fun PaidHistoryList(
                         }
                     }
                     Text(
-                        text = "$${String.format("%.2f", commission.commissionAmount)}",
+                        text = "$${String.format(Locale.US, "%.2f", commission.commissionAmount)}",
                         style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.Medium
                     )
@@ -457,7 +457,7 @@ private fun PaymentSummary(
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        text = "Total: $${String.format("%.2f", totalPaid)}",
+                        text = "Total: $${String.format(Locale.US, "%.2f", totalPaid)}",
                         style = MaterialTheme.typography.headlineSmall,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onPrimaryContainer
@@ -494,7 +494,7 @@ private fun PaymentSummary(
                                     modifier = Modifier.weight(1f)
                                 )
                                 Text(
-                                    text = "$${String.format("%.2f", c.commissionAmount)}",
+                                    text = "$${String.format(Locale.US, "%.2f", c.commissionAmount)}",
                                     style = MaterialTheme.typography.bodySmall,
                                     fontWeight = FontWeight.Medium
                                 )
@@ -509,7 +509,7 @@ private fun PaymentSummary(
                                 modifier = Modifier.weight(1f)
                             )
                             Text(
-                                text = "$${String.format("%.2f", commissions.sumOf { it.commissionAmount })}",
+                                text = "$${String.format(Locale.US, "%.2f", commissions.sumOf { it.commissionAmount })}",
                                 style = MaterialTheme.typography.bodyMedium,
                                 fontWeight = FontWeight.Bold
                             )

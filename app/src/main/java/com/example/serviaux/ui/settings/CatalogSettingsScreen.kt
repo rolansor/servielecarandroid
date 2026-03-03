@@ -72,6 +72,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import java.util.Locale
 import com.example.serviaux.data.entity.CatalogBrand
 import com.example.serviaux.data.entity.CatalogComplaint
 import com.example.serviaux.data.entity.CatalogDiagnosis
@@ -470,7 +471,7 @@ private fun ServiceItem(
                 }
             }
             Text(
-                text = "$${String.format("%.2f", service.defaultPrice)}",
+                text = "$${String.format(Locale.US, "%.2f", service.defaultPrice)}",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.primary
             )

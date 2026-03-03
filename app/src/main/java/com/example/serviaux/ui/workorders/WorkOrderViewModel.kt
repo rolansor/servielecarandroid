@@ -32,6 +32,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.util.Calendar
+import java.util.Locale
 
 data class WorkOrderUiState(
     val orders: List<WorkOrder> = emptyList(),
@@ -123,6 +124,10 @@ data class WorkOrderUiState(
     val orderDeleted: Boolean = false,
     val isAdmin: Boolean = false,
     val isListLoaded: Boolean = false,
+    val searchQuery: String = "",
+    val filteredOrders: List<WorkOrder> = emptyList(),
+    val serviceDescriptionsMap: Map<Long, List<String>> = emptyMap(),
+    val partNamesMap: Map<Long, List<String>> = emptyMap(),
     val formAdmissionDate: Long? = System.currentTimeMillis(),
     val formAppointmentId: Long? = null
 )
@@ -152,6 +157,7 @@ class WorkOrderViewModel(application: Application) : AndroidViewModel(applicatio
         _uiState.update { it.copy(isAdmin = session.isAdmin()) }
         loadOrders()
         loadVehicleAndCustomerMaps()
+        loadSearchMaps()
         loadCatalogServices()
         loadCatalogComplaints()
         loadCatalogDiagnoses()
@@ -169,6 +175,51 @@ class WorkOrderViewModel(application: Application) : AndroidViewModel(applicatio
                 _uiState.update { it.copy(customerMap = customers.associate { c -> c.id to c.fullName }) }
             }
         }
+    }
+
+    private fun loadSearchMaps() {
+        viewModelScope.launch {
+            val serviceDescs = workOrderRepo.getAllServiceDescriptions()
+            val partNames = workOrderRepo.getAllPartNames()
+            _uiState.update {
+                it.copy(
+                    serviceDescriptionsMap = serviceDescs.groupBy({ it.workOrderId }, { it.description }),
+                    partNamesMap = partNames.groupBy({ it.workOrderId }, { it.partName })
+                )
+            }
+            applySearchFilter()
+        }
+    }
+
+    fun onSearchQueryChanged(query: String) {
+        _uiState.update { it.copy(searchQuery = query) }
+        applySearchFilter()
+    }
+
+    private fun applySearchFilter() {
+        val state = _uiState.value
+        val terms = state.searchQuery.uppercase().split(" ").filter { it.isNotBlank() }
+        if (terms.isEmpty()) {
+            _uiState.update { it.copy(filteredOrders = it.orders) }
+            return
+        }
+        val filtered = state.orders.filter { order ->
+            val searchText = buildString {
+                append(state.customerMap[order.customerId] ?: "")
+                append(" ")
+                append(state.vehicleMap[order.vehicleId] ?: "")
+                append(" ")
+                append(order.customerComplaint)
+                append(" ")
+                append(state.serviceDescriptionsMap[order.id]?.joinToString(" ") ?: "")
+                append(" ")
+                append(state.partNamesMap[order.id]?.joinToString(" ") ?: "")
+                append(" ")
+                append(order.id.toString())
+            }.uppercase()
+            terms.all { term -> searchText.contains(term) }
+        }
+        _uiState.update { it.copy(filteredOrders = filtered) }
     }
 
     private fun loadCatalogServices() {
@@ -216,6 +267,7 @@ class WorkOrderViewModel(application: Application) : AndroidViewModel(applicatio
 
     fun loadOrders(filter: OrderStatus? = _uiState.value.filter, year: Int? = _uiState.value.filterYear) {
         _uiState.update { it.copy(filter = filter, filterYear = year ?: Calendar.getInstance().get(Calendar.YEAR)) }
+        loadSearchMaps()
         ordersJob?.cancel()
         ordersJob = viewModelScope.launch {
             val flow = when {
@@ -232,6 +284,7 @@ class WorkOrderViewModel(application: Application) : AndroidViewModel(applicatio
             }
             flow.collect { list ->
                 _uiState.update { it.copy(orders = list, isListLoaded = true) }
+                applySearchFilter()
             }
         }
     }
@@ -629,9 +682,9 @@ class WorkOrderViewModel(application: Application) : AndroidViewModel(applicatio
             it.copy(
                 editingServiceLineId = serviceLine.id,
                 serviceLineFormDescription = serviceLine.description,
-                serviceLineFormLaborCost = String.format("%.2f", serviceLine.laborCost),
+                serviceLineFormLaborCost = String.format(Locale.US, "%.2f", serviceLine.laborCost),
                 serviceLineFormHasDiscount = serviceLine.discount > 0.0,
-                serviceLineFormDiscount = if (serviceLine.discount > 0.0) String.format("%.2f", serviceLine.discount) else ""
+                serviceLineFormDiscount = if (serviceLine.discount > 0.0) String.format(Locale.US, "%.2f", serviceLine.discount) else ""
             )
         }
     }
@@ -722,9 +775,9 @@ class WorkOrderViewModel(application: Application) : AndroidViewModel(applicatio
                 editingWorkOrderPartId = workOrderPart.id,
                 partFormSelectedPartId = workOrderPart.partId,
                 partFormQuantity = workOrderPart.quantity.toString(),
-                partFormPrice = String.format("%.2f", workOrderPart.appliedUnitPrice),
+                partFormPrice = String.format(Locale.US, "%.2f", workOrderPart.appliedUnitPrice),
                 partFormHasDiscount = workOrderPart.discount > 0.0,
-                partFormDiscount = if (workOrderPart.discount > 0.0) String.format("%.2f", workOrderPart.discount) else ""
+                partFormDiscount = if (workOrderPart.discount > 0.0) String.format(Locale.US, "%.2f", workOrderPart.discount) else ""
             )
         }
     }
@@ -928,7 +981,7 @@ class WorkOrderViewModel(application: Application) : AndroidViewModel(applicatio
 
     fun onServiceLineDescriptionChange(value: String) { _uiState.update { it.copy(serviceLineFormDescription = value) } }
     fun onServiceLineLaborCostChange(value: String) {
-        val filtered = value.filter { it.isDigit() || it == '.' }
+        val filtered = value.replace(',', '.').filter { it.isDigit() || it == '.' }
         // Prevent multiple dots
         val dotCount = filtered.count { it == '.' }
         val sanitized = if (dotCount > 1) {
@@ -950,7 +1003,7 @@ class WorkOrderViewModel(application: Application) : AndroidViewModel(applicatio
                     workOrderRepo.getLastPartPriceForCustomer(value, customerId)
                 } else null
                 val price = lastPrice ?: part?.salePrice ?: part?.unitCost ?: 0.0
-                _uiState.update { it.copy(partFormPrice = String.format("%.2f", price), partFormQuantity = "1") }
+                _uiState.update { it.copy(partFormPrice = String.format(Locale.US, "%.2f", price), partFormQuantity = "1") }
             }
         } else {
             _uiState.update { it.copy(partFormPrice = "") }
@@ -958,7 +1011,7 @@ class WorkOrderViewModel(application: Application) : AndroidViewModel(applicatio
     }
     fun onPartQuantityChange(value: String) { _uiState.update { it.copy(partFormQuantity = value) } }
     fun onPartPriceChange(value: String) {
-        val filtered = value.filter { it.isDigit() || it == '.' }
+        val filtered = value.replace(',', '.').filter { it.isDigit() || it == '.' }
         val dotCount = filtered.count { it == '.' }
         val sanitized = if (dotCount > 1) {
             val firstDot = filtered.indexOf('.')
@@ -973,7 +1026,7 @@ class WorkOrderViewModel(application: Application) : AndroidViewModel(applicatio
                 val laborCost = it.serviceLineFormLaborCost.toDoubleOrNull() ?: 0.0
                 it.copy(
                     serviceLineFormHasDiscount = true,
-                    serviceLineFormDiscount = String.format("%.2f", laborCost)
+                    serviceLineFormDiscount = String.format(Locale.US, "%.2f", laborCost)
                 )
             } else {
                 it.copy(serviceLineFormHasDiscount = false, serviceLineFormDiscount = "")
@@ -982,7 +1035,7 @@ class WorkOrderViewModel(application: Application) : AndroidViewModel(applicatio
     }
 
     fun onServiceLineDiscountChange(value: String) {
-        val filtered = value.filter { it.isDigit() || it == '.' }
+        val filtered = value.replace(',', '.').filter { it.isDigit() || it == '.' }
         val dotCount = filtered.count { it == '.' }
         val sanitized = if (dotCount > 1) {
             val firstDot = filtered.indexOf('.')
@@ -999,7 +1052,7 @@ class WorkOrderViewModel(application: Application) : AndroidViewModel(applicatio
                 val subtotal = qty * price
                 it.copy(
                     partFormHasDiscount = true,
-                    partFormDiscount = String.format("%.2f", subtotal)
+                    partFormDiscount = String.format(Locale.US, "%.2f", subtotal)
                 )
             } else {
                 it.copy(partFormHasDiscount = false, partFormDiscount = "")
@@ -1008,7 +1061,7 @@ class WorkOrderViewModel(application: Application) : AndroidViewModel(applicatio
     }
 
     fun onPartDiscountChange(value: String) {
-        val filtered = value.filter { it.isDigit() || it == '.' }
+        val filtered = value.replace(',', '.').filter { it.isDigit() || it == '.' }
         val dotCount = filtered.count { it == '.' }
         val sanitized = if (dotCount > 1) {
             val firstDot = filtered.indexOf('.')

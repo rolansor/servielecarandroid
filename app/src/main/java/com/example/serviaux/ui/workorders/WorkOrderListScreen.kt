@@ -31,10 +31,13 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Assignment
+import androidx.compose.material.icons.filled.Clear
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.LargeTopAppBar
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
@@ -116,6 +119,25 @@ fun WorkOrderListScreen(
                 .fillMaxSize()
                 .padding(padding)
         ) {
+            // Search bar
+            OutlinedTextField(
+                value = uiState.searchQuery,
+                onValueChange = { viewModel.onSearchQueryChanged(it) },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 4.dp),
+                placeholder = { Text("Buscar por cliente, placa, servicio, repuesto...") },
+                leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+                trailingIcon = {
+                    if (uiState.searchQuery.isNotEmpty()) {
+                        IconButton(onClick = { viewModel.onSearchQueryChanged("") }) {
+                            Icon(Icons.Default.Clear, contentDescription = "Limpiar")
+                        }
+                    }
+                },
+                singleLine = true
+            )
+
             // Year filter chips
             Row(
                 modifier = Modifier
@@ -157,16 +179,16 @@ fun WorkOrderListScreen(
 
             if (!uiState.isListLoaded) {
                 ShimmerLoadingList()
-            } else if (uiState.orders.isEmpty()) {
+            } else if (uiState.filteredOrders.isEmpty()) {
                 EmptyState(
-                    message = "No se encontraron \u00f3rdenes",
+                    message = if (uiState.searchQuery.isNotEmpty()) "Sin resultados para \"${uiState.searchQuery}\"" else "No se encontraron órdenes",
                     icon = Icons.Default.Assignment
                 )
             } else {
                 LazyColumn(
                     modifier = Modifier.fillMaxSize()
                 ) {
-                    items(uiState.orders, key = { it.id }) { order ->
+                    items(uiState.filteredOrders, key = { it.id }) { order ->
                         val statusColor = when (order.status) {
                             OrderStatus.RECIBIDO -> StatusRecibido
                             OrderStatus.EN_DIAGNOSTICO -> StatusDiagnostico

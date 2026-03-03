@@ -42,6 +42,8 @@ class WorkOrderRepository(
     fun getByDateRange(from: Long, to: Long): Flow<List<WorkOrder>> = workOrderDao.getByDateRange(from, to)
     fun getByStatusAndDateRange(status: OrderStatus, from: Long, to: Long): Flow<List<WorkOrder>> = workOrderDao.getByStatusAndDateRange(status, from, to)
     fun getTotalByDateRange(from: Long, to: Long): Flow<Double> = workOrderDao.getTotalByDateRange(from, to)
+    suspend fun getAllServiceDescriptions() = workOrderDao.getAllServiceDescriptions()
+    suspend fun getAllPartNames() = workOrderDao.getAllPartNames()
 
     /** Inserta una orden y registra el estado inicial en el historial. */
     suspend fun insert(workOrder: WorkOrder): Long {
