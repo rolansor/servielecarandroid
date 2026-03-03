@@ -409,13 +409,8 @@ class BackupRepository(private val database: ServiauxDatabase) {
             if (app != "serviaux") {
                 return BackupResult(message = "El archivo no es un respaldo de Serviaux", success = false)
             }
-            val dbVersion = manifest.optInt("dbVersion", 0)
-            if (dbVersion > DB_VERSION) {
-                return BackupResult(
-                    message = "Versión de respaldo ($dbVersion) no compatible con esta versión de la app ($DB_VERSION)",
-                    success = false
-                )
-            }
+            // Se acepta cualquier versión de respaldo; los deserializadores
+            // manejan campos faltantes con valores por defecto.
 
             val includedTables = categories.flatMap { CATEGORY_TABLES[it] ?: emptyList() }.toSet()
 
