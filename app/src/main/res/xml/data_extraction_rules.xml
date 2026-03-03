@@ -1,13 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <data-extraction-rules>
     <cloud-backup>
-        <exclude domain="database" path="serviaux_v2" />
-        <exclude domain="database" path="serviaux_v2-shm" />
-        <exclude domain="database" path="serviaux_v2-wal" />
+        <exclude domain="database" path="serviaux" />
+        <exclude domain="database" path="serviaux-shm" />
+        <exclude domain="database" path="serviaux-wal" />
     </cloud-backup>
     <device-transfer>
-        <exclude domain="database" path="serviaux_v2" />
-        <exclude domain="database" path="serviaux_v2-shm" />
-        <exclude domain="database" path="serviaux_v2-wal" />
+        <exclude domain="database" path="serviaux" />
+        <exclude domain="database" path="serviaux-shm" />
+        <exclude domain="database" path="serviaux-wal" />
     </device-transfer>
 </data-extraction-rules>

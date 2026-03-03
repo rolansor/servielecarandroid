@@ -49,7 +49,7 @@ app/src/main/java/com/example/serviaux/
 │   ├── entity/              # Entidades Room (User, Customer, Vehicle, WorkOrder, Part, CatalogService, WorkOrderMechanic, etc.)
 │   ├── dao/                 # Data Access Objects
 │   ├── Converters.kt        # TypeConverters para enums
-│   └── ServiauxDatabase.kt  # Base de datos con seed data y migraciones (version 8)
+│   └── ServiauxDatabase.kt  # Base de datos con seed data (version 3)
 ├── repository/              # Repositorios (Auth, Customer, Vehicle, Part, WorkOrder, Catalog, Commission, Backup)
 ├── di/
 │   └── AppContainer.kt      # Inyeccion de dependencias manual
@@ -78,15 +78,9 @@ app/src/main/java/com/example/serviaux/
 ├── ServiauxApp.kt           # Application class
 └── MainActivity.kt          # Activity principal
 
-data/                        # Archivos Excel fuente para seed
-├── Clientes.xlsx            # Clientes (IdCliente, Nombre, Cedula, Telefono)
-├── Vehiculos.xlsx           # Vehiculos (con ID_CLIENTE para vincular)
-├── Ordenes de trabajo.xlsx  # Ordenes de trabajo
-├── Catalogos.xlsx           # Usuarios, tipos vehiculo, colores, accesorios, servicios, aceites, motivos, diagnosticos
-├── Marcas y Modelos.xlsx    # Marcas y modelos de vehiculos
-└── productos.json           # Inventario de repuestos
-
-generate_seed.py             # Script Python para generar seed_data.sql desde los Excel
+app/src/main/assets/seed/
+├── seed_data.sql            # Datos esenciales (admin + catalogos) - siempre se carga
+└── sample_data.sql          # Datos de ejemplo opcionales (usuarios, clientes, vehiculos, repuestos, ordenes)
 ```
 
 ## Roles y Permisos
@@ -105,17 +99,19 @@ generate_seed.py             # Script Python para generar seed_data.sql desde lo
 
 ## Datos de prueba (Seed)
 
-La app viene con datos precargados generados desde archivos Excel:
+La app usa dos archivos SQL en `assets/seed/`:
 
-- **Usuarios:** servielecar/f4d3s2a1 (Admin), nicopla/f4d3s2a1 (Recepcionista), smimos/f4d3s2a1 (Mecanico), marciano/f4d3s2a1 (Mecanico)
-- **Clientes:** 250 clientes importados desde Clientes.xlsx
-- **Vehiculos:** 262 vehiculos vinculados a clientes via ID_CLIENTE
-- **Repuestos:** ~15,800 productos importados desde productos.json
-- **Ordenes:** 16 ordenes de trabajo
-- **Servicios predefinidos:** 135 servicios (duplicados por tipo vehiculo: SEDAN, SUV, CAMIONETA)
-- **Catalogos:** 92 marcas, 1020 modelos, 32 colores, 11 tipos vehiculo, 34 tipos aceite, 26 motivos, 54 diagnosticos
+### seed_data.sql (siempre se carga al crear la BD)
+- **Admin:** servielecar/f4d3s2a1
+- **Cliente fallback:** CONSUMIDOR FINAL (id=1)
+- **Catalogos:** 92 marcas, 1020 modelos, 32 colores, 11 tipos vehiculo, 34 tipos aceite, 135 servicios, 54 diagnosticos, 26 motivos, 36 marcas repuestos, 13 accesorios
 
-Para regenerar el seed: `python generate_seed.py`
+### sample_data.sql (opcional, cargado si el usuario elige "Cargar ejemplos" en el primer arranque)
+- **Usuarios:** nicopla/f4d3s2a1 (Recepcionista), smimos/f4d3s2a1 (Mecanico), marciano/f4d3s2a1 (Mecanico)
+- **Clientes:** 10 clientes de ejemplo
+- **Vehiculos:** 10 vehiculos vinculados a clientes
+- **Repuestos:** 20 productos basicos de taller
+- **Ordenes:** 3 ordenes de trabajo con servicios, repuestos y pagos
 
 ## Catalogo de Servicios Predefinidos
 
