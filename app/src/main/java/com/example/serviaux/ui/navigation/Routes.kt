@@ -33,9 +33,15 @@ object Routes {
     const val USER_LIST = "users"
     const val USER_FORM = "users/form?userId={userId}"
     const val REPORTS = "reports"
+    const val APPOINTMENT_LIST = "appointments"
+    const val APPOINTMENT_FORM = "appointments/form?appointmentId={appointmentId}"
+    const val WORK_ORDER_FORM_WITH_PARAMS = "workorders/form?customerId={customerId}&vehicleId={vehicleId}&appointmentId={appointmentId}"
     const val CATALOG_SETTINGS = "catalog_settings"
     const val BACKUP = "backup"
 
+    fun appointmentForm(id: Long? = null) = if (id != null) "appointments/form?appointmentId=$id" else "appointments/form"
+    fun workOrderFormFromAppointment(customerId: Long, vehicleId: Long, appointmentId: Long) =
+        "workorders/form?customerId=$customerId&vehicleId=$vehicleId&appointmentId=$appointmentId"
     fun customerDetail(id: Long) = "customers/$id"
     fun customerForm(id: Long? = null) = if (id != null) "customers/form?customerId=$id" else "customers/form"
     fun vehicleDetail(id: Long) = "vehicles/$id"

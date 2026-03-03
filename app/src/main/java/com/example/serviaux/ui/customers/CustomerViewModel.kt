@@ -40,7 +40,8 @@ data class CustomerUiState(
     val emailSuggestions: List<String> = emptyList(),
     val isEditing: Boolean = false,
     val editingCustomerId: Long? = null,
-    val savedSuccessfully: Boolean = false
+    val savedSuccessfully: Boolean = false,
+    val isListLoaded: Boolean = false
 )
 
 class CustomerViewModel(application: Application) : AndroidViewModel(application) {
@@ -70,7 +71,7 @@ class CustomerViewModel(application: Application) : AndroidViewModel(application
         searchJob?.cancel()
         searchJob = viewModelScope.launch {
             customerRepo.getAll().collect { list ->
-                _uiState.update { it.copy(customers = list) }
+                _uiState.update { it.copy(customers = list, isListLoaded = true) }
             }
         }
     }
@@ -81,11 +82,11 @@ class CustomerViewModel(application: Application) : AndroidViewModel(application
         searchJob = viewModelScope.launch {
             if (query.isBlank()) {
                 customerRepo.getAll().collect { list ->
-                    _uiState.update { it.copy(customers = list) }
+                    _uiState.update { it.copy(customers = list, isListLoaded = true) }
                 }
             } else {
                 customerRepo.search(query).collect { list ->
-                    _uiState.update { it.copy(customers = list) }
+                    _uiState.update { it.copy(customers = list, isListLoaded = true) }
                 }
             }
         }

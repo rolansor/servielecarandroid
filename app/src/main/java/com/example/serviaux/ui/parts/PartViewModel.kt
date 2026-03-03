@@ -46,7 +46,8 @@ data class PartUiState(
     val formBrandError: String? = null,
     val formUnitCostError: String? = null,
     val formSalePriceError: String? = null,
-    val formCurrentStockError: String? = null
+    val formCurrentStockError: String? = null,
+    val isListLoaded: Boolean = false
 )
 
 class PartViewModel(application: Application) : AndroidViewModel(application) {
@@ -87,7 +88,7 @@ class PartViewModel(application: Application) : AndroidViewModel(application) {
         searchJob = viewModelScope.launch {
             val offset = page * _uiState.value.pageSize
             partRepo.getPaginated(_uiState.value.pageSize, offset).collect { list ->
-                _uiState.update { it.copy(parts = list, currentPage = page) }
+                _uiState.update { it.copy(parts = list, currentPage = page, isListLoaded = true) }
             }
         }
     }
@@ -99,11 +100,11 @@ class PartViewModel(application: Application) : AndroidViewModel(application) {
             if (query.isBlank()) {
                 val offset = _uiState.value.currentPage * _uiState.value.pageSize
                 partRepo.getPaginated(_uiState.value.pageSize, offset).collect { list ->
-                    _uiState.update { it.copy(parts = list) }
+                    _uiState.update { it.copy(parts = list, isListLoaded = true) }
                 }
             } else {
                 partRepo.search(query).collect { list ->
-                    _uiState.update { it.copy(parts = list) }
+                    _uiState.update { it.copy(parts = list, isListLoaded = true) }
                 }
             }
         }

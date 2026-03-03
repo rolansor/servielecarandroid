@@ -58,6 +58,7 @@ data class WorkOrder(
     val vehicleId: Long,
     val customerId: Long,
     val entryDate: Long = System.currentTimeMillis(),
+    val admissionDate: Long? = null,
     val status: OrderStatus = OrderStatus.RECIBIDO,
     val priority: Priority = Priority.MEDIA,
     val orderType: OrderType = OrderType.SERVICIO_NUEVO,

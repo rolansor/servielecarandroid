@@ -106,7 +106,7 @@ def read_catalogos(wb):
     """Read all catalog data from Catalogos.xlsx."""
     data = {}
 
-    # Users (Nombre, Usuario, Rol, Contraseña)
+    # Users (Nombre, Usuario, Rol, TipoComision, ValorComision)
     ws = wb['Usuarios']
     data['users'] = []
     for row in ws.iter_rows(min_row=2, values_only=True):
@@ -114,7 +114,12 @@ def read_catalogos(wb):
             name = str(row[0]).strip().upper()
             username = str(row[1]).strip() if row[1] else ""
             role = str(row[2]).strip().upper() if row[2] else "MECANICO"
-            data['users'].append((name, username, role))
+            commission_type = str(row[3]).strip().upper() if len(row) > 3 and row[3] else "NINGUNA"
+            commission_value = float(row[4]) if len(row) > 4 and row[4] else 0.0
+            # Normalize commission type
+            if commission_type not in ('NINGUNA', 'FIJA', 'PORCENTAJE'):
+                commission_type = 'NINGUNA'
+            data['users'].append((name, username, role, commission_type, commission_value))
 
     # Vehicle Types
     ws = wb['Tipos de Vehiculo']
@@ -223,11 +228,11 @@ def generate():
     lines.append("-- ══════════════════════════════════════════════════════════")
     lines.append("-- USERS")
     lines.append("-- ══════════════════════════════════════════════════════════")
-    for name, username, role in catalogs['users']:
+    for name, username, role, commission_type, commission_value in catalogs['users']:
         pw_hash = hash_password(DEFAULT_PASSWORD)
         lines.append(
             f"INSERT INTO users (name, username, role, passwordHash, commissionType, commissionValue, active, createdAt, updatedAt) "
-            f"VALUES ({sql_escape(name)}, {sql_escape(username)}, '{role}', {sql_escape(pw_hash)}, 'NINGUNA', 0.0, 1, {now_ms}, {now_ms});"
+            f"VALUES ({sql_escape(name)}, {sql_escape(username)}, '{role}', {sql_escape(pw_hash)}, '{commission_type}', {commission_value}, 1, {now_ms}, {now_ms});"
         )
     lines.append("")
 
@@ -529,11 +534,11 @@ def generate():
         kms_sql = str(kms) if kms else "NULL"
 
         lines.append(
-            f"INSERT INTO work_orders (id, vehicleId, customerId, entryDate, status, priority, "
+            f"INSERT INTO work_orders (id, vehicleId, customerId, entryDate, admissionDate, status, priority, "
             f"orderType, arrivalCondition, "
             f"customerComplaint, initialDiagnosis, assignedMechanicId, entryMileage, fuelLevel, "
             f"checklistNotes, totalLabor, totalParts, total, photoPaths, createdBy, updatedBy, createdAt, updatedAt) "
-            f"VALUES ({order_id_int}, {vehicle_id_ref}, {customer_id_ref}, {entry_date}, '{status}', 'MEDIA', "
+            f"VALUES ({order_id_int}, {vehicle_id_ref}, {customer_id_ref}, {entry_date}, {entry_date}, '{status}', 'MEDIA', "
             f"'SERVICIO_NUEVO', 'RODANDO', "
             f"{sql_escape(falla)}, NULL, NULL, {kms_sql}, NULL, "
             f"NULL, {total_val}, 0.0, {total_val}, NULL, {admin_user_id}, {admin_user_id}, {entry_date}, {entry_date});"

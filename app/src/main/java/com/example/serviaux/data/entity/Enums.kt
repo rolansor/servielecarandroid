@@ -72,6 +72,14 @@ enum class ArrivalCondition(val displayName: String) {
     EMPUJADO("Llegó empujado")
 }
 
+/** Estado de un turno/cita programado. */
+enum class AppointmentStatus(val displayName: String) {
+    PENDIENTE("Pendiente"),
+    CONFIRMADO("Confirmado"),
+    CANCELADO("Cancelado"),
+    CONVERTIDO("Convertido")
+}
+
 /** Método de pago registrado para un abono o pago total de una orden. */
 enum class PaymentMethod(val displayName: String) {
     EFECTIVO("Efectivo"),

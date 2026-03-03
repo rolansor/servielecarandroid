@@ -40,7 +40,8 @@ data class UserUiState(
     val formNameError: String? = null,
     val formUsernameError: String? = null,
     val formPasswordError: String? = null,
-    val newPasswordError: String? = null
+    val newPasswordError: String? = null,
+    val isListLoaded: Boolean = false
 )
 
 class UserViewModel(application: Application) : AndroidViewModel(application) {
@@ -54,7 +55,7 @@ class UserViewModel(application: Application) : AndroidViewModel(application) {
     init {
         viewModelScope.launch {
             authRepo.getAllUsers().collect { list ->
-                _uiState.update { it.copy(users = list) }
+                _uiState.update { it.copy(users = list, isListLoaded = true) }
             }
         }
     }

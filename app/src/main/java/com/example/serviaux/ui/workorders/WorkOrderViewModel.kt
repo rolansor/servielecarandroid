@@ -117,7 +117,10 @@ data class WorkOrderUiState(
     val pdfGenerating: Boolean = false,
     val pdfFile: File? = null,
     val orderDeleted: Boolean = false,
-    val isAdmin: Boolean = false
+    val isAdmin: Boolean = false,
+    val isListLoaded: Boolean = false,
+    val formAdmissionDate: Long? = System.currentTimeMillis(),
+    val formAppointmentId: Long? = null
 )
 
 class WorkOrderViewModel(application: Application) : AndroidViewModel(application) {
@@ -129,6 +132,7 @@ class WorkOrderViewModel(application: Application) : AndroidViewModel(applicatio
     private val partRepo get() = app.container.partRepository
     private val authRepo get() = app.container.authRepository
     private val catalogRepo get() = app.container.catalogRepository
+    private val appointmentRepo get() = app.container.appointmentRepository
     private val session get() = app.container.sessionManager
 
     private val _uiState = MutableStateFlow(WorkOrderUiState())
@@ -223,7 +227,7 @@ class WorkOrderViewModel(application: Application) : AndroidViewModel(applicatio
                 else -> workOrderRepo.getAll()
             }
             flow.collect { list ->
-                _uiState.update { it.copy(orders = list) }
+                _uiState.update { it.copy(orders = list, isListLoaded = true) }
             }
         }
     }
@@ -316,6 +320,7 @@ class WorkOrderViewModel(application: Application) : AndroidViewModel(applicatio
                     formDeliveryNote = order.deliveryNote ?: "",
                     formInvoiceNumber = order.invoiceNumber ?: "",
                     formNotes = order.notes ?: "",
+                    formAdmissionDate = order.admissionDate,
                     customerName = customer?.fullName ?: "",
                     vehicleName = vehicle?.let { v -> "${v.plate} - ${v.brand} ${v.model}" } ?: "",
                     formCustomerError = null,
@@ -357,6 +362,7 @@ class WorkOrderViewModel(application: Application) : AndroidViewModel(applicatio
                 val existing = workOrderRepo.getByIdDirect(orderId) ?: return@launch
                 val checkedItems = state.formChecklist.filter { it.value }.keys.joinToString(",")
                 val updated = existing.copy(
+                    admissionDate = state.formAdmissionDate,
                     customerComplaint = state.formComplaint.trim(),
                     priority = state.formPriority,
                     orderType = state.formOrderType,
@@ -431,6 +437,7 @@ class WorkOrderViewModel(application: Application) : AndroidViewModel(applicatio
                 val order = WorkOrder(
                     customerId = state.formCustomerId!!,
                     vehicleId = state.formVehicleId!!,
+                    admissionDate = state.formAdmissionDate ?: System.currentTimeMillis(),
                     customerComplaint = state.formComplaint.trim(),
                     priority = state.formPriority,
                     orderType = state.formOrderType,
@@ -447,6 +454,10 @@ class WorkOrderViewModel(application: Application) : AndroidViewModel(applicatio
                     updatedBy = userId
                 )
                 val orderId = workOrderRepo.insert(order)
+                // Mark appointment as converted if applicable
+                state.formAppointmentId?.let { appointmentId ->
+                    appointmentRepo.markConverted(appointmentId, orderId)
+                }
                 _uiState.update { it.copy(isLoading = false, createdOrderId = orderId) }
             } catch (e: Exception) {
                 _uiState.update { it.copy(isLoading = false, error = e.message ?: "Error al crear orden") }
@@ -832,6 +843,24 @@ class WorkOrderViewModel(application: Application) : AndroidViewModel(applicatio
     fun onFormDeliveryNoteChange(value: String) { _uiState.update { it.copy(formDeliveryNote = value) } }
     fun onFormInvoiceNumberChange(value: String) { _uiState.update { it.copy(formInvoiceNumber = value) } }
     fun onFormNotesChange(value: String) { _uiState.update { it.copy(formNotes = value) } }
+    fun onFormAdmissionDateChange(value: Long?) { _uiState.update { it.copy(formAdmissionDate = value) } }
+
+    fun prefillFromAppointment(customerId: Long, vehicleId: Long, appointmentId: Long) {
+        viewModelScope.launch {
+            val customer = customerRepo.getByIdDirect(customerId)
+            _uiState.update {
+                it.copy(
+                    formCustomerId = customerId,
+                    formCustomerSearch = customer?.fullName ?: "",
+                    formVehicleId = vehicleId,
+                    formAppointmentId = appointmentId,
+                    formCustomerError = null,
+                    formVehicleError = null
+                )
+            }
+            loadVehiclesForCustomer(customerId)
+        }
+    }
 
     // Checklist toggle
     fun onChecklistItemToggle(name: String, checked: Boolean) {

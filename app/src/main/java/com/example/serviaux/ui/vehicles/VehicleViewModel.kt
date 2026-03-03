@@ -81,7 +81,8 @@ data class VehicleUiState(
     val formRegistrationPhotoPaths: List<String> = emptyList(),
     val formPhotoPaths: List<String> = emptyList(),
     val pendingPhotoTarget: String = "vehicle",
-    val pendingPhotoUri: Uri? = null
+    val pendingPhotoUri: Uri? = null,
+    val isListLoaded: Boolean = false
 )
 
 class VehicleViewModel(application: Application) : AndroidViewModel(application) {
@@ -147,7 +148,7 @@ class VehicleViewModel(application: Application) : AndroidViewModel(application)
         searchJob?.cancel()
         searchJob = viewModelScope.launch {
             vehicleRepo.getAll().collect { list ->
-                _uiState.update { it.copy(vehicles = list) }
+                _uiState.update { it.copy(vehicles = list, isListLoaded = true) }
             }
         }
     }
@@ -158,11 +159,11 @@ class VehicleViewModel(application: Application) : AndroidViewModel(application)
         searchJob = viewModelScope.launch {
             if (query.isBlank()) {
                 vehicleRepo.getAll().collect { list ->
-                    _uiState.update { it.copy(vehicles = list) }
+                    _uiState.update { it.copy(vehicles = list, isListLoaded = true) }
                 }
             } else {
                 vehicleRepo.search(query).collect { list ->
-                    _uiState.update { it.copy(vehicles = list) }
+                    _uiState.update { it.copy(vehicles = list, isListLoaded = true) }
                 }
             }
         }

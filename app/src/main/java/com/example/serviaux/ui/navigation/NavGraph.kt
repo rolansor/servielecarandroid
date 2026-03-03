@@ -10,6 +10,10 @@
  */
 package com.example.serviaux.ui.navigation
 
+import androidx.compose.animation.AnimatedContentTransitionScope
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.runtime.Composable
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
@@ -34,11 +38,29 @@ import com.example.serviaux.ui.vehicles.VehicleListScreen
 import com.example.serviaux.ui.workorders.WorkOrderDetailScreen
 import com.example.serviaux.ui.workorders.WorkOrderFormScreen
 import com.example.serviaux.ui.workorders.WorkOrderListScreen
+import com.example.serviaux.ui.appointments.AppointmentListScreen
+import com.example.serviaux.ui.appointments.AppointmentFormScreen
 import com.example.serviaux.data.entity.OrderStatus
 
 @Composable
 fun ServiauxNavGraph(navController: NavHostController) {
-    NavHost(navController = navController, startDestination = Routes.LOGIN) {
+    val animDuration = 300
+    NavHost(
+        navController = navController,
+        startDestination = Routes.LOGIN,
+        enterTransition = {
+            slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Start, tween(animDuration)) + fadeIn(tween(animDuration))
+        },
+        exitTransition = {
+            slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.Start, tween(animDuration)) + fadeOut(tween(animDuration))
+        },
+        popEnterTransition = {
+            slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.End, tween(animDuration)) + fadeIn(tween(animDuration))
+        },
+        popExitTransition = {
+            slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.End, tween(animDuration)) + fadeOut(tween(animDuration))
+        }
+    ) {
 
         // Login
         composable(Routes.LOGIN) {
@@ -63,6 +85,7 @@ fun ServiauxNavGraph(navController: NavHostController) {
                 onNavigateToNewOrder = { navController.navigate(Routes.WORK_ORDER_FORM) },
                 onNavigateToNewCustomer = { navController.navigate(Routes.customerForm()) },
                 onNavigateToNewVehicle = { navController.navigate(Routes.vehicleForm()) },
+                onNavigateToAppointments = { navController.navigate(Routes.APPOINTMENT_LIST) },
                 onNavigateToBackup = { navController.navigate(Routes.BACKUP) },
                 onLogout = {
                     navController.navigate(Routes.LOGIN) {
@@ -197,6 +220,56 @@ fun ServiauxNavGraph(navController: NavHostController) {
                         popUpTo(Routes.WORK_ORDER_FORM) { inclusive = true }
                     }
                 }
+            )
+        }
+
+        // Work order form with params (from appointment conversion)
+        composable(
+            Routes.WORK_ORDER_FORM_WITH_PARAMS,
+            arguments = listOf(
+                navArgument("customerId") { type = NavType.StringType; nullable = true; defaultValue = null },
+                navArgument("vehicleId") { type = NavType.StringType; nullable = true; defaultValue = null },
+                navArgument("appointmentId") { type = NavType.StringType; nullable = true; defaultValue = null }
+            )
+        ) { backStackEntry ->
+            val customerId = backStackEntry.arguments?.getString("customerId")?.toLongOrNull()
+            val vehicleId = backStackEntry.arguments?.getString("vehicleId")?.toLongOrNull()
+            val appointmentId = backStackEntry.arguments?.getString("appointmentId")?.toLongOrNull()
+            WorkOrderFormScreen(
+                preselectedCustomerId = customerId,
+                preselectedVehicleId = vehicleId,
+                appointmentId = appointmentId,
+                onNavigateBack = { navController.popBackStack() },
+                onOrderCreated = { orderId ->
+                    navController.navigate(Routes.workOrderDetail(orderId)) {
+                        popUpTo(Routes.WORK_ORDER_FORM_WITH_PARAMS) { inclusive = true }
+                    }
+                }
+            )
+        }
+
+        // Appointment routes
+        composable(Routes.APPOINTMENT_LIST) {
+            AppointmentListScreen(
+                onNavigateBack = { navController.popBackStack() },
+                onNavigateToForm = { id -> navController.navigate(Routes.appointmentForm(id)) },
+                onNavigateToConvert = { customerId, vehicleId, appointmentId ->
+                    navController.navigate(Routes.workOrderFormFromAppointment(customerId, vehicleId, appointmentId))
+                }
+            )
+        }
+
+        composable(
+            Routes.APPOINTMENT_FORM,
+            arguments = listOf(
+                navArgument("appointmentId") { type = NavType.StringType; nullable = true; defaultValue = null }
+            )
+        ) { backStackEntry ->
+            val appointmentId = backStackEntry.arguments?.getString("appointmentId")?.toLongOrNull()
+            AppointmentFormScreen(
+                appointmentId = appointmentId,
+                onNavigateBack = { navController.popBackStack() },
+                onSaved = { navController.popBackStack() }
             )
         }
 

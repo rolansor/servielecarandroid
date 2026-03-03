@@ -8,12 +8,16 @@
  */
 package com.example.serviaux.ui.workorders
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -22,12 +26,15 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Assignment
 import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.LargeTopAppBar
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
@@ -37,7 +44,8 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -51,7 +59,9 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.serviaux.data.entity.OrderStatus
 import com.example.serviaux.ui.components.EmptyState
 import com.example.serviaux.ui.components.PriorityChip
+import com.example.serviaux.ui.components.ShimmerLoadingList
 import com.example.serviaux.ui.components.StatusChip
+import com.example.serviaux.ui.theme.*
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -82,15 +92,18 @@ fun WorkOrderListScreen(
         }
     }
 
+    val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
     Scaffold(
+        modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         topBar = {
-            TopAppBar(
+            LargeTopAppBar(
                 title = { Text("\u00d3rdenes de Trabajo") },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Volver")
                     }
-                }
+                },
+                scrollBehavior = scrollBehavior
             )
         },
         floatingActionButton = {
@@ -144,7 +157,9 @@ fun WorkOrderListScreen(
                 }
             }
 
-            if (uiState.orders.isEmpty()) {
+            if (!uiState.isListLoaded) {
+                ShimmerLoadingList()
+            } else if (uiState.orders.isEmpty()) {
                 EmptyState(
                     message = "No se encontraron \u00f3rdenes",
                     icon = Icons.Default.Assignment
@@ -154,12 +169,34 @@ fun WorkOrderListScreen(
                     modifier = Modifier.fillMaxSize()
                 ) {
                     items(uiState.orders, key = { it.id }) { order ->
+                        val statusColor = when (order.status) {
+                            OrderStatus.RECIBIDO -> StatusRecibido
+                            OrderStatus.EN_DIAGNOSTICO -> StatusDiagnostico
+                            OrderStatus.EN_PROCESO -> StatusEnProceso
+                            OrderStatus.EN_ESPERA_REPUESTO -> StatusEsperaRepuesto
+                            OrderStatus.LISTO -> StatusListo
+                            OrderStatus.ENTREGADO -> StatusEntregado
+                            OrderStatus.CANCELADO -> StatusCancelado
+                        }
                         Card(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(horizontal = 16.dp, vertical = 4.dp)
-                                .clickable { onNavigateToDetail(order.id) }
+                                .clickable { onNavigateToDetail(order.id) },
+                            colors = CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+                            )
                         ) {
+                            Row(modifier = Modifier.height(IntrinsicSize.Min)) {
+                                Box(
+                                    modifier = Modifier
+                                        .width(4.dp)
+                                        .fillMaxHeight()
+                                        .background(
+                                            statusColor,
+                                            RoundedCornerShape(topStart = 12.dp, bottomStart = 12.dp)
+                                        )
+                                )
                             Column(
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -223,6 +260,7 @@ fun WorkOrderListScreen(
                                     fontWeight = FontWeight.SemiBold,
                                     color = MaterialTheme.colorScheme.primary
                                 )
+                            }
                             }
                         }
                     }

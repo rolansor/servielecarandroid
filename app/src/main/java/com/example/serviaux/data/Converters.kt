@@ -28,4 +28,6 @@ class Converters {
     @TypeConverter fun toArrivalCondition(value: String): ArrivalCondition = ArrivalCondition.valueOf(value)
     @TypeConverter fun fromOrderType(value: OrderType): String = value.name
     @TypeConverter fun toOrderType(value: String): OrderType = OrderType.valueOf(value)
+    @TypeConverter fun fromAppointmentStatus(value: AppointmentStatus): String = value.name
+    @TypeConverter fun toAppointmentStatus(value: String): AppointmentStatus = AppointmentStatus.valueOf(value)
 }

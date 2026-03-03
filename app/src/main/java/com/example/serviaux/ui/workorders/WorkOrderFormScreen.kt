@@ -40,6 +40,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.AddAPhoto
 import androidx.compose.material.icons.filled.AttachFile
+import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.ExpandLess
@@ -65,6 +66,9 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.DatePicker
+import androidx.compose.material3.DatePickerDialog
+import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -92,11 +96,17 @@ import com.example.serviaux.data.entity.Priority
 import com.example.serviaux.ui.components.SearchableDropdown
 import com.example.serviaux.ui.components.SearchableItem
 import java.io.File
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun WorkOrderFormScreen(
     orderId: Long? = null,
+    preselectedCustomerId: Long? = null,
+    preselectedVehicleId: Long? = null,
+    appointmentId: Long? = null,
     onNavigateBack: () -> Unit,
     onOrderCreated: (Long) -> Unit,
     viewModel: WorkOrderViewModel = viewModel()
@@ -109,6 +119,8 @@ fun WorkOrderFormScreen(
         viewModel.loadCustomers()
         if (orderId != null) {
             viewModel.prepareEdit(orderId)
+        } else if (preselectedCustomerId != null && preselectedVehicleId != null) {
+            viewModel.prefillFromAppointment(preselectedCustomerId, preselectedVehicleId, appointmentId ?: 0)
         }
     }
 
@@ -187,6 +199,9 @@ fun WorkOrderFormScreen(
     var vehicleDropdownExpanded by remember { mutableStateOf(false) }
     var fuelDropdownExpanded by remember { mutableStateOf(false) }
     var checklistExpanded by remember { mutableStateOf(false) }
+    var showAdmissionDatePicker by remember { mutableStateOf(false) }
+    val admissionDateFormat = remember { SimpleDateFormat("dd/MM/yyyy", Locale("es")) }
+    val admissionDateText = uiState.formAdmissionDate?.let { admissionDateFormat.format(Date(it)) } ?: ""
 
     val selectedVehicleName = uiState.customerVehicles.find { it.id == uiState.formVehicleId }?.let { "${it.plate} - ${it.brand} ${it.model}" } ?: ""
 
@@ -411,6 +426,22 @@ fun WorkOrderFormScreen(
 
             Spacer(modifier = Modifier.height(12.dp))
 
+            // Admission date picker
+            OutlinedTextField(
+                value = admissionDateText,
+                onValueChange = {},
+                readOnly = true,
+                label = { Text("Fecha de Ingreso") },
+                trailingIcon = {
+                    IconButton(onClick = { showAdmissionDatePicker = true }) {
+                        Icon(Icons.Default.CalendarMonth, contentDescription = "Seleccionar fecha de ingreso")
+                    }
+                },
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            Spacer(modifier = Modifier.height(12.dp))
+
             // Photos section for vehicle reception condition
             Text(
                 text = "Fotos de recepci\u00f3n (${uiState.formPhotoPaths.size}/6)",
@@ -571,5 +602,26 @@ fun WorkOrderFormScreen(
                 }
             }
         )
+    }
+
+    // Admission date picker dialog
+    if (showAdmissionDatePicker) {
+        val datePickerState = rememberDatePickerState(
+            initialSelectedDateMillis = uiState.formAdmissionDate ?: System.currentTimeMillis()
+        )
+        DatePickerDialog(
+            onDismissRequest = { showAdmissionDatePicker = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    datePickerState.selectedDateMillis?.let { viewModel.onFormAdmissionDateChange(it) }
+                    showAdmissionDatePicker = false
+                }) { Text("Aceptar") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showAdmissionDatePicker = false }) { Text("Cancelar") }
+            }
+        ) {
+            DatePicker(state = datePickerState)
+        }
     }
 }
