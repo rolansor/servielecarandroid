@@ -31,7 +31,8 @@ class MainActivity : FragmentActivity() {
                     Routes.DASHBOARD,
                     Routes.CUSTOMER_LIST,
                     Routes.VEHICLE_LIST,
-                    Routes.WORK_ORDER_LIST
+                    Routes.WORK_ORDER_LIST,
+                    Routes.APPOINTMENT_LIST
                 )
 
                 Scaffold(
@@ -46,12 +47,15 @@ class MainActivity : FragmentActivity() {
                                     } else {
                                         route
                                     }
-                                    navController.navigate(navRoute) {
-                                        popUpTo(Routes.DASHBOARD) {
-                                            saveState = true
+                                    if (navRoute == Routes.DASHBOARD) {
+                                        navController.popBackStack(Routes.DASHBOARD, inclusive = false)
+                                    } else {
+                                        navController.navigate(navRoute) {
+                                            popUpTo(Routes.DASHBOARD) {
+                                                inclusive = false
+                                            }
+                                            launchSingleTop = true
                                         }
-                                        launchSingleTop = true
-                                        restoreState = true
                                     }
                                 }
                             )

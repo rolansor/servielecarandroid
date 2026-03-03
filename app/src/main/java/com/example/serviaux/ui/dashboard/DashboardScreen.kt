@@ -79,6 +79,7 @@ fun DashboardScreen(
     onNavigateToVehicles: () -> Unit,
     onNavigateToOrders: () -> Unit,
     onNavigateToOrdersByStatus: (OrderStatus) -> Unit = {},
+    onNavigateToOrderDetail: (Long) -> Unit = {},
     onNavigateToParts: () -> Unit,
     onNavigateToUsers: () -> Unit,
     onNavigateToReports: () -> Unit,
@@ -323,7 +324,7 @@ fun DashboardScreen(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(vertical = 4.dp)
-                            .clickable { onNavigateToOrdersByStatus(order.status) },
+                            .clickable { onNavigateToOrderDetail(order.id) },
                         colors = CardDefaults.cardColors(
                             containerColor = MaterialTheme.colorScheme.surfaceContainerLow
                         )

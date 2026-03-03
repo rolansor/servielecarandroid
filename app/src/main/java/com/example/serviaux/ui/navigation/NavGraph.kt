@@ -79,6 +79,7 @@ fun ServiauxNavGraph(navController: NavHostController) {
                 onNavigateToVehicles = { navController.navigate(Routes.VEHICLE_LIST) },
                 onNavigateToOrders = { navController.navigate(Routes.workOrderList()) },
                 onNavigateToOrdersByStatus = { status -> navController.navigate(Routes.workOrderList(status.name)) },
+                onNavigateToOrderDetail = { orderId -> navController.navigate(Routes.workOrderDetail(orderId)) },
                 onNavigateToParts = { navController.navigate(Routes.PART_LIST) },
                 onNavigateToUsers = { navController.navigate(Routes.USER_LIST) },
                 onNavigateToReports = { navController.navigate(Routes.REPORTS) },
