@@ -40,6 +40,7 @@ data class WorkOrderPart(
     val quantity: Int,
     val appliedUnitPrice: Double,
     val subtotal: Double,
+    val discount: Double = 0.0,
     val createdAt: Long = System.currentTimeMillis(),
     val updatedAt: Long = System.currentTimeMillis()
 )

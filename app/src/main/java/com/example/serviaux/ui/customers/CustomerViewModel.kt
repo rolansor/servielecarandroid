@@ -23,6 +23,9 @@ import kotlinx.coroutines.launch
 data class CustomerUiState(
     val customers: List<Customer> = emptyList(),
     val searchQuery: String = "",
+    val currentPage: Int = 0,
+    val totalCount: Int = 0,
+    val pageSize: Int = 100,
     val selectedCustomer: Customer? = null,
     val isLoading: Boolean = false,
     val error: String? = null,
@@ -64,15 +67,41 @@ class CustomerViewModel(application: Application) : AndroidViewModel(application
     }
 
     init {
-        loadAllCustomers()
+        loadCustomersPage(0)
+        loadTotalCount()
     }
 
-    private fun loadAllCustomers() {
+    private fun loadTotalCount() {
+        viewModelScope.launch {
+            customerRepo.getTotalCount().collect { count ->
+                _uiState.update { it.copy(totalCount = count) }
+            }
+        }
+    }
+
+    private fun loadCustomersPage(page: Int) {
         searchJob?.cancel()
         searchJob = viewModelScope.launch {
-            customerRepo.getAll().collect { list ->
-                _uiState.update { it.copy(customers = list, isListLoaded = true) }
+            val offset = page * _uiState.value.pageSize
+            customerRepo.getPaginated(_uiState.value.pageSize, offset).collect { list ->
+                _uiState.update { it.copy(customers = list, currentPage = page, isListLoaded = true) }
             }
+        }
+    }
+
+    fun nextPage() {
+        val state = _uiState.value
+        if ((state.currentPage + 1) * state.pageSize < state.totalCount) {
+            _uiState.update { it.copy(searchQuery = "") }
+            loadCustomersPage(state.currentPage + 1)
+        }
+    }
+
+    fun previousPage() {
+        val state = _uiState.value
+        if (state.currentPage > 0) {
+            _uiState.update { it.copy(searchQuery = "") }
+            loadCustomersPage(state.currentPage - 1)
         }
     }
 
@@ -81,7 +110,8 @@ class CustomerViewModel(application: Application) : AndroidViewModel(application
         searchJob?.cancel()
         searchJob = viewModelScope.launch {
             if (query.isBlank()) {
-                customerRepo.getAll().collect { list ->
+                val offset = _uiState.value.currentPage * _uiState.value.pageSize
+                customerRepo.getPaginated(_uiState.value.pageSize, offset).collect { list ->
                     _uiState.update { it.copy(customers = list, isListLoaded = true) }
                 }
             } else {

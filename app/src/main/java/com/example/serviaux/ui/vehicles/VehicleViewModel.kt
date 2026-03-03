@@ -34,6 +34,9 @@ val FUEL_TYPES = listOf("Gasolina", "Di\u00e9sel", "El\u00e9ctrico", "H\u00edbri
 data class VehicleUiState(
     val vehicles: List<Vehicle> = emptyList(),
     val searchQuery: String = "",
+    val currentPage: Int = 0,
+    val totalCount: Int = 0,
+    val pageSize: Int = 100,
     val selectedVehicle: Vehicle? = null,
     val vehicleOrders: List<WorkOrder> = emptyList(),
     val customerName: String = "",
@@ -102,7 +105,8 @@ class VehicleViewModel(application: Application) : AndroidViewModel(application)
     private var pendingPhotoFile: File? = null
 
     init {
-        loadAllVehicles()
+        loadVehiclesPage(0)
+        loadTotalCount()
         loadCatalogs()
     }
 
@@ -144,12 +148,37 @@ class VehicleViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
-    private fun loadAllVehicles() {
+    private fun loadTotalCount() {
+        viewModelScope.launch {
+            vehicleRepo.getTotalCount().collect { count ->
+                _uiState.update { it.copy(totalCount = count) }
+            }
+        }
+    }
+
+    private fun loadVehiclesPage(page: Int) {
         searchJob?.cancel()
         searchJob = viewModelScope.launch {
-            vehicleRepo.getAll().collect { list ->
-                _uiState.update { it.copy(vehicles = list, isListLoaded = true) }
+            val offset = page * _uiState.value.pageSize
+            vehicleRepo.getPaginated(_uiState.value.pageSize, offset).collect { list ->
+                _uiState.update { it.copy(vehicles = list, currentPage = page, isListLoaded = true) }
             }
+        }
+    }
+
+    fun nextPage() {
+        val state = _uiState.value
+        if ((state.currentPage + 1) * state.pageSize < state.totalCount) {
+            _uiState.update { it.copy(searchQuery = "") }
+            loadVehiclesPage(state.currentPage + 1)
+        }
+    }
+
+    fun previousPage() {
+        val state = _uiState.value
+        if (state.currentPage > 0) {
+            _uiState.update { it.copy(searchQuery = "") }
+            loadVehiclesPage(state.currentPage - 1)
         }
     }
 
@@ -158,7 +187,8 @@ class VehicleViewModel(application: Application) : AndroidViewModel(application)
         searchJob?.cancel()
         searchJob = viewModelScope.launch {
             if (query.isBlank()) {
-                vehicleRepo.getAll().collect { list ->
+                val offset = _uiState.value.currentPage * _uiState.value.pageSize
+                vehicleRepo.getPaginated(_uiState.value.pageSize, offset).collect { list ->
                     _uiState.update { it.copy(vehicles = list, isListLoaded = true) }
                 }
             } else {

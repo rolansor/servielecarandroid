@@ -15,6 +15,8 @@ class CustomerRepository(private val dao: CustomerDao) {
     fun getAll(): Flow<List<Customer>> = dao.getAll()
     fun getById(id: Long): Flow<Customer?> = dao.getById(id)
     fun search(query: String): Flow<List<Customer>> = dao.search(query)
+    fun getPaginated(limit: Int, offset: Int): Flow<List<Customer>> = dao.getPaginated(limit, offset)
+    fun getTotalCount(): Flow<Int> = dao.getTotalCount()
     suspend fun getByIdDirect(id: Long): Customer? = dao.getByIdDirect(id)
 
     suspend fun findByDocument(docType: String, idNumber: String): Customer? = dao.findByDocument(docType, idNumber)

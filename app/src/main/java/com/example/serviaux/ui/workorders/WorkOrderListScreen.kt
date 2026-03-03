@@ -80,9 +80,7 @@ fun WorkOrderListScreen(
     val dateFormat = remember { SimpleDateFormat("dd/MM/yyyy", Locale("es")) }
 
     LaunchedEffect(initialFilter) {
-        if (initialFilter != null) {
-            viewModel.loadOrders(filter = initialFilter)
-        }
+        viewModel.loadOrders(filter = initialFilter)
     }
 
     LaunchedEffect(uiState.error) {

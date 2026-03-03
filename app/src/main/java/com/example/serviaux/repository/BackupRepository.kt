@@ -55,7 +55,7 @@ class BackupRepository(private val database: ServiauxDatabase) {
         private const val PHOTOS_DIR = "vehicle_photos"
         private const val BACKUPS_DIR = "backups"
         private const val MANIFEST_FILE = "manifest.json"
-        private const val DB_VERSION = 1
+        private const val DB_VERSION = 2
 
         private val CATEGORY_TABLES = mapOf(
             BackupCategory.USERS to listOf("users"),
@@ -825,6 +825,7 @@ class BackupRepository(private val database: ServiauxDatabase) {
                 put("workOrderId", s.workOrderId)
                 put("description", s.description)
                 put("laborCost", s.laborCost)
+                put("discount", s.discount)
                 put("notes", s.notes ?: JSONObject.NULL)
                 put("createdAt", s.createdAt)
                 put("updatedAt", s.updatedAt)
@@ -843,6 +844,7 @@ class BackupRepository(private val database: ServiauxDatabase) {
                 put("quantity", p.quantity)
                 put("appliedUnitPrice", p.appliedUnitPrice)
                 put("subtotal", p.subtotal)
+                put("discount", p.discount)
                 put("createdAt", p.createdAt)
                 put("updatedAt", p.updatedAt)
             })
@@ -1192,6 +1194,7 @@ class BackupRepository(private val database: ServiauxDatabase) {
                 workOrderId = o.getLong("workOrderId"),
                 description = o.getString("description"),
                 laborCost = o.getDouble("laborCost"),
+                discount = o.optDouble("discount", 0.0),
                 notes = o.optStringOrNull("notes"),
                 createdAt = o.optLong("createdAt", System.currentTimeMillis()),
                 updatedAt = o.optLong("updatedAt", System.currentTimeMillis())
@@ -1210,6 +1213,7 @@ class BackupRepository(private val database: ServiauxDatabase) {
                 quantity = o.getInt("quantity"),
                 appliedUnitPrice = o.getDouble("appliedUnitPrice"),
                 subtotal = o.getDouble("subtotal"),
+                discount = o.optDouble("discount", 0.0),
                 createdAt = o.optLong("createdAt", System.currentTimeMillis()),
                 updatedAt = o.optLong("updatedAt", System.currentTimeMillis())
             )

@@ -5,8 +5,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -30,6 +28,7 @@ import androidx.compose.material.icons.filled.DirectionsCar
 import androidx.compose.material.icons.filled.Group
 import androidx.compose.material.icons.filled.Handyman
 import androidx.compose.material.icons.filled.NoteAdd
+import androidx.compose.material.icons.filled.Payments
 import androidx.compose.material.icons.filled.People
 import androidx.compose.material.icons.filled.PersonAdd
 import androidx.compose.material.icons.filled.SaveAlt
@@ -73,7 +72,7 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DashboardScreen(
     onNavigateToCustomers: () -> Unit,
@@ -88,6 +87,7 @@ fun DashboardScreen(
     onNavigateToNewCustomer: () -> Unit,
     onNavigateToNewVehicle: () -> Unit,
     onNavigateToAppointments: () -> Unit = {},
+    onNavigateToCommissions: () -> Unit = {},
     onNavigateToBackup: () -> Unit,
     onLogout: () -> Unit,
     viewModel: DashboardViewModel = viewModel()
@@ -380,22 +380,36 @@ fun DashboardScreen(
             )
             Spacer(modifier = Modifier.height(8.dp))
 
-            FlowRow(
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                ModuleCard("Clientes", Icons.Default.People, onNavigateToCustomers, Modifier.weight(1f))
-                ModuleCard("Veh\u00edculos", Icons.Default.DirectionsCar, onNavigateToVehicles, Modifier.weight(1f))
-                ModuleCard("\u00d3rdenes", Icons.Default.Build, onNavigateToOrders, Modifier.weight(1f))
-                ModuleCard("Turnos", Icons.Default.CalendarMonth, onNavigateToAppointments, Modifier.weight(1f))
-                ModuleCard("Repuestos", Icons.Default.Handyman, onNavigateToParts, Modifier.weight(1f))
+            // Build module list
+            val modules = buildList {
+                add(Triple("Clientes", Icons.Default.People, onNavigateToCustomers))
+                add(Triple("Vehículos", Icons.Default.DirectionsCar, onNavigateToVehicles))
+                add(Triple("Órdenes", Icons.Default.Build, onNavigateToOrders))
+                add(Triple("Turnos", Icons.Default.CalendarMonth, onNavigateToAppointments))
+                add(Triple("Repuestos", Icons.Default.Handyman, onNavigateToParts))
                 if (uiState.currentUserRole == UserRole.ADMIN) {
-                    ModuleCard("Usuarios", Icons.Default.Group, onNavigateToUsers, Modifier.weight(1f))
-                    ModuleCard("Reportes", Icons.Default.Assessment, onNavigateToReports, Modifier.weight(1f))
-                    ModuleCard("Cat\u00e1logos", Icons.Default.Settings, onNavigateToCatalogSettings, Modifier.weight(1f))
-                    ModuleCard("Respaldos", Icons.Default.SaveAlt, onNavigateToBackup, Modifier.weight(1f))
+                    add(Triple("Usuarios", Icons.Default.Group, onNavigateToUsers))
+                    add(Triple("Comisiones", Icons.Default.Payments, onNavigateToCommissions))
+                    add(Triple("Reportes", Icons.Default.Assessment, onNavigateToReports))
+                    add(Triple("Catálogos", Icons.Default.Settings, onNavigateToCatalogSettings))
+                    add(Triple("Respaldos", Icons.Default.SaveAlt, onNavigateToBackup))
                 }
+            }
+            // Grid de 3 columnas
+            modules.chunked(3).forEach { rowItems ->
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    rowItems.forEach { (title, icon, onClick) ->
+                        ModuleCard(title, icon, onClick, Modifier.weight(1f))
+                    }
+                    // Fill empty slots to keep equal widths
+                    repeat(3 - rowItems.size) {
+                        Spacer(modifier = Modifier.weight(1f))
+                    }
+                }
+                Spacer(modifier = Modifier.height(12.dp))
             }
 
             Spacer(modifier = Modifier.height(16.dp))
@@ -499,36 +513,24 @@ private fun ModuleCard(
             containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
         )
     ) {
-        Box(modifier = Modifier.fillMaxWidth()) {
-            // Semi-transparent background icon
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
             Icon(
                 imageVector = icon,
                 contentDescription = null,
-                modifier = Modifier
-                    .size(64.dp)
-                    .align(Alignment.CenterEnd)
-                    .padding(8.dp),
-                tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(32.dp)
             )
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Icon(
-                    imageVector = icon,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(32.dp)
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = title,
-                    style = MaterialTheme.typography.labelMedium,
-                    fontWeight = FontWeight.Medium
-                )
-            }
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = title,
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.Medium
+            )
         }
     }
 }

@@ -31,7 +31,7 @@ Serviaux is an Android app for automotive workshop management built with Kotlin,
 - `data/ServiauxDatabase.kt` - Database singleton with seed callback and migrations (current version 8)
 - `repository/` - Business logic repositories
 - `di/AppContainer.kt` - Manual dependency injection
-- `util/` - SecurityUtils, SessionManager, PhotoUtils, PdfReportGenerator, ShareUtils
+- `util/` - SecurityUtils, SessionManager, PhotoUtils, PdfReportGenerator, CommissionPdfGenerator, ShareUtils
 - `ui/` - Compose screens organized by feature module
 - `data/` - Excel source files (Clientes.xlsx, Vehiculos.xlsx, Ordenes de trabajo.xlsx, Catalogos.xlsx, etc.)
 - `generate_seed.py` - Python script to generate seed_data.sql from Excel files
@@ -44,6 +44,11 @@ Serviaux is an Android app for automotive workshop management built with Kotlin,
 - Status change in order detail uses inline FilterChips (not a dialog)
 - Mechanic validation: orders cannot be marked as LISTO or ENTREGADO without at least one mechanic assigned
 - Multiple mechanics per order with customizable commission (type: PORCENTAJE/FIJA, value per mechanic)
+- Commission status shown as badges in order detail (Sin comisión / Pagada / Pendiente) — no inline editing
+- Commission payments managed in dedicated admin-only "Comisiones" screen with batch pay + PDF report
+- Only commissions from orders in LISTO or ENTREGADO status appear in commission payment screen
+- Discount validation: service discount cannot exceed laborCost, part discount cannot exceed subtotal
+- Status changes allowed even from ENTREGADO (admin only) to support corrections
 - Stock adjustments happen automatically when adding/removing WorkOrderParts
 - Session management uses `SessionManager` singleton with `StateFlow<User?>` for current user state
 - Photos stored as files in app internal storage (`vehicle_photos/` dir), paths saved as comma-separated string in `photoPaths` field on Vehicle and WorkOrder entities (max 6 per entity)
@@ -52,6 +57,8 @@ Serviaux is an Android app for automotive workshop management built with Kotlin,
 - Predefined service catalog (`CatalogService`) with categories, default prices, and vehicle type variants
 - SearchableDropdown component filters by both name and subtitle (e.g., search customers by name or cédula)
 - Vehicle form fields: tipo vehículo, combustible (default Gasolina, FilterChips), tipo aceite (autocomplete from catalog), capacidad aceite (dropdown 1/2 galón steps up to 10)
+- PDF reports include full vehicle data (type, version, fuel, transmission, drivetrain, engine) and order info (type, admission date, delivery note, invoice, notes)
+- PDF table columns use consistent vertical alignment via `rightAlignAt` helper
 
 ## Seed Data Generation
 

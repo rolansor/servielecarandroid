@@ -17,6 +17,7 @@ import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
+import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 import com.example.serviaux.data.dao.*
 import com.example.serviaux.data.entity.*
@@ -47,7 +48,7 @@ import java.io.InputStreamReader
         CatalogOilType::class,
         Appointment::class
     ],
-    version = 1,
+    version = 2,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -84,12 +85,20 @@ abstract class ServiauxDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_1_2 = object : Migration(1, 2) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE service_lines ADD COLUMN discount REAL NOT NULL DEFAULT 0.0")
+                db.execSQL("ALTER TABLE work_order_parts ADD COLUMN discount REAL NOT NULL DEFAULT 0.0")
+            }
+        }
+
         private fun buildDatabase(context: Context): ServiauxDatabase {
             return Room.databaseBuilder(
                 context.applicationContext,
                 ServiauxDatabase::class.java,
                 "serviaux"
             )
+                .addMigrations(MIGRATION_1_2)
                 .fallbackToDestructiveMigration(dropAllTables = true)
                 .addCallback(SeedCallback(context.applicationContext))
                 .build()

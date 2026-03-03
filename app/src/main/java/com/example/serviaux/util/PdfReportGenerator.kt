@@ -17,7 +17,6 @@ package com.example.serviaux.util
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
-import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.RectF
 import android.graphics.Typeface
@@ -47,6 +46,12 @@ data class WorkOrderReportData(
     val vehicleYear: Int?,
     val vehicleColor: String?,
     val vehicleVin: String?,
+    val vehicleVersion: String? = null,
+    val vehicleType: String? = null,
+    val vehicleFuelType: String? = null,
+    val vehicleTransmission: String? = null,
+    val vehicleDrivetrain: String? = null,
+    val vehicleEngineDisplacement: String? = null,
     val serviceLines: List<ServiceLine>,
     val orderParts: List<WorkOrderPart>,
     val availableParts: List<Part>,
@@ -176,8 +181,9 @@ object PdfReportGenerator {
             }
         }
 
-        fun rightAlignText(text: String, rightX: Float, paint: Paint) {
-            c.drawText(text, rightX - paint.measureText(text), y, paint)
+        // Right-aligned text at a specific vertical position
+        fun rightAlignAt(text: String, rightX: Float, atY: Float, paint: Paint) {
+            c.drawText(text, rightX - paint.measureText(text), atY, paint)
         }
 
         // ══════════════════════════════════════════
@@ -202,22 +208,23 @@ object PdfReportGenerator {
         // Order number + plate right-aligned
         val pOrderNum = paint(14f, COL_ACCENT, bold = true)
         val orderTxt = "#${data.order.id} ${data.vehiclePlate}"
-        rightAlignText(orderTxt, MR, pOrderNum)
-        y += 14f // align date below order number  (y is now ~MT+19)
+        val orderTxtX = MR - pOrderNum.measureText(orderTxt)
+        c.drawText(orderTxt, orderTxtX, y + 16f, pOrderNum)
+        y += 14f // align date below order number
 
         val dateTxt = dateFmt.format(Date(data.order.entryDate))
         val dateX = MR - pSubtitle.measureText(dateTxt)
-        c.drawText(dateTxt, dateX, y, pSubtitle)
+        c.drawText(dateTxt, dateX, y + 16f, pSubtitle)
 
         // Status badge
         val statusTxt = data.order.status.displayName
         val pStatus = paint(8f, COL_HEADER_TEXT, bold = true)
         val statusW = pStatus.measureText(statusTxt) + 14f
         val statusBg = fill(statusColor(data.order.status))
-        c.drawRoundRect(RectF(MR - statusW, y + 5f, MR, y + 18f), 3f, 3f, statusBg)
-        c.drawText(statusTxt, MR - statusW + 7f, y + 15f, pStatus)
+        c.drawRoundRect(RectF(MR - statusW, y + 21f, MR, y + 34f), 3f, 3f, statusBg)
+        c.drawText(statusTxt, MR - statusW + 7f, y + 31f, pStatus)
 
-        y += 32f
+        y += 48f
         c.drawRect(ML, y, MR, y + 2f, bgAccent)
         y += SECTION_GAP
 
@@ -236,23 +243,29 @@ object PdfReportGenerator {
         c.drawText("DATOS DEL VEHÍCULO", rightCol + 8f, y + 11.5f, pSectionHeader)
         y += 28f
 
-        val clientLabelW = 68f  // enough for "Dirección: "
-        val vehicleLabelW = 55f  // enough for "Modelo: "
+        val clientLabelW = 68f
+        val vehicleLabelW = 70f
 
         val ySnap = y
         labelVal("Nombre:", data.customerName, ML + pad, halfW - pad, clientLabelW)
         data.customerIdNumber?.let { if (it.isNotBlank()) labelVal("Cédula:", it, ML + pad, halfW - pad, clientLabelW) }
-        labelVal("Teléfono:", data.customerPhone, ML + pad, halfW - pad, clientLabelW)
+        if (data.customerPhone.isNotBlank()) labelVal("Teléfono:", data.customerPhone, ML + pad, halfW - pad, clientLabelW)
         data.customerEmail?.let { if (it.isNotBlank()) labelVal("Email:", it, ML + pad, halfW - pad, clientLabelW) }
         data.customerAddress?.let { if (it.isNotBlank()) labelVal("Dirección:", it, ML + pad, halfW - pad, clientLabelW) }
         val yLeft = y
 
         y = ySnap
         labelVal("Placa:", data.vehiclePlate, rightCol + pad, halfW - pad, vehicleLabelW)
+        data.vehicleType?.let { if (it.isNotBlank()) labelVal("Tipo:", it, rightCol + pad, halfW - pad, vehicleLabelW) }
         labelVal("Marca:", data.vehicleBrand, rightCol + pad, halfW - pad, vehicleLabelW)
         labelVal("Modelo:", data.vehicleModel, rightCol + pad, halfW - pad, vehicleLabelW)
+        data.vehicleVersion?.let { if (it.isNotBlank()) labelVal("Versión:", it, rightCol + pad, halfW - pad, vehicleLabelW) }
         data.vehicleYear?.let { labelVal("Año:", it.toString(), rightCol + pad, halfW - pad, vehicleLabelW) }
         data.vehicleColor?.let { if (it.isNotBlank()) labelVal("Color:", it, rightCol + pad, halfW - pad, vehicleLabelW) }
+        data.vehicleFuelType?.let { if (it.isNotBlank()) labelVal("Combustible:", it, rightCol + pad, halfW - pad, vehicleLabelW) }
+        data.vehicleTransmission?.let { if (it.isNotBlank()) labelVal("Transmisión:", it, rightCol + pad, halfW - pad, vehicleLabelW) }
+        data.vehicleDrivetrain?.let { if (it.isNotBlank()) labelVal("Tracción:", it, rightCol + pad, halfW - pad, vehicleLabelW) }
+        data.vehicleEngineDisplacement?.let { if (it.isNotBlank()) labelVal("Motor:", it, rightCol + pad, halfW - pad, vehicleLabelW) }
         data.vehicleVin?.let { if (it.isNotBlank()) labelVal("VIN:", it, rightCol + pad, halfW - pad, vehicleLabelW) }
         val yRight = y
 
@@ -264,10 +277,11 @@ object PdfReportGenerator {
         //  ORDER INFO
         // ══════════════════════════════════════════
         sectionHeader("INFORMACIÓN DE LA ORDEN")
-        val infoLabelW = 72f  // enough for "Kilometraje:"
+        val infoLabelW = 80f
 
         val yInfo = y
         labelVal("Estado:", data.order.status.displayName, ML + pad, halfW - pad, infoLabelW)
+        labelVal("Tipo:", data.order.orderType.displayName, ML + pad, halfW - pad, infoLabelW)
         labelVal("Prioridad:", data.order.priority.displayName, ML + pad, halfW - pad, infoLabelW)
         data.mechanicName?.let { labelVal("Mecánico:", it, ML + pad, halfW - pad, infoLabelW) }
         val yInfoL = y
@@ -275,6 +289,8 @@ object PdfReportGenerator {
         y = yInfo
         data.order.entryMileage?.let { labelVal("Kilometraje:", "$it km", rightCol + pad, halfW - pad, infoLabelW) }
         data.order.fuelLevel?.let { if (it.isNotBlank()) labelVal("Combustible:", it, rightCol + pad, halfW - pad, infoLabelW) }
+        labelVal("Llegada:", data.order.arrivalCondition.displayName, rightCol + pad, halfW - pad, infoLabelW)
+        data.order.admissionDate?.let { labelVal("F. Admisión:", dateFmt.format(Date(it)), rightCol + pad, halfW - pad, infoLabelW) }
         val yInfoR = y
 
         y = maxOf(yInfoL, yInfoR) + 2f
@@ -290,17 +306,49 @@ object PdfReportGenerator {
             }
             y += 2f
         }
-        run {
-            ensureSpace(24f)
-            c.drawText("Condición de Llegada: ${data.order.arrivalCondition.displayName}", ML + pad, y, pBody)
-            y += 12f
-        }
+
         data.order.initialDiagnosis?.let { d ->
             if (d.isNotBlank()) {
                 ensureSpace(24f)
                 c.drawText("Diagnóstico:", ML + pad, y, pBodyBold)
                 y += 12f
                 wrapText(d, pBody, CW - pad * 2).forEach { line ->
+                    ensureSpace(12f)
+                    c.drawText(line, ML + pad + 8f, y, pBody)
+                    y += 11f
+                }
+                y += 2f
+            }
+        }
+
+        data.order.deliveryNote?.let { dn ->
+            if (dn.isNotBlank()) {
+                ensureSpace(24f)
+                c.drawText("Nota de entrega:", ML + pad, y, pBodyBold)
+                y += 12f
+                wrapText(dn, pBody, CW - pad * 2).forEach { line ->
+                    ensureSpace(12f)
+                    c.drawText(line, ML + pad + 8f, y, pBody)
+                    y += 11f
+                }
+                y += 2f
+            }
+        }
+
+        data.order.invoiceNumber?.let { inv ->
+            if (inv.isNotBlank()) {
+                ensureSpace(14f)
+                c.drawText("N° Factura: $inv", ML + pad, y, pBody)
+                y += 14f
+            }
+        }
+
+        data.order.notes?.let { notes ->
+            if (notes.isNotBlank()) {
+                ensureSpace(24f)
+                c.drawText("Notas:", ML + pad, y, pBodyBold)
+                y += 12f
+                wrapText(notes, pBody, CW - pad * 2).forEach { line ->
                     ensureSpace(12f)
                     c.drawText(line, ML + pad + 8f, y, pBody)
                     y += 11f
@@ -325,18 +373,27 @@ object PdfReportGenerator {
 
             // Table header row
             drawTableHeaderBg()
-            c.drawText("#", sNum, y + 12f, pTableHeader)
-            c.drawText("Descripción", sDesc, y + 12f, pTableHeader)
-            rightAlignText("Costo", sCostRight, pTableHeader)
+            val headerTextY = y + 12f
+            c.drawText("#", sNum, headerTextY, pTableHeader)
+            c.drawText("Descripción", sDesc, headerTextY, pTableHeader)
+            rightAlignAt("Costo", sCostRight, headerTextY, pTableHeader)
             y += TABLE_HEADER_H + 2f
 
             data.serviceLines.forEachIndexed { i, sl ->
-                ensureSpace(ROW_H)
+                ensureSpace(if (sl.discount > 0) ROW_H * 2 else ROW_H)
                 drawRowBg(i)
-                c.drawText("${i + 1}", sNum, y + 10f, pBody)
+                val rowTextY = y + 10f
+                c.drawText("${i + 1}", sNum, rowTextY, pBody)
                 val maxDescW = MR - 90f - sDesc
-                c.drawText(truncate(sl.description, pBody, maxDescW), sDesc, y + 10f, pBody)
-                rightAlignText(money(sl.laborCost), sCostRight, pMoney)
+                c.drawText(truncate(sl.description, pBody, maxDescW), sDesc, rowTextY, pBody)
+                if (sl.discount > 0) {
+                    rightAlignAt(money(sl.laborCost), sCostRight, rowTextY, pMoney)
+                    y += ROW_H - 2f
+                    val pDiscount = paint(8f, 0xFFD32F2F.toInt())
+                    rightAlignAt("Desc: -${money(sl.discount)} = ${money(sl.laborCost - sl.discount)}", sCostRight, y + 10f, pDiscount)
+                } else {
+                    rightAlignAt(money(sl.laborCost), sCostRight, rowTextY, pMoney)
+                }
                 y += ROW_H
             }
 
@@ -346,7 +403,7 @@ object PdfReportGenerator {
             c.drawLine(MR - 160f, y, MR, y, pLine)
             y += 12f
             c.drawText("Subtotal Mano de Obra:", MR - 160f, y, pMoneyBold)
-            rightAlignText(money(data.order.totalLabor), sCostRight, pMoneyBold)
+            rightAlignAt(money(data.order.totalLabor), sCostRight, y, pMoneyBold)
             y += 6f
             hLine()
             y += SECTION_GAP
@@ -365,23 +422,30 @@ object PdfReportGenerator {
             val pSubRight = MR - 8f
 
             drawTableHeaderBg()
-            c.drawText("#", pNum, y + 12f, pTableHeader)
-            c.drawText("Repuesto", pName, y + 12f, pTableHeader)
-            rightAlignText("Cant.", pQtyRight, pTableHeader)
-            rightAlignText("P. Unit.", pUnitRight, pTableHeader)
-            rightAlignText("Subtotal", pSubRight, pTableHeader)
+            val headerTextY = y + 12f
+            c.drawText("#", pNum, headerTextY, pTableHeader)
+            c.drawText("Repuesto", pName, headerTextY, pTableHeader)
+            rightAlignAt("Cant.", pQtyRight, headerTextY, pTableHeader)
+            rightAlignAt("P. Unit.", pUnitRight, headerTextY, pTableHeader)
+            rightAlignAt("Subtotal", pSubRight, headerTextY, pTableHeader)
             y += TABLE_HEADER_H + 2f
 
             data.orderParts.forEachIndexed { i, wp ->
-                ensureSpace(ROW_H)
+                ensureSpace(if (wp.discount > 0) ROW_H * 2 else ROW_H)
                 drawRowBg(i)
                 val part = data.availableParts.find { it.id == wp.partId }
                 val name = part?.let { "${it.code ?: ""} ${it.name}".trim() } ?: "Repuesto #${wp.partId}"
-                c.drawText("${i + 1}", pNum, y + 10f, pBody)
-                c.drawText(truncate(name, pBody, pQtyRight - 50f - pName), pName, y + 10f, pBody)
-                rightAlignText("${wp.quantity}", pQtyRight, pBody)
-                rightAlignText(money(wp.appliedUnitPrice), pUnitRight, pMoney)
-                rightAlignText(money(wp.subtotal), pSubRight, pMoney)
+                val rowTextY = y + 10f
+                c.drawText("${i + 1}", pNum, rowTextY, pBody)
+                c.drawText(truncate(name, pBody, pQtyRight - 50f - pName), pName, rowTextY, pBody)
+                rightAlignAt("${wp.quantity}", pQtyRight, rowTextY, pBody)
+                rightAlignAt(money(wp.appliedUnitPrice), pUnitRight, rowTextY, pMoney)
+                rightAlignAt(money(wp.subtotal), pSubRight, rowTextY, pMoney)
+                if (wp.discount > 0) {
+                    y += ROW_H - 2f
+                    val pDiscount = paint(8f, 0xFFD32F2F.toInt())
+                    rightAlignAt("Desc: -${money(wp.discount)} = ${money(wp.subtotal - wp.discount)}", pSubRight, y + 10f, pDiscount)
+                }
                 y += ROW_H
             }
 
@@ -390,7 +454,7 @@ object PdfReportGenerator {
             c.drawLine(MR - 160f, y, MR, y, pLine)
             y += 12f
             c.drawText("Subtotal Repuestos:", MR - 160f, y, pMoneyBold)
-            rightAlignText(money(data.order.totalParts), pSubRight, pMoneyBold)
+            rightAlignAt(money(data.order.totalParts), pSubRight, y, pMoneyBold)
             y += 6f
             hLine()
             y += SECTION_GAP
@@ -408,23 +472,25 @@ object PdfReportGenerator {
             val pyAmountRight = MR - 8f
 
             drawTableHeaderBg()
-            c.drawText("Fecha", pyDate, y + 12f, pTableHeader)
-            c.drawText("Método", pyMethod, y + 12f, pTableHeader)
-            c.drawText("Notas", pyNotes, y + 12f, pTableHeader)
-            rightAlignText("Monto", pyAmountRight, pTableHeader)
+            val headerTextY = y + 12f
+            c.drawText("Fecha", pyDate, headerTextY, pTableHeader)
+            c.drawText("Método", pyMethod, headerTextY, pTableHeader)
+            c.drawText("Notas", pyNotes, headerTextY, pTableHeader)
+            rightAlignAt("Monto", pyAmountRight, headerTextY, pTableHeader)
             y += TABLE_HEADER_H + 2f
 
             data.payments.forEachIndexed { i, pay ->
                 ensureSpace(ROW_H)
                 drawRowBg(i)
-                c.drawText(dateFmt.format(Date(pay.date)), pyDate, y + 10f, pBody)
-                c.drawText(pay.method.displayName, pyMethod, y + 10f, pBody)
+                val rowTextY = y + 10f
+                c.drawText(dateFmt.format(Date(pay.date)), pyDate, rowTextY, pBody)
+                c.drawText(pay.method.displayName, pyMethod, rowTextY, pBody)
                 val notesText = buildString {
                     if (pay.discount > 0) append("Desc: ${money(pay.discount)} ")
                     append(pay.notes ?: "")
                 }.trim()
-                c.drawText(truncate(notesText, pBody, MR - 90f - pyNotes), pyNotes, y + 10f, pBody)
-                rightAlignText(money(pay.amount), pyAmountRight, pMoney)
+                c.drawText(truncate(notesText, pBody, MR - 90f - pyNotes), pyNotes, rowTextY, pBody)
+                rightAlignAt(money(pay.amount), pyAmountRight, rowTextY, pMoney)
                 y += ROW_H
             }
 
@@ -436,12 +502,12 @@ object PdfReportGenerator {
             y += 12f
             if (totalDiscounts > 0) {
                 c.drawText("Total Descuentos:", MR - 160f, y, pMoneyBold)
-                rightAlignText("-${money(totalDiscounts)}", pyAmountRight, pMoneyBold)
+                rightAlignAt("-${money(totalDiscounts)}", pyAmountRight, y, pMoneyBold)
                 y += 14f
                 ensureSpace(16f)
             }
             c.drawText("Total Pagado:", MR - 160f, y, pMoneyBold)
-            rightAlignText(money(totalPaid), pyAmountRight, pMoneyBold)
+            rightAlignAt(money(totalPaid), pyAmountRight, y, pMoneyBold)
             y += 6f
             hLine()
             y += SECTION_GAP
@@ -467,18 +533,18 @@ object PdfReportGenerator {
 
         y += 16f
         c.drawText("Mano de Obra:", labelX, y, pTotalLabel)
-        rightAlignText(money(data.order.totalLabor), valueX, pTotalLabel)
+        rightAlignAt(money(data.order.totalLabor), valueX, y, pTotalLabel)
 
         y += 16f
         c.drawText("Repuestos:", labelX, y, pTotalLabel)
-        rightAlignText(money(data.order.totalParts), valueX, pTotalLabel)
+        rightAlignAt(money(data.order.totalParts), valueX, y, pTotalLabel)
 
         y += 4f
         c.drawLine(labelX, y, valueX, y, pLine)
         y += 14f
 
         c.drawText("TOTAL:", labelX, y, pTotal)
-        rightAlignText(money(data.order.total), valueX, pTotal)
+        rightAlignAt(money(data.order.total), valueX, y, pTotal)
 
         if (hasPayments) {
             y += 16f
@@ -486,7 +552,7 @@ object PdfReportGenerator {
             val pBal = paint(11f, balColor, bold = true)
             val balLabel = if (balance > 0.01) "Saldo Pendiente:" else "Pagado:"
             c.drawText(balLabel, labelX, y, pBal)
-            rightAlignText(money(balance), valueX, pBal)
+            rightAlignAt(money(balance), valueX, y, pBal)
         }
 
         y += 20f

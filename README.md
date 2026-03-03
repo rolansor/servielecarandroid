@@ -19,7 +19,10 @@ App Android para gestion integral de talleres mecanicos automotrices. Permite ad
 - Campos de vehiculo: tipo, combustible, tipo aceite, capacidad aceite, traccion, transmision
 - Control de inventario de repuestos con ajuste automatico de stock
 - Busqueda de clientes por nombre o cedula en formularios
-- Generacion de reportes PDF (ordenes de trabajo) con compartir
+- Gestion de comisiones: pantalla dedicada (admin) para pago en lote con PDF de resumen
+- Estado de comision visible en detalle de orden (badges: Sin comision / Pagada / Pendiente)
+- Validacion de descuentos (no puede exceder el costo del servicio o subtotal del repuesto)
+- Generacion de reportes PDF (ordenes de trabajo y comisiones) con compartir
 - Reportes de ingresos por rango de fechas y repuestos mas usados
 - Respaldo completo exportar/importar (ZIP con JSON + fotos) para migrar entre dispositivos
 - Auditoria de cambios de estado con historial
@@ -47,15 +50,16 @@ app/src/main/java/com/example/serviaux/
 │   ├── dao/                 # Data Access Objects
 │   ├── Converters.kt        # TypeConverters para enums
 │   └── ServiauxDatabase.kt  # Base de datos con seed data y migraciones (version 8)
-├── repository/              # Repositorios (Auth, Customer, Vehicle, Part, WorkOrder, Catalog, Backup)
+├── repository/              # Repositorios (Auth, Customer, Vehicle, Part, WorkOrder, Catalog, Commission, Backup)
 ├── di/
 │   └── AppContainer.kt      # Inyeccion de dependencias manual
 ├── util/
 │   ├── SecurityUtils.kt     # Hash SHA-256 + salt para contraseñas
 │   ├── SessionManager.kt    # Manejo de sesion con StateFlow
 │   ├── PhotoUtils.kt        # Utilidades para fotos (crear archivo, URI, parsear rutas)
-│   ├── PdfReportGenerator.kt # Generacion de PDF de ordenes de trabajo
-│   └── ShareUtils.kt        # Compartir archivos via Intent
+│   ├── PdfReportGenerator.kt    # Generacion de PDF de ordenes de trabajo
+│   ├── CommissionPdfGenerator.kt # Generacion de PDF de comisiones pagadas
+│   └── ShareUtils.kt           # Compartir archivos via Intent
 ├── ui/
 │   ├── theme/               # Tema mecanico (colores industriales, logo)
 │   ├── components/          # Componentes reutilizables (SearchableDropdown, StatusChip, etc.)
@@ -65,6 +69,7 @@ app/src/main/java/com/example/serviaux/
 │   ├── customers/           # CRUD Clientes
 │   ├── vehicles/            # CRUD Vehiculos (con fotos, tipo aceite, combustible)
 │   ├── workorders/          # Ordenes de trabajo (fotos recepcion, mecanicos, comisiones)
+│   ├── commissions/         # Gestion de comisiones (pago en lote, resumen, PDF)
 │   ├── parts/               # CRUD Repuestos
 │   ├── users/               # Gestion de usuarios (solo Admin)
 │   ├── reports/             # Reportes e ingresos
@@ -95,6 +100,7 @@ generate_seed.py             # Script Python para generar seed_data.sql desde lo
 | Repuestos | Si | Si | Solo lectura |
 | Usuarios | Si | No | No |
 | Reportes | Si | Si | No |
+| Comisiones | Si | No | No |
 | Respaldos | Si | No | No |
 
 ## Datos de prueba (Seed)
@@ -129,7 +135,7 @@ Las entidades principales y sus relaciones:
 - **Customer** -> tiene muchos **Vehicle** (CASCADE on delete)
 - **Vehicle** -> tiene muchas **WorkOrder**, campos: photoPaths, vehicleType, fuelType, oilType, oilCapacity
 - **WorkOrder** -> tiene muchas **ServiceLine**, **WorkOrderPart**, **Payment**, **StatusLog**, **WorkOrderMechanic**, campos: photoPaths, orderType, arrivalCondition
-- **WorkOrderMechanic** -> vincula mecanico a orden con commissionType, commissionValue, commissionAmount
+- **WorkOrderMechanic** -> vincula mecanico a orden con commissionType, commissionValue, commissionAmount, commissionPaid, paidAt
 - **Part** -> referenciado por **WorkOrderPart** (gestion de stock automatica)
 - **CatalogService** -> servicios predefinidos con categoria, precio y tipo vehiculo
 

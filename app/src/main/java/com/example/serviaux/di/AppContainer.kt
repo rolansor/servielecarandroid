@@ -39,5 +39,6 @@ class AppContainer(context: Context) {
         workOrderMechanicDao = database.workOrderMechanicDao()
     )
     val appointmentRepository = AppointmentRepository(database.appointmentDao())
+    val commissionRepository = CommissionRepository(database.workOrderMechanicDao(), database.userDao())
     val backupRepository = BackupRepository(database)
 }

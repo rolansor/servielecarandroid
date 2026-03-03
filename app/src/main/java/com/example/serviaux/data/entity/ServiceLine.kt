@@ -37,6 +37,7 @@ data class ServiceLine(
     val workOrderId: Long,
     val description: String,
     val laborCost: Double,
+    val discount: Double = 0.0,
     val notes: String? = null,
     val createdAt: Long = System.currentTimeMillis(),
     val updatedAt: Long = System.currentTimeMillis()

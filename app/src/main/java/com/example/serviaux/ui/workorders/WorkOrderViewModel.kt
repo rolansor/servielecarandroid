@@ -81,11 +81,15 @@ data class WorkOrderUiState(
     // Service line form
     val serviceLineFormDescription: String = "",
     val serviceLineFormLaborCost: String = "",
+    val serviceLineFormHasDiscount: Boolean = false,
+    val serviceLineFormDiscount: String = "",
     val editingServiceLineId: Long? = null,
     // Part form
     val partFormSelectedPartId: Long? = null,
     val partFormQuantity: String = "",
     val partFormPrice: String = "",
+    val partFormHasDiscount: Boolean = false,
+    val partFormDiscount: String = "",
     val editingWorkOrderPartId: Long? = null,
     // Payment form
     val paymentFormAmount: String = "",
@@ -575,6 +579,13 @@ class WorkOrderViewModel(application: Application) : AndroidViewModel(applicatio
             _uiState.update { it.copy(error = "Ingrese descripcion del servicio") }
             return
         }
+        val discount = if (state.serviceLineFormHasDiscount)
+            state.serviceLineFormDiscount.toDoubleOrNull() ?: 0.0 else 0.0
+        val laborCost = state.serviceLineFormLaborCost.toDoubleOrNull() ?: 0.0
+        if (discount > laborCost) {
+            _uiState.update { it.copy(error = "El descuento no puede exceder el costo") }
+            return
+        }
         viewModelScope.launch {
             try {
                 val editingId = state.editingServiceLineId
@@ -583,14 +594,16 @@ class WorkOrderViewModel(application: Application) : AndroidViewModel(applicatio
                     workOrderRepo.updateServiceLine(
                         existing.copy(
                             description = state.serviceLineFormDescription.trim(),
-                            laborCost = state.serviceLineFormLaborCost.toDoubleOrNull() ?: 0.0
+                            laborCost = state.serviceLineFormLaborCost.toDoubleOrNull() ?: 0.0,
+                            discount = discount
                         )
                     )
                 } else {
                     val serviceLine = ServiceLine(
                         workOrderId = orderId,
                         description = state.serviceLineFormDescription.trim(),
-                        laborCost = state.serviceLineFormLaborCost.toDoubleOrNull() ?: 0.0
+                        laborCost = state.serviceLineFormLaborCost.toDoubleOrNull() ?: 0.0,
+                        discount = discount
                     )
                     workOrderRepo.addServiceLine(serviceLine)
                 }
@@ -598,6 +611,8 @@ class WorkOrderViewModel(application: Application) : AndroidViewModel(applicatio
                     it.copy(
                         serviceLineFormDescription = "",
                         serviceLineFormLaborCost = "",
+                        serviceLineFormHasDiscount = false,
+                        serviceLineFormDiscount = "",
                         editingServiceLineId = null
                     )
                 }
@@ -614,7 +629,9 @@ class WorkOrderViewModel(application: Application) : AndroidViewModel(applicatio
             it.copy(
                 editingServiceLineId = serviceLine.id,
                 serviceLineFormDescription = serviceLine.description,
-                serviceLineFormLaborCost = String.format("%.2f", serviceLine.laborCost)
+                serviceLineFormLaborCost = String.format("%.2f", serviceLine.laborCost),
+                serviceLineFormHasDiscount = serviceLine.discount > 0.0,
+                serviceLineFormDiscount = if (serviceLine.discount > 0.0) String.format("%.2f", serviceLine.discount) else ""
             )
         }
     }
@@ -624,7 +641,9 @@ class WorkOrderViewModel(application: Application) : AndroidViewModel(applicatio
             it.copy(
                 editingServiceLineId = null,
                 serviceLineFormDescription = "",
-                serviceLineFormLaborCost = ""
+                serviceLineFormLaborCost = "",
+                serviceLineFormHasDiscount = false,
+                serviceLineFormDiscount = ""
             )
         }
     }
@@ -654,6 +673,13 @@ class WorkOrderViewModel(application: Application) : AndroidViewModel(applicatio
             _uiState.update { it.copy(error = "Ingrese precio valido") }
             return
         }
+        val discount = if (_uiState.value.partFormHasDiscount)
+            _uiState.value.partFormDiscount.toDoubleOrNull() ?: 0.0 else 0.0
+        val subtotal = unitPrice * quantity
+        if (discount > subtotal) {
+            _uiState.update { it.copy(error = "El descuento no puede exceder el subtotal") }
+            return
+        }
         viewModelScope.launch {
             try {
                 val workOrderPart = WorkOrderPart(
@@ -661,11 +687,18 @@ class WorkOrderViewModel(application: Application) : AndroidViewModel(applicatio
                     partId = partId,
                     quantity = quantity,
                     appliedUnitPrice = unitPrice,
-                    subtotal = unitPrice * quantity
+                    subtotal = subtotal,
+                    discount = discount
                 )
                 workOrderRepo.addWorkOrderPart(workOrderPart)
                 _uiState.update {
-                    it.copy(partFormSelectedPartId = null, partFormQuantity = "", partFormPrice = "")
+                    it.copy(
+                        partFormSelectedPartId = null,
+                        partFormQuantity = "",
+                        partFormPrice = "",
+                        partFormHasDiscount = false,
+                        partFormDiscount = ""
+                    )
                 }
             } catch (e: Exception) {
                 _uiState.update { it.copy(error = e.message ?: "Error al agregar repuesto") }
@@ -689,7 +722,9 @@ class WorkOrderViewModel(application: Application) : AndroidViewModel(applicatio
                 editingWorkOrderPartId = workOrderPart.id,
                 partFormSelectedPartId = workOrderPart.partId,
                 partFormQuantity = workOrderPart.quantity.toString(),
-                partFormPrice = String.format("%.2f", workOrderPart.appliedUnitPrice)
+                partFormPrice = String.format("%.2f", workOrderPart.appliedUnitPrice),
+                partFormHasDiscount = workOrderPart.discount > 0.0,
+                partFormDiscount = if (workOrderPart.discount > 0.0) String.format("%.2f", workOrderPart.discount) else ""
             )
         }
     }
@@ -700,7 +735,9 @@ class WorkOrderViewModel(application: Application) : AndroidViewModel(applicatio
                 editingWorkOrderPartId = null,
                 partFormSelectedPartId = null,
                 partFormQuantity = "",
-                partFormPrice = ""
+                partFormPrice = "",
+                partFormHasDiscount = false,
+                partFormDiscount = ""
             )
         }
     }
@@ -716,13 +753,21 @@ class WorkOrderViewModel(application: Application) : AndroidViewModel(applicatio
             _uiState.update { it.copy(error = "Ingrese precio válido") }
             return
         }
+        val discount = if (state.partFormHasDiscount)
+            state.partFormDiscount.toDoubleOrNull() ?: 0.0 else 0.0
+        val subtotal = unitPrice * quantity
+        if (discount > subtotal) {
+            _uiState.update { it.copy(error = "El descuento no puede exceder el subtotal") }
+            return
+        }
         viewModelScope.launch {
             try {
                 val existing = state.orderParts.find { it.id == editingId } ?: return@launch
                 val updated = existing.copy(
                     quantity = quantity,
                     appliedUnitPrice = unitPrice,
-                    subtotal = unitPrice * quantity,
+                    subtotal = subtotal,
+                    discount = discount,
                     updatedAt = System.currentTimeMillis()
                 )
                 workOrderRepo.updateWorkOrderPart(updated)
@@ -731,7 +776,9 @@ class WorkOrderViewModel(application: Application) : AndroidViewModel(applicatio
                         editingWorkOrderPartId = null,
                         partFormSelectedPartId = null,
                         partFormQuantity = "",
-                        partFormPrice = ""
+                        partFormPrice = "",
+                        partFormHasDiscount = false,
+                        partFormDiscount = ""
                     )
                 }
             } catch (e: Exception) {
@@ -918,6 +965,56 @@ class WorkOrderViewModel(application: Application) : AndroidViewModel(applicatio
             filtered.substring(0, firstDot + 1) + filtered.substring(firstDot + 1).replace(".", "")
         } else filtered
         _uiState.update { it.copy(partFormPrice = sanitized) }
+    }
+
+    fun onServiceLineDiscountToggle(enabled: Boolean) {
+        _uiState.update {
+            if (enabled) {
+                val laborCost = it.serviceLineFormLaborCost.toDoubleOrNull() ?: 0.0
+                it.copy(
+                    serviceLineFormHasDiscount = true,
+                    serviceLineFormDiscount = String.format("%.2f", laborCost)
+                )
+            } else {
+                it.copy(serviceLineFormHasDiscount = false, serviceLineFormDiscount = "")
+            }
+        }
+    }
+
+    fun onServiceLineDiscountChange(value: String) {
+        val filtered = value.filter { it.isDigit() || it == '.' }
+        val dotCount = filtered.count { it == '.' }
+        val sanitized = if (dotCount > 1) {
+            val firstDot = filtered.indexOf('.')
+            filtered.substring(0, firstDot + 1) + filtered.substring(firstDot + 1).replace(".", "")
+        } else filtered
+        _uiState.update { it.copy(serviceLineFormDiscount = sanitized) }
+    }
+
+    fun onPartDiscountToggle(enabled: Boolean) {
+        _uiState.update {
+            if (enabled) {
+                val qty = it.partFormQuantity.toIntOrNull() ?: 0
+                val price = it.partFormPrice.toDoubleOrNull() ?: 0.0
+                val subtotal = qty * price
+                it.copy(
+                    partFormHasDiscount = true,
+                    partFormDiscount = String.format("%.2f", subtotal)
+                )
+            } else {
+                it.copy(partFormHasDiscount = false, partFormDiscount = "")
+            }
+        }
+    }
+
+    fun onPartDiscountChange(value: String) {
+        val filtered = value.filter { it.isDigit() || it == '.' }
+        val dotCount = filtered.count { it == '.' }
+        val sanitized = if (dotCount > 1) {
+            val firstDot = filtered.indexOf('.')
+            filtered.substring(0, firstDot + 1) + filtered.substring(firstDot + 1).replace(".", "")
+        } else filtered
+        _uiState.update { it.copy(partFormDiscount = sanitized) }
     }
 
     fun onPaymentAmountChange(value: String) { _uiState.update { it.copy(paymentFormAmount = value) } }
@@ -1169,6 +1266,12 @@ class WorkOrderViewModel(application: Application) : AndroidViewModel(applicatio
                     vehicleYear = vehicle?.year,
                     vehicleColor = vehicle?.color,
                     vehicleVin = vehicle?.vin,
+                    vehicleVersion = vehicle?.version,
+                    vehicleType = vehicle?.vehicleType,
+                    vehicleFuelType = vehicle?.fuelType,
+                    vehicleTransmission = vehicle?.transmission,
+                    vehicleDrivetrain = vehicle?.drivetrain,
+                    vehicleEngineDisplacement = vehicle?.engineDisplacement,
                     serviceLines = state.serviceLines,
                     orderParts = state.orderParts,
                     availableParts = state.availableParts,

@@ -16,6 +16,8 @@ class VehicleRepository(private val dao: VehicleDao) {
     fun getById(id: Long): Flow<Vehicle?> = dao.getById(id)
     fun getByCustomer(customerId: Long): Flow<List<Vehicle>> = dao.getByCustomer(customerId)
     fun search(query: String): Flow<List<Vehicle>> = dao.search(query)
+    fun getPaginated(limit: Int, offset: Int): Flow<List<Vehicle>> = dao.getPaginated(limit, offset)
+    fun getTotalCount(): Flow<Int> = dao.getTotalCount()
     suspend fun getByIdDirect(id: Long): Vehicle? = dao.getByIdDirect(id)
 
     suspend fun findByPlate(plate: String): Vehicle? = dao.findByPlate(plate)

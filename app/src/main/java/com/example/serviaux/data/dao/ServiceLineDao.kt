@@ -26,7 +26,7 @@ interface ServiceLineDao {
     fun getByWorkOrder(workOrderId: Long): Flow<List<ServiceLine>>
 
     /** Suma el costo de mano de obra de todas las líneas de una orden; usado para recalcular [WorkOrder.totalLabor]. */
-    @Query("SELECT COALESCE(SUM(laborCost), 0.0) FROM service_lines WHERE workOrderId = :workOrderId")
+    @Query("SELECT COALESCE(SUM(laborCost - discount), 0.0) FROM service_lines WHERE workOrderId = :workOrderId")
     suspend fun getTotalLabor(workOrderId: Long): Double
 
     @Query("SELECT * FROM service_lines")

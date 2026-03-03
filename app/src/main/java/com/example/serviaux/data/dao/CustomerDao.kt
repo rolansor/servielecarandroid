@@ -57,4 +57,12 @@ interface CustomerDao {
     /** Elimina todos los registros; usado durante la restauración de respaldos. */
     @Query("DELETE FROM customers")
     suspend fun deleteAll()
+
+    /** Consulta paginada de clientes. */
+    @Query("SELECT * FROM customers ORDER BY createdAt DESC LIMIT :limit OFFSET :offset")
+    fun getPaginated(limit: Int, offset: Int): Flow<List<Customer>>
+
+    /** Total de clientes para cálculo de páginas. */
+    @Query("SELECT COUNT(*) FROM customers")
+    fun getTotalCount(): Flow<Int>
 }

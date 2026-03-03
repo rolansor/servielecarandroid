@@ -38,6 +38,7 @@ object Routes {
     const val WORK_ORDER_FORM_WITH_PARAMS = "workorders/form?customerId={customerId}&vehicleId={vehicleId}&appointmentId={appointmentId}"
     const val CATALOG_SETTINGS = "catalog_settings"
     const val BACKUP = "backup"
+    const val COMMISSIONS = "commissions"
 
     fun appointmentForm(id: Long? = null) = if (id != null) "appointments/form?appointmentId=$id" else "appointments/form"
     fun workOrderFormFromAppointment(customerId: Long, vehicleId: Long, appointmentId: Long) =

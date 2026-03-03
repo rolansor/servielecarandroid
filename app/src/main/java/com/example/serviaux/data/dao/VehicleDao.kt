@@ -56,4 +56,12 @@ interface VehicleDao {
 
     @Query("DELETE FROM vehicles")
     suspend fun deleteAll()
+
+    /** Consulta paginada de vehículos. */
+    @Query("SELECT * FROM vehicles ORDER BY createdAt DESC LIMIT :limit OFFSET :offset")
+    fun getPaginated(limit: Int, offset: Int): Flow<List<Vehicle>>
+
+    /** Total de vehículos para cálculo de páginas. */
+    @Query("SELECT COUNT(*) FROM vehicles")
+    fun getTotalCount(): Flow<Int>
 }

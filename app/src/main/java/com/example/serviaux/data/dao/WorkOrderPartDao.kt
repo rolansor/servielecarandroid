@@ -26,7 +26,7 @@ interface WorkOrderPartDao {
     @Query("SELECT * FROM work_order_parts WHERE workOrderId = :workOrderId")
     fun getByWorkOrder(workOrderId: Long): Flow<List<WorkOrderPart>>
 
-    @Query("SELECT COALESCE(SUM(subtotal), 0.0) FROM work_order_parts WHERE workOrderId = :workOrderId")
+    @Query("SELECT COALESCE(SUM(subtotal - discount), 0.0) FROM work_order_parts WHERE workOrderId = :workOrderId")
     suspend fun getTotalParts(workOrderId: Long): Double
 
     /** Repuestos más utilizados en un período, agrupados por partId; usado en reportes. */

@@ -7,6 +7,7 @@
 package com.example.serviaux.ui.customers
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -20,6 +21,8 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.automirrored.filled.NavigateBefore
+import androidx.compose.material.icons.automirrored.filled.NavigateNext
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.People
@@ -135,6 +138,32 @@ fun CustomerListScreen(
                 placeholder = "Buscar cliente...",
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
             )
+
+            if (uiState.searchQuery.isBlank() && uiState.totalCount > uiState.pageSize) {
+                val totalPages = (uiState.totalCount + uiState.pageSize - 1) / uiState.pageSize
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    IconButton(
+                        onClick = { viewModel.previousPage() },
+                        enabled = uiState.currentPage > 0
+                    ) {
+                        Icon(Icons.AutoMirrored.Filled.NavigateBefore, contentDescription = "Anterior")
+                    }
+                    Text(
+                        text = "Pág. ${uiState.currentPage + 1} de $totalPages (${uiState.totalCount} clientes)",
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                    IconButton(
+                        onClick = { viewModel.nextPage() },
+                        enabled = (uiState.currentPage + 1) * uiState.pageSize < uiState.totalCount
+                    ) {
+                        Icon(Icons.AutoMirrored.Filled.NavigateNext, contentDescription = "Siguiente")
+                    }
+                }
+            }
 
             if (!uiState.isListLoaded) {
                 ShimmerLoadingList()

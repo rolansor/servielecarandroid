@@ -40,6 +40,7 @@ import com.example.serviaux.ui.workorders.WorkOrderFormScreen
 import com.example.serviaux.ui.workorders.WorkOrderListScreen
 import com.example.serviaux.ui.appointments.AppointmentListScreen
 import com.example.serviaux.ui.appointments.AppointmentFormScreen
+import com.example.serviaux.ui.commissions.CommissionScreen
 import com.example.serviaux.data.entity.OrderStatus
 
 @Composable
@@ -86,6 +87,7 @@ fun ServiauxNavGraph(navController: NavHostController) {
                 onNavigateToNewCustomer = { navController.navigate(Routes.customerForm()) },
                 onNavigateToNewVehicle = { navController.navigate(Routes.vehicleForm()) },
                 onNavigateToAppointments = { navController.navigate(Routes.APPOINTMENT_LIST) },
+                onNavigateToCommissions = { navController.navigate(Routes.COMMISSIONS) },
                 onNavigateToBackup = { navController.navigate(Routes.BACKUP) },
                 onLogout = {
                     navController.navigate(Routes.LOGIN) {
@@ -349,6 +351,11 @@ fun ServiauxNavGraph(navController: NavHostController) {
             CatalogSettingsScreen(
                 onNavigateBack = { navController.popBackStack() }
             )
+        }
+
+        // Commissions
+        composable(Routes.COMMISSIONS) {
+            CommissionScreen(onNavigateBack = { navController.popBackStack() })
         }
 
         // Backup

@@ -1,5 +1,6 @@
 package com.example.serviaux.data.entity
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.Index
@@ -36,4 +37,17 @@ data class WorkOrderMechanic(
     val commissionPaid: Boolean = false,
     val paidAt: Long? = null,
     val createdAt: Long = System.currentTimeMillis()
+)
+
+data class PendingCommissionRow(
+    val id: Long,
+    val workOrderId: Long,
+    val mechanicId: Long,
+    val commissionType: String,
+    val commissionValue: Double,
+    val commissionAmount: Double,
+    val commissionPaid: Boolean,
+    val paidAt: Long?,
+    val createdAt: Long,
+    @ColumnInfo(name = "vehiclePlate") val vehiclePlate: String
 )

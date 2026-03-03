@@ -1,6 +1,7 @@
 package com.example.serviaux.data.dao
 
 import androidx.room.*
+import com.example.serviaux.data.entity.PendingCommissionRow
 import com.example.serviaux.data.entity.WorkOrderMechanic
 import kotlinx.coroutines.flow.Flow
 
@@ -38,4 +39,30 @@ interface WorkOrderMechanicDao {
 
     @Query("DELETE FROM work_order_mechanics WHERE workOrderId = :workOrderId")
     suspend fun deleteByWorkOrder(workOrderId: Long)
+
+    @Query("""
+        SELECT wm.*, v.plate AS vehiclePlate
+        FROM work_order_mechanics wm
+        INNER JOIN work_orders wo ON wm.workOrderId = wo.id
+        INNER JOIN vehicles v ON wo.vehicleId = v.id
+        WHERE wm.commissionPaid = 0
+            AND wm.commissionType != 'NINGUNA'
+            AND wo.status IN ('LISTO', 'ENTREGADO')
+        ORDER BY wm.mechanicId, wm.createdAt DESC
+    """)
+    suspend fun getUnpaidCommissions(): List<PendingCommissionRow>
+
+    @Query("UPDATE work_order_mechanics SET commissionPaid = 1, paidAt = :paidAt WHERE id IN (:ids)")
+    suspend fun batchMarkAsPaid(ids: List<Long>, paidAt: Long = System.currentTimeMillis())
+
+    @Query("""
+        SELECT wm.*, v.plate AS vehiclePlate
+        FROM work_order_mechanics wm
+        INNER JOIN work_orders wo ON wm.workOrderId = wo.id
+        INNER JOIN vehicles v ON wo.vehicleId = v.id
+        WHERE wm.commissionPaid = 1
+            AND wm.commissionType != 'NINGUNA'
+        ORDER BY wm.paidAt DESC
+    """)
+    suspend fun getPaidCommissions(): List<PendingCommissionRow>
 }

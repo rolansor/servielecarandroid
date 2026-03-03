@@ -26,7 +26,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.material3.Checkbox
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.text.input.KeyboardCapitalization
@@ -98,6 +99,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
@@ -235,8 +237,12 @@ fun WorkOrderDetailScreen(
             laborCost = uiState.serviceLineFormLaborCost,
             catalogServices = filteredCatalogServices,
             isEditing = isEditingServiceLine,
+            hasDiscount = uiState.serviceLineFormHasDiscount,
+            discountAmount = uiState.serviceLineFormDiscount,
             onDescriptionChange = { if (it.length <= 200) viewModel.onServiceLineDescriptionChange(it) },
             onLaborCostChange = { viewModel.onServiceLineLaborCostChange(it) },
+            onDiscountToggle = { viewModel.onServiceLineDiscountToggle(it) },
+            onDiscountChange = { viewModel.onServiceLineDiscountChange(it) },
             onSave = {
                 viewModel.saveServiceLine()
                 if (uiState.serviceLineFormDescription.trim().length >= 3
@@ -261,12 +267,16 @@ fun WorkOrderDetailScreen(
             quantity = uiState.partFormQuantity,
             price = uiState.partFormPrice,
             isEditing = isEditingPart,
+            hasDiscount = uiState.partFormHasDiscount,
+            discountAmount = uiState.partFormDiscount,
             onPartSelected = { viewModel.onPartSelectedChange(it) },
             onQuantityChange = { newVal ->
                 val filtered = newVal.filter { it.isDigit() }
                 viewModel.onPartQuantityChange(filtered)
             },
             onPriceChange = { viewModel.onPartPriceChange(it) },
+            onDiscountToggle = { viewModel.onPartDiscountToggle(it) },
+            onDiscountChange = { viewModel.onPartDiscountChange(it) },
             onSave = {
                 if (isEditingPart) {
                     viewModel.updatePart()
@@ -579,7 +589,7 @@ fun WorkOrderDetailScreen(
                                     PriorityChip(priority = order.priority)
                                 }
                             }
-                            if (!isEntregado && isAdmin) {
+                            if (isAdmin) {
                                 Spacer(modifier = Modifier.height(12.dp))
                                 Text(
                                     text = "Cambiar Estado",
@@ -934,14 +944,32 @@ fun WorkOrderDetailScreen(
                                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                                             )
                                         }
-                                        if (isAdmin) {
-                                            Checkbox(
-                                                checked = wm.commissionPaid,
-                                                onCheckedChange = { viewModel.toggleCommissionPaid(wm) }
+                                        val (badgeText, badgeContainerColor, badgeContentColor) = when {
+                                            wm.commissionType == "NINGUNA" -> Triple(
+                                                "Sin comisión",
+                                                MaterialTheme.colorScheme.surfaceVariant,
+                                                MaterialTheme.colorScheme.onSurfaceVariant
                                             )
+                                            wm.commissionPaid -> Triple(
+                                                "Pagada",
+                                                MaterialTheme.colorScheme.primaryContainer,
+                                                MaterialTheme.colorScheme.onPrimaryContainer
+                                            )
+                                            else -> Triple(
+                                                "Pendiente",
+                                                MaterialTheme.colorScheme.errorContainer,
+                                                MaterialTheme.colorScheme.onErrorContainer
+                                            )
+                                        }
+                                        Surface(
+                                            color = badgeContainerColor,
+                                            shape = MaterialTheme.shapes.small
+                                        ) {
                                             Text(
-                                                if (wm.commissionPaid) "Pagada" else "Pendiente",
-                                                style = MaterialTheme.typography.bodySmall
+                                                text = badgeText,
+                                                style = MaterialTheme.typography.labelSmall,
+                                                color = badgeContentColor,
+                                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
                                             )
                                         }
                                         if (!isEntregado && isAdmin) {
@@ -1013,12 +1041,32 @@ fun WorkOrderDetailScreen(
                                     style = MaterialTheme.typography.bodyMedium,
                                     fontWeight = FontWeight.Medium
                                 )
-                                Text(
-                                    text = String.format("$%.2f", serviceLine.laborCost),
-                                    style = MaterialTheme.typography.bodySmall,
-                                    fontWeight = FontWeight.SemiBold,
-                                    color = MaterialTheme.colorScheme.primary
-                                )
+                                if (serviceLine.discount > 0) {
+                                    Text(
+                                        text = String.format("$%.2f", serviceLine.laborCost),
+                                        style = MaterialTheme.typography.bodySmall,
+                                        textDecoration = TextDecoration.LineThrough,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                    Text(
+                                        text = "Desc: -${String.format("$%.2f", serviceLine.discount)}",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.error
+                                    )
+                                    Text(
+                                        text = String.format("$%.2f", serviceLine.laborCost - serviceLine.discount),
+                                        style = MaterialTheme.typography.bodySmall,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+                                } else {
+                                    Text(
+                                        text = String.format("$%.2f", serviceLine.laborCost),
+                                        style = MaterialTheme.typography.bodySmall,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+                                }
                             }
                             IconButton(
                                 onClick = {
@@ -1030,7 +1078,7 @@ fun WorkOrderDetailScreen(
                                 Icon(
                                     Icons.Default.Edit,
                                     contentDescription = "Editar",
-                                    tint = MaterialTheme.colorScheme.primary
+                                    tint = if (isEntregado) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f) else MaterialTheme.colorScheme.primary
                                 )
                             }
                             IconButton(
@@ -1040,7 +1088,7 @@ fun WorkOrderDetailScreen(
                                 Icon(
                                     Icons.Default.Delete,
                                     contentDescription = "Eliminar",
-                                    tint = MaterialTheme.colorScheme.error
+                                    tint = if (isEntregado) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f) else MaterialTheme.colorScheme.error
                                 )
                             }
                         }
@@ -1098,11 +1146,31 @@ fun WorkOrderDetailScreen(
                                     style = MaterialTheme.typography.bodyMedium,
                                     fontWeight = FontWeight.Medium
                                 )
-                                Text(
-                                    text = "Cant: ${orderPart.quantity} x $${String.format("%.2f", orderPart.appliedUnitPrice)} = $${String.format("%.2f", orderPart.subtotal)}",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
+                                if (orderPart.discount > 0) {
+                                    Text(
+                                        text = "Cant: ${orderPart.quantity} x $${String.format("%.2f", orderPart.appliedUnitPrice)} = $${String.format("%.2f", orderPart.subtotal)}",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        textDecoration = TextDecoration.LineThrough,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                    Text(
+                                        text = "Desc: -${String.format("$%.2f", orderPart.discount)}",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.error
+                                    )
+                                    Text(
+                                        text = String.format("$%.2f", orderPart.subtotal - orderPart.discount),
+                                        style = MaterialTheme.typography.bodySmall,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+                                } else {
+                                    Text(
+                                        text = "Cant: ${orderPart.quantity} x $${String.format("%.2f", orderPart.appliedUnitPrice)} = $${String.format("%.2f", orderPart.subtotal)}",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
                             }
                             IconButton(
                                 onClick = {
@@ -1114,7 +1182,7 @@ fun WorkOrderDetailScreen(
                                 Icon(
                                     Icons.Default.Edit,
                                     contentDescription = "Editar",
-                                    tint = MaterialTheme.colorScheme.primary
+                                    tint = if (isEntregado) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f) else MaterialTheme.colorScheme.primary
                                 )
                             }
                             IconButton(
@@ -1124,7 +1192,7 @@ fun WorkOrderDetailScreen(
                                 Icon(
                                     Icons.Default.Delete,
                                     contentDescription = "Eliminar",
-                                    tint = MaterialTheme.colorScheme.error
+                                    tint = if (isEntregado) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f) else MaterialTheme.colorScheme.error
                                 )
                             }
                         }
@@ -1504,8 +1572,12 @@ private fun ServiceLineDialog(
     laborCost: String,
     catalogServices: List<com.example.serviaux.data.entity.CatalogService>,
     isEditing: Boolean = false,
+    hasDiscount: Boolean = false,
+    discountAmount: String = "",
     onDescriptionChange: (String) -> Unit,
     onLaborCostChange: (String) -> Unit,
+    onDiscountToggle: (Boolean) -> Unit = {},
+    onDiscountChange: (String) -> Unit = {},
     onSave: () -> Unit,
     onDismiss: () -> Unit
 ) {
@@ -1607,6 +1679,25 @@ private fun ServiceLineDialog(
                     supportingText = laborCostError?.let { error -> { Text(error, color = MaterialTheme.colorScheme.error) } },
                     modifier = Modifier.fillMaxWidth()
                 )
+                Spacer(modifier = Modifier.height(4.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text("Aplicar descuento", style = MaterialTheme.typography.bodyMedium)
+                    Switch(checked = hasDiscount, onCheckedChange = onDiscountToggle)
+                }
+                if (hasDiscount) {
+                    OutlinedTextField(
+                        value = discountAmount,
+                        onValueChange = onDiscountChange,
+                        label = { Text("Monto descuento") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                        prefix = { Text("$") },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
             }
         },
         confirmButton = {
@@ -1646,9 +1737,13 @@ private fun PartDialog(
     quantity: String,
     price: String,
     isEditing: Boolean = false,
+    hasDiscount: Boolean = false,
+    discountAmount: String = "",
     onPartSelected: (Long?) -> Unit,
     onQuantityChange: (String) -> Unit,
     onPriceChange: (String) -> Unit,
+    onDiscountToggle: (Boolean) -> Unit = {},
+    onDiscountChange: (String) -> Unit = {},
     onSave: () -> Unit,
     onDismiss: () -> Unit
 ) {
@@ -1787,6 +1882,25 @@ private fun PartDialog(
                                     onPriceChange("")
                                 }
                             }
+                    )
+                }
+                Spacer(modifier = Modifier.height(4.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text("Aplicar descuento", style = MaterialTheme.typography.bodyMedium)
+                    Switch(checked = hasDiscount, onCheckedChange = onDiscountToggle)
+                }
+                if (hasDiscount) {
+                    OutlinedTextField(
+                        value = discountAmount,
+                        onValueChange = onDiscountChange,
+                        label = { Text("Monto descuento") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                        prefix = { Text("$") },
+                        modifier = Modifier.fillMaxWidth()
                     )
                 }
             }
