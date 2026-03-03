@@ -33,9 +33,13 @@ import androidx.compose.material.icons.filled.People
 import androidx.compose.material.icons.filled.PersonAdd
 import androidx.compose.material.icons.filled.SaveAlt
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -94,6 +98,42 @@ fun DashboardScreen(
     viewModel: DashboardViewModel = viewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+
+    if (uiState.showSampleDataDialog) {
+        AlertDialog(
+            onDismissRequest = { },
+            title = { Text("Datos iniciales") },
+            text = {
+                if (uiState.loadingSampleData) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        CircularProgressIndicator(modifier = Modifier.size(24.dp))
+                        Text("Cargando datos de ejemplo...")
+                    }
+                } else {
+                    Text("¿Desea cargar datos de ejemplo para explorar la aplicación? Incluye clientes, vehículos, repuestos y órdenes de prueba.")
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = { viewModel.loadSampleData() },
+                    enabled = !uiState.loadingSampleData
+                ) {
+                    Text("Cargar ejemplos")
+                }
+            },
+            dismissButton = {
+                OutlinedButton(
+                    onClick = { viewModel.dismissSampleDataDialog() },
+                    enabled = !uiState.loadingSampleData
+                ) {
+                    Text("Empezar de cero")
+                }
+            }
+        )
+    }
 
     Scaffold(
         topBar = {

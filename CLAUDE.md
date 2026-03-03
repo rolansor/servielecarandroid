@@ -28,13 +28,11 @@ Serviaux is an Android app for automotive workshop management built with Kotlin,
 
 - `data/entity/` - Room entities and enums (includes CatalogService for predefined services)
 - `data/dao/` - Room DAOs
-- `data/ServiauxDatabase.kt` - Database singleton with seed callback and migrations (current version 8)
+- `data/ServiauxDatabase.kt` - Database singleton with seed callback (current version 3)
 - `repository/` - Business logic repositories
 - `di/AppContainer.kt` - Manual dependency injection
 - `util/` - SecurityUtils, SessionManager, PhotoUtils, PdfReportGenerator, CommissionPdfGenerator, ShareUtils
 - `ui/` - Compose screens organized by feature module
-- `data/` - Excel source files (Clientes.xlsx, Vehiculos.xlsx, Ordenes de trabajo.xlsx, Catalogos.xlsx, etc.)
-- `generate_seed.py` - Python script to generate seed_data.sql from Excel files
 
 ## Important Patterns
 
@@ -60,13 +58,11 @@ Serviaux is an Android app for automotive workshop management built with Kotlin,
 - PDF reports include full vehicle data (type, version, fuel, transmission, drivetrain, engine) and order info (type, admission date, delivery note, invoice, notes)
 - PDF table columns use consistent vertical alignment via `rightAlignAt` helper
 
-## Seed Data Generation
+## Seed Data
 
-- Source: Excel files in `data/` directory + `data/productos.json`
-- Script: `python generate_seed.py` → outputs `app/src/main/assets/seed/seed_data.sql`
-- Clientes.xlsx columns: IdCliente, Nombre, ID (cédula), Telefono, Fecha, Cuenta
-- Vehiculos.xlsx columns: TIPO, MARCA, MODELO, AÑO, VERSION, COLOR, PATENTE, TRANSMISION, MOTOR, TRACCION, KMS, VIN, NUM_MOTOR, DATE_CREATED, ID_CLIENTE
-- Vehicle-customer linking uses ID_CLIENTE column (references IdCliente from Clientes.xlsx)
+- `assets/seed/seed_data.sql` — Always loaded on DB creation: admin user (servielecar), CONSUMIDOR FINAL (id=1), and all catalogs (brands, models, colors, vehicle types, oil types, services, part brands, accessories, complaints, diagnoses)
+- `assets/seed/sample_data.sql` — Optional demo data loaded on first launch if user chooses "Cargar ejemplos": sample users, customers, vehicles, parts, and work orders
+- On first launch after DB creation, DashboardScreen shows a dialog asking whether to load sample data or start empty
 - CONSUMIDOR FINAL (id=1) is the fallback for vehicles without assigned customer
 
 ## Build & Run

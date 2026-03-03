@@ -4,11 +4,13 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.serviaux.ServiauxApp
+import com.example.serviaux.data.ServiauxDatabase
 import com.example.serviaux.data.entity.AppointmentStatus
 import com.example.serviaux.data.entity.OrderStatus
 import com.example.serviaux.data.entity.User
 import com.example.serviaux.data.entity.UserRole
 import com.example.serviaux.data.entity.WorkOrder
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -30,7 +32,9 @@ data class DashboardUiState(
     val vehicleMap: Map<Long, String> = emptyMap(),
     val customerMap: Map<Long, String> = emptyMap(),
     val turnosPendientes: Int = 0,
-    val turnosConfirmados: Int = 0
+    val turnosConfirmados: Int = 0,
+    val showSampleDataDialog: Boolean = false,
+    val loadingSampleData: Boolean = false
 )
 
 class DashboardViewModel(application: Application) : AndroidViewModel(application) {
@@ -53,6 +57,10 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
     )
 
     init {
+        if (ServiauxDatabase.needsSamplePrompt(application)) {
+            _uiState.update { it.copy(showSampleDataDialog = true) }
+        }
+
         viewModelScope.launch {
             session.currentUser.collect { user ->
                 _uiState.update {
@@ -117,6 +125,23 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
                 _uiState.update { it.copy(turnosConfirmados = count) }
             }
         }
+    }
+
+    fun loadSampleData() {
+        _uiState.update { it.copy(loadingSampleData = true) }
+        viewModelScope.launch(Dispatchers.IO) {
+            val context = getApplication<ServiauxApp>()
+            val db = ServiauxDatabase.getInstance(context)
+            ServiauxDatabase.loadSampleData(context, db)
+            ServiauxDatabase.clearSamplePrompt(context)
+            _uiState.update { it.copy(showSampleDataDialog = false, loadingSampleData = false) }
+        }
+    }
+
+    fun dismissSampleDataDialog() {
+        val context = getApplication<ServiauxApp>()
+        ServiauxDatabase.clearSamplePrompt(context)
+        _uiState.update { it.copy(showSampleDataDialog = false) }
     }
 
     fun logout() {

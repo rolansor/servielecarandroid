@@ -3,11 +3,11 @@
  *
  * Configuración central de la base de datos, incluyendo:
  * - Declaración de las 21 entidades del sistema.
- * - Carga inicial de datos semilla desde `assets/seed/seed_data.sql`.
+ * - Carga inicial de datos semilla desde `assets/seed/seed_data.sql` (admin + catálogos).
+ * - Carga opcional de datos de ejemplo desde `assets/seed/sample_data.sql`.
  * - Patrón Singleton thread-safe para la instancia de la BD.
  *
  * La BD se almacena como `serviaux` en el almacenamiento interno de la app.
- * Version 1 — esquema definitivo, sin migraciones.
  */
 package com.example.serviaux.data
 
@@ -17,7 +17,6 @@ import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
-import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 import com.example.serviaux.data.dao.*
 import com.example.serviaux.data.entity.*
@@ -48,16 +47,10 @@ import java.io.InputStreamReader
         CatalogOilType::class,
         Appointment::class
     ],
-    version = 2,
+    version = 3,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
-/**
- * Base de datos principal de Serviaux.
- *
- * Expone todos los DAOs necesarios y gestiona datos iniciales.
- * Se obtiene la instancia mediante [getInstance].
- */
 abstract class ServiauxDatabase : RoomDatabase() {
 
     abstract fun userDao(): UserDao
@@ -78,6 +71,9 @@ abstract class ServiauxDatabase : RoomDatabase() {
         private var INSTANCE: ServiauxDatabase? = null
         private lateinit var appContext: Context
 
+        private const val PREFS_NAME = "serviaux_prefs"
+        private const val KEY_NEEDS_SAMPLE_PROMPT = "needs_sample_prompt"
+
         fun getInstance(context: Context): ServiauxDatabase {
             appContext = context.applicationContext
             return INSTANCE ?: synchronized(this) {
@@ -85,10 +81,47 @@ abstract class ServiauxDatabase : RoomDatabase() {
             }
         }
 
-        private val MIGRATION_1_2 = object : Migration(1, 2) {
-            override fun migrate(db: SupportSQLiteDatabase) {
-                db.execSQL("ALTER TABLE service_lines ADD COLUMN discount REAL NOT NULL DEFAULT 0.0")
-                db.execSQL("ALTER TABLE work_order_parts ADD COLUMN discount REAL NOT NULL DEFAULT 0.0")
+        fun needsSamplePrompt(context: Context): Boolean {
+            val prefs = context.applicationContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            return prefs.getBoolean(KEY_NEEDS_SAMPLE_PROMPT, false)
+        }
+
+        fun clearSamplePrompt(context: Context) {
+            val prefs = context.applicationContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            prefs.edit().putBoolean(KEY_NEEDS_SAMPLE_PROMPT, false).apply()
+        }
+
+        fun loadSampleData(context: Context, db: ServiauxDatabase) {
+            try {
+                val sqlDb = db.openHelper.writableDatabase
+                executeSqlFile(context, sqlDb, "seed/sample_data.sql")
+                Log.i("ServiauxDatabase", "Sample data loaded successfully")
+            } catch (e: Exception) {
+                Log.e("ServiauxDatabase", "Error loading sample data", e)
+            }
+        }
+
+        private fun executeSqlFile(context: Context, db: SupportSQLiteDatabase, assetPath: String) {
+            val inputStream = context.assets.open(assetPath)
+            val reader = BufferedReader(InputStreamReader(inputStream, Charsets.UTF_8))
+            db.beginTransaction()
+            try {
+                val statement = StringBuilder()
+                reader.forEachLine { line ->
+                    val trimmed = line.trim()
+                    if (trimmed.isEmpty() || trimmed.startsWith("--")) return@forEachLine
+                    statement.append(trimmed)
+                    if (trimmed.endsWith(";")) {
+                        db.execSQL(statement.toString())
+                        statement.clear()
+                    } else {
+                        statement.append(" ")
+                    }
+                }
+                db.setTransactionSuccessful()
+            } finally {
+                db.endTransaction()
+                reader.close()
             }
         }
 
@@ -98,48 +131,21 @@ abstract class ServiauxDatabase : RoomDatabase() {
                 ServiauxDatabase::class.java,
                 "serviaux"
             )
-                .addMigrations(MIGRATION_1_2)
                 .fallbackToDestructiveMigration(dropAllTables = true)
                 .addCallback(SeedCallback(context.applicationContext))
                 .build()
         }
     }
 
-    /**
-     * Callback que carga datos semilla al crear la BD por primera vez.
-     *
-     * Lee y ejecuta sentencias SQL desde `assets/seed/seed_data.sql`
-     * dentro de una transacción. Incluye catálogos iniciales y el usuario admin.
-     */
     private class SeedCallback(private val context: Context) : RoomDatabase.Callback() {
         override fun onCreate(db: SupportSQLiteDatabase) {
             super.onCreate(db)
-            loadSeedSql(db)
-        }
-
-        private fun loadSeedSql(db: SupportSQLiteDatabase) {
             try {
-                val inputStream = context.assets.open("seed/seed_data.sql")
-                val reader = BufferedReader(InputStreamReader(inputStream, Charsets.UTF_8))
-                db.beginTransaction()
-                try {
-                    val statement = StringBuilder()
-                    reader.forEachLine { line ->
-                        val trimmed = line.trim()
-                        if (trimmed.isEmpty() || trimmed.startsWith("--")) return@forEachLine
-                        statement.append(trimmed)
-                        if (trimmed.endsWith(";")) {
-                            db.execSQL(statement.toString())
-                            statement.clear()
-                        } else {
-                            statement.append(" ")
-                        }
-                    }
-                    db.setTransactionSuccessful()
-                } finally {
-                    db.endTransaction()
-                    reader.close()
-                }
+                executeSqlFile(context, db, "seed/seed_data.sql")
+                context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+                    .edit()
+                    .putBoolean(KEY_NEEDS_SAMPLE_PROMPT, true)
+                    .apply()
                 Log.i("ServiauxDatabase", "Seed data loaded successfully")
             } catch (e: Exception) {
                 Log.e("ServiauxDatabase", "Error loading seed data", e)
