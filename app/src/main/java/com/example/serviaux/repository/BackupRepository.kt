@@ -55,7 +55,7 @@ class BackupRepository(private val database: ServiauxDatabase) {
         private const val PHOTOS_DIR = "vehicle_photos"
         private const val BACKUPS_DIR = "backups"
         private const val MANIFEST_FILE = "manifest.json"
-        private const val DB_VERSION = 2
+        private const val DB_VERSION = 3
 
         private val CATEGORY_TABLES = mapOf(
             BackupCategory.USERS to listOf("users"),

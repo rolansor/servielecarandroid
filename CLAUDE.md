@@ -1,73 +1,73 @@
-# Serviaux - Project Instructions
+# Serviaux - Instrucciones del Proyecto
 
-## Project Overview
+## Descripción General
 
-Serviaux is an Android app for automotive workshop management built with Kotlin, Jetpack Compose, Room, and MVVM architecture.
+Serviaux es una app Android para gestión de talleres automotrices, construida con Kotlin, Jetpack Compose, Room y arquitectura MVVM.
 
-## Tech Stack
+## Stack Tecnológico
 
 - Kotlin 2.1.20 + Jetpack Compose + Material 3
-- Room Database with KSP (NOT kapt)
-- Navigation Compose for routing
-- Manual DI via AppContainer (NOT Hilt - due to AGP 9.x compatibility)
-- MVVM with AndroidViewModel + StateFlow
-- Coil 3 for image loading
+- Room Database con KSP (NO kapt)
+- Navigation Compose para enrutamiento
+- DI manual via AppContainer (NO Hilt - por compatibilidad con AGP 9.x)
+- MVVM con AndroidViewModel + StateFlow
+- Coil 3 para carga de imágenes
 - AGP 9.0.1, compileSdk 36, minSdk 26
 
-## Key Conventions
+## Convenciones Clave
 
-- All UI state uses `data class XxxUiState` with `MutableStateFlow` in ViewModels
-- ViewModels extend `AndroidViewModel` to access Application context
-- Repository pattern: DAOs return `Flow<List<T>>`, repos wrap DAOs
-- Form fields in UiState prefixed with `form` (e.g., `formName`, `formCode`)
-- Navigation uses string route constants in `Routes.kt`
-- Spanish language UI (labels, error messages, etc.)
-- Password hashing: SHA-256 + random salt via `SecurityUtils`
+- Todo estado de UI usa `data class XxxUiState` con `MutableStateFlow` en ViewModels
+- Los ViewModels extienden `AndroidViewModel` para acceder al contexto de Application
+- Patrón repositorio: los DAOs retornan `Flow<List<T>>`, los repos envuelven DAOs
+- Campos de formulario en UiState prefijados con `form` (ej: `formName`, `formCode`)
+- La navegación usa constantes de ruta tipo string en `Routes.kt`
+- Interfaz en español (etiquetas, mensajes de error, etc.)
+- Hash de contraseñas: SHA-256 + salt aleatorio via `SecurityUtils`
 
-## Project Structure
+## Estructura del Proyecto
 
-- `data/entity/` - Room entities and enums (includes CatalogService for predefined services)
-- `data/dao/` - Room DAOs
-- `data/ServiauxDatabase.kt` - Database singleton with seed callback (current version 3)
-- `repository/` - Business logic repositories
-- `di/AppContainer.kt` - Manual dependency injection
+- `data/entity/` - Entidades Room y enums (incluye CatalogService para servicios predefinidos)
+- `data/dao/` - DAOs de Room
+- `data/ServiauxDatabase.kt` - Singleton de la BD con callback de seed (versión actual 3)
+- `repository/` - Repositorios con lógica de negocio
+- `di/AppContainer.kt` - Inyección de dependencias manual
 - `util/` - SecurityUtils, SessionManager, PhotoUtils, PdfReportGenerator, CommissionPdfGenerator, ShareUtils
-- `ui/` - Compose screens organized by feature module
+- `ui/` - Pantallas Compose organizadas por módulo de funcionalidad
 
-## Important Patterns
+## Patrones Importantes
 
-- Save operations are async (coroutine). Form screens use `savedSuccessfully` flag in UiState + LaunchedEffect to navigate after save.
-- Each feature module has: ListScreen, DetailScreen (if applicable), FormScreen, ViewModel
-- Order statuses: RECIBIDO, EN_DIAGNOSTICO, EN_PROCESO, EN_ESPERA_REPUESTO, LISTO, ENTREGADO, CANCELADO
-- Status change in order detail uses inline FilterChips (not a dialog)
-- Mechanic validation: orders cannot be marked as LISTO or ENTREGADO without at least one mechanic assigned
-- Multiple mechanics per order with customizable commission (type: PORCENTAJE/FIJA, value per mechanic)
-- Commission status shown as badges in order detail (Sin comisión / Pagada / Pendiente) — no inline editing
-- Commission payments managed in dedicated admin-only "Comisiones" screen with batch pay + PDF report
-- Only commissions from orders in LISTO or ENTREGADO status appear in commission payment screen
-- Discount validation: service discount cannot exceed laborCost, part discount cannot exceed subtotal
-- Status changes allowed even from ENTREGADO (admin only) to support corrections
-- Stock adjustments happen automatically when adding/removing WorkOrderParts
-- Session management uses `SessionManager` singleton with `StateFlow<User?>` for current user state
-- Photos stored as files in app internal storage (`vehicle_photos/` dir), paths saved as comma-separated string in `photoPaths` field on Vehicle and WorkOrder entities (max 6 per entity)
-- Photo UI pattern: clickable thumbnails in LazyRow that open a dialog with preview/replace/delete options; camera+gallery icons in a Box at the end of the row for adding new photos
-- Camera access via `ActivityResultContracts.TakePicture()` with FileProvider
-- Predefined service catalog (`CatalogService`) with categories, default prices, and vehicle type variants
-- SearchableDropdown component filters by both name and subtitle (e.g., search customers by name or cédula)
-- Vehicle form fields: tipo vehículo, combustible (default Gasolina, FilterChips), tipo aceite (autocomplete from catalog), capacidad aceite (dropdown 1/2 galón steps up to 10)
-- PDF reports include full vehicle data (type, version, fuel, transmission, drivetrain, engine) and order info (type, admission date, delivery note, invoice, notes)
-- PDF table columns use consistent vertical alignment via `rightAlignAt` helper
+- Las operaciones de guardado son asíncronas (coroutine). Las pantallas de formulario usan flag `savedSuccessfully` en UiState + LaunchedEffect para navegar después de guardar.
+- Cada módulo tiene: ListScreen, DetailScreen (si aplica), FormScreen, ViewModel
+- Estados de orden: RECIBIDO, EN_DIAGNOSTICO, EN_PROCESO, EN_ESPERA_REPUESTO, LISTO, ENTREGADO, CANCELADO
+- Cambio de estado en detalle de orden usa FilterChips inline (no un diálogo)
+- Validación de mecánico: las órdenes no pueden marcarse como LISTO o ENTREGADO sin al menos un mecánico asignado
+- Múltiples mecánicos por orden con comisión personalizable (tipo: PORCENTAJE/FIJA, valor por mecánico)
+- Estado de comisión mostrado como badges en detalle de orden (Sin comisión / Pagada / Pendiente) — sin edición inline
+- Pagos de comisiones gestionados en pantalla dedicada solo-admin "Comisiones" con pago por lotes + reporte PDF
+- Solo las comisiones de órdenes en estado LISTO o ENTREGADO aparecen en la pantalla de pago de comisiones
+- Validación de descuento: descuento de servicio no puede exceder laborCost, descuento de repuesto no puede exceder subtotal
+- Cambios de estado permitidos incluso desde ENTREGADO (solo admin) para soportar correcciones
+- Ajustes de stock automáticos al agregar/eliminar WorkOrderParts
+- Gestión de sesión usa singleton `SessionManager` con `StateFlow<User?>` para el estado del usuario actual
+- Fotos almacenadas como archivos en almacenamiento interno (`vehicle_photos/`), rutas guardadas como string separado por comas en campo `photoPaths` en Vehicle y WorkOrder (máx 6 por entidad)
+- Patrón UI de fotos: thumbnails clickeables en LazyRow que abren diálogo con vista previa/reemplazar/eliminar; iconos de cámara+galería en un Box al final de la fila para agregar nuevas
+- Acceso a cámara via `ActivityResultContracts.TakePicture()` con FileProvider
+- Catálogo de servicios predefinidos (`CatalogService`) con categorías, precios por defecto y variantes por tipo de vehículo
+- Componente SearchableDropdown filtra por nombre y subtítulo (ej: buscar clientes por nombre o cédula)
+- Campos de formulario de vehículo: tipo vehículo, combustible (default Gasolina, FilterChips), tipo aceite (autocomplete desde catálogo), capacidad aceite (dropdown en pasos de 1/2 galón hasta 10)
+- Reportes PDF incluyen datos completos del vehículo (tipo, versión, combustible, transmisión, tracción, motor) e info de la orden (tipo, fecha admisión, nota de entrega, factura, notas)
+- Columnas de tablas PDF usan alineación vertical consistente via helper `rightAlignAt`
 
-## Seed Data
+## Datos Semilla
 
-- `assets/seed/seed_data.sql` — Always loaded on DB creation: admin user (servielecar), CONSUMIDOR FINAL (id=1), and all catalogs (brands, models, colors, vehicle types, oil types, services, part brands, accessories, complaints, diagnoses)
-- `assets/seed/sample_data.sql` — Optional demo data loaded on first launch if user chooses "Cargar ejemplos": sample users, customers, vehicles, parts, and work orders
-- On first launch after DB creation, DashboardScreen shows a dialog asking whether to load sample data or start empty
-- CONSUMIDOR FINAL (id=1) is the fallback for vehicles without assigned customer
+- `assets/seed/seed_data.sql` — Siempre se carga al crear la BD: usuario admin (servielecar), CONSUMIDOR FINAL (id=1), y todos los catálogos (marcas, modelos, colores, tipos vehículo, aceites, servicios, marcas repuestos, accesorios, motivos, diagnósticos)
+- `assets/seed/sample_data.sql` — Datos de ejemplo opcionales cargados en el primer arranque si el usuario elige "Cargar ejemplos": usuarios, clientes, vehículos, repuestos y órdenes de prueba
+- En el primer arranque después de crear la BD, DashboardScreen muestra un diálogo preguntando si cargar datos de ejemplo o empezar vacío
+- CONSUMIDOR FINAL (id=1) es el fallback para vehículos sin cliente asignado
 
-## Build & Run
+## Compilar y Ejecutar
 
-- Build: `./gradlew assembleDebug`
-- No tests currently configured
-- Run on API 26+ device/emulator
-- Default admin: `servielecar` / `f4d3s2a1`
+- Compilar: `./gradlew assembleDebug`
+- No hay tests configurados actualmente
+- Ejecutar en dispositivo/emulador API 26+
+- Admin por defecto: `servielecar` / `f4d3s2a1`
