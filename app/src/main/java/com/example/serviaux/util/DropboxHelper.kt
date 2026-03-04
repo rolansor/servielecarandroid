@@ -39,7 +39,9 @@ data class DropboxBackupEntry(
 
 object DropboxHelper {
     private const val APP_KEY = "tmd7jeavfixk9g8"
-    private const val DROPBOX_FOLDER = "/Serviaux"
+    // La app de Dropbox ya crea la carpeta /Aplicaciones/serviaux/ automáticamente,
+    // así que usamos la raíz ("") para que los dispositivos queden directamente ahí.
+    private const val DROPBOX_FOLDER = ""
     private const val PREFS_NAME = "dropbox_prefs"
     private const val KEY_CREDENTIAL = "dropbox_credential"
 
@@ -61,9 +63,9 @@ object DropboxHelper {
             return "$manufacturer $cleanModel".trim().replace(Regex("[^a-zA-Z0-9 _-]"), "_")
         }
 
-    /** Carpeta remota del dispositivo actual: /Serviaux/{nombreDispositivo} */
+    /** Carpeta remota del dispositivo actual: /{nombreDispositivo} (dentro de Aplicaciones/serviaux/) */
     private val remoteFolder: String
-        get() = "$DROPBOX_FOLDER/$deviceName"
+        get() = "/$deviceName"
 
     /** Inicia el flujo de autenticación OAuth2 PKCE. Abre el navegador del sistema. */
     fun startAuth(context: Context) {
@@ -129,9 +131,9 @@ object DropboxHelper {
                 ?: return Result.failure(Exception("No vinculado a Dropbox"))
             val entries = mutableListOf<DropboxBackupEntry>()
 
-            // Listar subcarpetas de dispositivos dentro de /Serviaux/
+            // Listar subcarpetas de dispositivos en la raíz de la app
             try {
-                val folderResult = client.files().listFolder(DROPBOX_FOLDER)
+                val folderResult = client.files().listFolder("")
                 val folders = folderResult.entries.filterIsInstance<FolderMetadata>()
 
                 for (folder in folders) {
