@@ -27,6 +27,7 @@ import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.DirectionsCar
 import androidx.compose.material.icons.filled.Group
 import androidx.compose.material.icons.filled.Handyman
+import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.NoteAdd
 import androidx.compose.material.icons.filled.Payments
 import androidx.compose.material.icons.filled.People
@@ -93,6 +94,7 @@ fun DashboardScreen(
     onNavigateToNewVehicle: () -> Unit,
     onNavigateToAppointments: () -> Unit = {},
     onNavigateToCommissions: () -> Unit = {},
+    onNavigateToHistory: () -> Unit = {},
     onNavigateToBackup: () -> Unit,
     onLogout: () -> Unit,
     viewModel: DashboardViewModel = viewModel()
@@ -138,6 +140,7 @@ fun DashboardScreen(
     Scaffold(
         topBar = {
             TopAppBar(
+                expandedHeight = 40.dp,
                 title = { Text("Serviaux") },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.primaryContainer,
@@ -428,6 +431,7 @@ fun DashboardScreen(
                 add(Triple("Órdenes", Icons.Default.Build, onNavigateToOrders))
                 add(Triple("Turnos", Icons.Default.CalendarMonth, onNavigateToAppointments))
                 add(Triple("Repuestos", Icons.Default.Handyman, onNavigateToParts))
+                add(Triple("Historial", Icons.Default.History, onNavigateToHistory))
                 if (uiState.currentUserRole == UserRole.ADMIN) {
                     add(Triple("Usuarios", Icons.Default.Group, onNavigateToUsers))
                     add(Triple("Comisiones", Icons.Default.Payments, onNavigateToCommissions))

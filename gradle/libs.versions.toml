@@ -13,6 +13,7 @@ navigationCompose = "2.9.0"
 ksp = "2.1.20-1.0.31"
 biometric = "1.1.0"
 coil = "3.1.0"
+dropbox = "7.0.0"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -38,6 +39,8 @@ room-ktx = { group = "androidx.room", name = "room-ktx", version.ref = "room" }
 room-compiler = { group = "androidx.room", name = "room-compiler", version.ref = "room" }
 androidx-biometric = { group = "androidx.biometric", name = "biometric", version.ref = "biometric" }
 coil-compose = { group = "io.coil-kt.coil3", name = "coil-compose", version.ref = "coil" }
+dropbox-core-sdk = { group = "com.dropbox.core", name = "dropbox-core-sdk", version.ref = "dropbox" }
+dropbox-android-sdk = { group = "com.dropbox.core", name = "dropbox-android-sdk", version.ref = "dropbox" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

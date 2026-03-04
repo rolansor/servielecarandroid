@@ -12,7 +12,12 @@ package com.example.serviaux.ui.vehicles
 import android.app.Application
 import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.SavedStateHandle
+import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.createSavedStateHandle
 import androidx.lifecycle.viewModelScope
+import androidx.lifecycle.viewmodel.initializer
+import androidx.lifecycle.viewmodel.viewModelFactory
 import com.example.serviaux.ServiauxApp
 import com.example.serviaux.data.entity.CatalogBrand
 import com.example.serviaux.data.entity.Customer
@@ -88,7 +93,20 @@ data class VehicleUiState(
     val isListLoaded: Boolean = false
 )
 
-class VehicleViewModel(application: Application) : AndroidViewModel(application) {
+class VehicleViewModel(
+    application: Application,
+    private val savedStateHandle: SavedStateHandle
+) : AndroidViewModel(application) {
+
+    companion object {
+        val Factory: ViewModelProvider.Factory = viewModelFactory {
+            initializer {
+                val app = this[ViewModelProvider.AndroidViewModelFactory.APPLICATION_KEY] as Application
+                val savedStateHandle = createSavedStateHandle()
+                VehicleViewModel(app, savedStateHandle)
+            }
+        }
+    }
 
     private val app get() = getApplication<ServiauxApp>()
     private val vehicleRepo get() = app.container.vehicleRepository
@@ -102,12 +120,94 @@ class VehicleViewModel(application: Application) : AndroidViewModel(application)
     private var searchJob: Job? = null
     private var modelsJob: Job? = null
     private var catalogBrands: List<CatalogBrand> = emptyList()
-    private var pendingPhotoFile: File? = null
+    private var pendingPhotoFile: File? = savedStateHandle.get<String>("pendingPhotoFile")?.let { File(it) }
 
     init {
+        restoreFormState()
         loadVehiclesPage(0)
         loadTotalCount()
         loadCatalogs()
+    }
+
+    private fun restoreFormState() {
+        val hasSavedState = savedStateHandle.get<String>("formPlate") != null
+        if (!hasSavedState) return
+        _uiState.update {
+            it.copy(
+                formPlate = savedStateHandle.get<String>("formPlate") ?: "",
+                formBrand = savedStateHandle.get<String>("formBrand") ?: "",
+                formModel = savedStateHandle.get<String>("formModel") ?: "",
+                formYear = savedStateHandle.get<String>("formYear") ?: "",
+                formVin = savedStateHandle.get<String>("formVin") ?: "",
+                formColor = savedStateHandle.get<String>("formColor") ?: "",
+                formColorSearch = savedStateHandle.get<String>("formColorSearch") ?: "",
+                formVersion = savedStateHandle.get<String>("formVersion") ?: "",
+                formVehicleType = savedStateHandle.get<String>("formVehicleType") ?: "",
+                formVehicleTypeSearch = savedStateHandle.get<String>("formVehicleTypeSearch") ?: "",
+                formFuelType = savedStateHandle.get<String>("formFuelType") ?: "",
+                formOilType = savedStateHandle.get<String>("formOilType") ?: "",
+                formOilTypeSearch = savedStateHandle.get<String>("formOilTypeSearch") ?: "",
+                formOilCapacity = savedStateHandle.get<String>("formOilCapacity") ?: "",
+                formEngineDisplacement = savedStateHandle.get<String>("formEngineDisplacement") ?: "",
+                formEngineNumber = savedStateHandle.get<String>("formEngineNumber") ?: "",
+                formDrivetrain = savedStateHandle.get<String>("formDrivetrain") ?: "4x2",
+                formTransmission = savedStateHandle.get<String>("formTransmission") ?: "Manual",
+                formNotes = savedStateHandle.get<String>("formNotes") ?: "",
+                formCustomerId = savedStateHandle.get<Long>("formCustomerId"),
+                formCustomerSearch = savedStateHandle.get<String>("formCustomerSearch") ?: "",
+                formBrandSearch = savedStateHandle.get<String>("formBrandSearch") ?: "",
+                formModelSearch = savedStateHandle.get<String>("formModelSearch") ?: "",
+                formPhotoPaths = savedStateHandle.get<ArrayList<String>>("formPhotoPaths")?.toList() ?: emptyList(),
+                formRegistrationPhotoPaths = savedStateHandle.get<ArrayList<String>>("formRegistrationPhotoPaths")?.toList() ?: emptyList(),
+                pendingPhotoTarget = savedStateHandle.get<String>("pendingPhotoTarget") ?: "vehicle",
+                isEditing = savedStateHandle.get<Boolean>("isEditing") ?: false,
+                editingVehicleId = savedStateHandle.get<Long>("editingVehicleId")
+            )
+        }
+    }
+
+    private fun saveFormState() {
+        val state = _uiState.value
+        savedStateHandle["formPlate"] = state.formPlate
+        savedStateHandle["formBrand"] = state.formBrand
+        savedStateHandle["formModel"] = state.formModel
+        savedStateHandle["formYear"] = state.formYear
+        savedStateHandle["formVin"] = state.formVin
+        savedStateHandle["formColor"] = state.formColor
+        savedStateHandle["formColorSearch"] = state.formColorSearch
+        savedStateHandle["formVersion"] = state.formVersion
+        savedStateHandle["formVehicleType"] = state.formVehicleType
+        savedStateHandle["formVehicleTypeSearch"] = state.formVehicleTypeSearch
+        savedStateHandle["formFuelType"] = state.formFuelType
+        savedStateHandle["formOilType"] = state.formOilType
+        savedStateHandle["formOilTypeSearch"] = state.formOilTypeSearch
+        savedStateHandle["formOilCapacity"] = state.formOilCapacity
+        savedStateHandle["formEngineDisplacement"] = state.formEngineDisplacement
+        savedStateHandle["formEngineNumber"] = state.formEngineNumber
+        savedStateHandle["formDrivetrain"] = state.formDrivetrain
+        savedStateHandle["formTransmission"] = state.formTransmission
+        savedStateHandle["formNotes"] = state.formNotes
+        savedStateHandle["formCustomerId"] = state.formCustomerId
+        savedStateHandle["formCustomerSearch"] = state.formCustomerSearch
+        savedStateHandle["formBrandSearch"] = state.formBrandSearch
+        savedStateHandle["formModelSearch"] = state.formModelSearch
+        savedStateHandle["formPhotoPaths"] = ArrayList(state.formPhotoPaths)
+        savedStateHandle["formRegistrationPhotoPaths"] = ArrayList(state.formRegistrationPhotoPaths)
+        savedStateHandle["pendingPhotoTarget"] = state.pendingPhotoTarget
+        savedStateHandle["isEditing"] = state.isEditing
+        savedStateHandle["editingVehicleId"] = state.editingVehicleId
+    }
+
+    private fun clearSavedState() {
+        listOf(
+            "pendingPhotoFile", "formPlate", "formBrand", "formModel", "formYear",
+            "formVin", "formColor", "formColorSearch", "formVersion", "formVehicleType",
+            "formVehicleTypeSearch", "formFuelType", "formOilType", "formOilTypeSearch",
+            "formOilCapacity", "formEngineDisplacement", "formEngineNumber", "formDrivetrain",
+            "formTransmission", "formNotes", "formCustomerId", "formCustomerSearch",
+            "formBrandSearch", "formModelSearch", "formPhotoPaths", "formRegistrationPhotoPaths",
+            "pendingPhotoTarget", "isEditing", "editingVehicleId"
+        ).forEach { savedStateHandle.remove<Any>(it) }
     }
 
     private fun loadCatalogs() {
@@ -219,81 +319,106 @@ class VehicleViewModel(application: Application) : AndroidViewModel(application)
     fun onFormPlateChange(value: String) {
         if (value.length <= 9) {
             _uiState.update { it.copy(formPlate = value.uppercase(), formPlateError = null) }
+            saveFormState()
         }
     }
     fun onFormBrandChange(value: String) {
         _uiState.update { it.copy(formBrand = value, formModel = "", formBrandError = null) }
+        saveFormState()
         loadModelsForBrand(value)
     }
     fun onFormModelChange(value: String) {
         _uiState.update { it.copy(formModel = value, formModelError = null) }
+        saveFormState()
     }
     fun onFormYearChange(value: String) {
         if (value.length <= 4 && value.all { it.isDigit() }) {
             _uiState.update { it.copy(formYear = value, formYearError = null) }
+            saveFormState()
         }
     }
     fun onFormVinChange(value: String) {
         if (value.length <= 17 && value.all { it.isLetterOrDigit() }) {
             _uiState.update { it.copy(formVin = value.uppercase(), formVinError = null) }
+            saveFormState()
         }
     }
     fun onFormColorChange(value: String) {
         _uiState.update { it.copy(formColor = value) }
+        saveFormState()
     }
     fun onFormColorSearchChange(value: String) {
         _uiState.update { it.copy(formColorSearch = value.uppercase(), formColor = value.uppercase()) }
+        saveFormState()
     }
     fun onFormColorSelected(colorName: String) {
         _uiState.update { it.copy(formColor = colorName, formColorSearch = colorName) }
+        saveFormState()
     }
     fun onFormEngineDisplacementChange(value: String) {
         if (value.length <= 5 && value.all { it.isDigit() || it == '.' }) {
             _uiState.update { it.copy(formEngineDisplacement = value) }
+            saveFormState()
         }
     }
     fun onFormEngineNumberChange(value: String) {
         if (value.length <= 30 && value.all { it.isLetterOrDigit() || it == '-' }) {
             _uiState.update { it.copy(formEngineNumber = value.uppercase()) }
+            saveFormState()
         }
     }
     fun onFormDrivetrainChange(value: String) {
         _uiState.update { it.copy(formDrivetrain = value) }
+        saveFormState()
     }
     fun onFormTransmissionChange(value: String) {
         _uiState.update { it.copy(formTransmission = value) }
+        saveFormState()
     }
     fun onFormVehicleTypeChange(value: String) {
         _uiState.update { it.copy(formVehicleType = value) }
+        saveFormState()
     }
     fun onFormVehicleTypeSearchChange(value: String) {
         _uiState.update { it.copy(formVehicleTypeSearch = value.uppercase(), formVehicleType = value.uppercase()) }
+        saveFormState()
     }
     fun onFormVehicleTypeSelected(typeName: String) {
         _uiState.update { it.copy(formVehicleType = typeName, formVehicleTypeSearch = typeName) }
+        saveFormState()
     }
     fun onFormFuelTypeChange(value: String) {
         _uiState.update { it.copy(formFuelType = value) }
+        saveFormState()
     }
     fun onFormOilTypeSearchChange(value: String) {
         _uiState.update { it.copy(formOilTypeSearch = value.uppercase(), formOilType = value.uppercase()) }
+        saveFormState()
     }
     fun onFormOilTypeSelected(name: String) {
         _uiState.update { it.copy(formOilType = name, formOilTypeSearch = name) }
+        saveFormState()
     }
     fun onFormOilCapacityChange(value: String) {
         _uiState.update { it.copy(formOilCapacity = value) }
+        saveFormState()
     }
-    fun onFormNotesChange(value: String) { _uiState.update { it.copy(formNotes = value.uppercase()) } }
+    fun onFormNotesChange(value: String) {
+        _uiState.update { it.copy(formNotes = value.uppercase()) }
+        saveFormState()
+    }
     fun onFormVersionChange(value: String) {
         _uiState.update { it.copy(formVersion = value.uppercase()) }
+        saveFormState()
     }
     fun onFormCustomerIdChange(value: Long?) {
         _uiState.update { it.copy(formCustomerId = value, formCustomerError = null) }
+        saveFormState()
     }
 
     fun onFormCustomerSearchChange(value: String) {
         _uiState.update { it.copy(formCustomerSearch = value.uppercase(), formCustomerError = null) }
+        saveFormState()
     }
 
     fun onFormCustomerSelected(customerId: Long) {
@@ -305,10 +430,12 @@ class VehicleViewModel(application: Application) : AndroidViewModel(application)
                 formCustomerError = null
             )
         }
+        saveFormState()
     }
 
     fun onFormBrandSearchChange(value: String) {
         _uiState.update { it.copy(formBrandSearch = value.uppercase(), formBrand = value.uppercase(), formModel = "", formModelSearch = "", formBrandError = null) }
+        saveFormState()
         loadModelsForBrand(value.uppercase())
     }
 
@@ -322,11 +449,13 @@ class VehicleViewModel(application: Application) : AndroidViewModel(application)
                 formBrandError = null
             )
         }
+        saveFormState()
         loadModelsForBrand(brandName)
     }
 
     fun onFormModelSearchChange(value: String) {
         _uiState.update { it.copy(formModelSearch = value.uppercase(), formModel = value.uppercase(), formModelError = null) }
+        saveFormState()
     }
 
     fun onFormModelSelected(modelName: String) {
@@ -337,6 +466,7 @@ class VehicleViewModel(application: Application) : AndroidViewModel(application)
                 formModelError = null
             )
         }
+        saveFormState()
     }
 
     private val plateRegex = Regex("^[A-Z]{1,4}-?[0-9]{1,4}$")
@@ -484,6 +614,7 @@ class VehicleViewModel(application: Application) : AndroidViewModel(application)
                         )
                     )
                 }
+                clearSavedState()
                 _uiState.update { it.copy(isLoading = false, savedSuccessfully = true) }
             } catch (e: Exception) {
                 _uiState.update { it.copy(isLoading = false, error = e.message ?: "Error al guardar") }
@@ -492,6 +623,7 @@ class VehicleViewModel(application: Application) : AndroidViewModel(application)
     }
 
     fun prepareNew(customerId: Long? = null) {
+        clearSavedState()
         _uiState.update {
             it.copy(
                 formPlate = "", formBrand = "", formModel = "", formVersion = "",
@@ -509,6 +641,7 @@ class VehicleViewModel(application: Application) : AndroidViewModel(application)
     }
 
     fun prepareEdit(vehicle: Vehicle) {
+        clearSavedState()
         _uiState.update {
             it.copy(
                 formPlate = vehicle.plate,
@@ -572,8 +705,10 @@ class VehicleViewModel(application: Application) : AndroidViewModel(application)
         val prefix = if (target == "registration") "MAT" else "VEH"
         val file = PhotoUtils.createTempPhotoFile(context, prefix)
         pendingPhotoFile = file
+        savedStateHandle["pendingPhotoFile"] = file.absolutePath
         val uri = PhotoUtils.getUriForFile(context, file)
         _uiState.update { it.copy(pendingPhotoUri = uri, pendingPhotoTarget = target) }
+        saveFormState()
         return uri
     }
 
@@ -599,6 +734,8 @@ class VehicleViewModel(application: Application) : AndroidViewModel(application)
             _uiState.update { it.copy(pendingPhotoUri = null) }
         }
         pendingPhotoFile = null
+        savedStateHandle.remove<String>("pendingPhotoFile")
+        saveFormState()
     }
 
     fun addPhotoFromGallery(uri: Uri, target: String = "vehicle") {
@@ -613,6 +750,7 @@ class VehicleViewModel(application: Application) : AndroidViewModel(application)
                     it.copy(formPhotoPaths = it.formPhotoPaths + file.absolutePath)
                 }
             }
+            saveFormState()
         }
     }
 
@@ -641,6 +779,8 @@ class VehicleViewModel(application: Application) : AndroidViewModel(application)
             _uiState.update { it.copy(pendingPhotoUri = null) }
         }
         pendingPhotoFile = null
+        savedStateHandle.remove<String>("pendingPhotoFile")
+        saveFormState()
     }
 
     fun replacePhotoFromGallery(uri: Uri, target: String, index: Int) {
@@ -665,6 +805,7 @@ class VehicleViewModel(application: Application) : AndroidViewModel(application)
                     it.copy(formPhotoPaths = paths)
                 }
             }
+            saveFormState()
         }
     }
 
@@ -674,6 +815,7 @@ class VehicleViewModel(application: Application) : AndroidViewModel(application)
             PhotoUtils.deletePhoto(paths[index])
             paths.removeAt(index)
             _uiState.update { it.copy(formRegistrationPhotoPaths = paths) }
+            saveFormState()
         }
     }
 
@@ -683,6 +825,7 @@ class VehicleViewModel(application: Application) : AndroidViewModel(application)
             PhotoUtils.deletePhoto(paths[index])
             paths.removeAt(index)
             _uiState.update { it.copy(formPhotoPaths = paths) }
+            saveFormState()
         }
     }
 

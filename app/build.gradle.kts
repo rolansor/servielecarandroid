@@ -56,6 +56,10 @@ dependencies {
     // Coil (image loading)
     implementation(libs.coil.compose)
 
+    // Dropbox
+    implementation(libs.dropbox.core.sdk)
+    implementation(libs.dropbox.android.sdk)
+
     // Room
     implementation(libs.room.runtime)
     implementation(libs.room.ktx)

@@ -6,6 +6,7 @@
  * - Importación desde archivo ZIP con selección de categorías a restaurar.
  * - Muestra conteos de registros actuales y del respaldo a importar.
  * - Compartir el archivo exportado vía Intent del sistema.
+ * - Integración con Dropbox: vincular cuenta, subir, listar y descargar respaldos.
  */
 package com.example.serviaux.ui.backup
 
@@ -24,6 +25,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import com.example.serviaux.util.DropboxBackupEntry
+import com.example.serviaux.util.DropboxHelper
 import java.io.File
 
 data class BackupUiState(
@@ -41,7 +44,14 @@ data class BackupUiState(
     val exportCategories: Set<BackupCategory> = BackupCategory.entries.toSet(),
     val importCategories: Set<BackupCategory> = BackupCategory.entries.toSet(),
     val backupContents: Map<BackupCategory, Int> = emptyMap(),
-    val loadingContents: Boolean = false
+    val loadingContents: Boolean = false,
+    // Dropbox
+    val dropboxLinked: Boolean = false,
+    val dropboxUploading: Boolean = false,
+    val dropboxDownloading: Boolean = false,
+    val dropboxBackups: List<DropboxBackupEntry> = emptyList(),
+    val showDropboxBackups: Boolean = false,
+    val loadingDropboxBackups: Boolean = false
 )
 
 class BackupViewModel(application: Application) : AndroidViewModel(application) {
@@ -54,6 +64,7 @@ class BackupViewModel(application: Application) : AndroidViewModel(application) 
     init {
         loadRecordCounts()
         loadAvailableYears()
+        checkDropboxLink()
     }
 
     fun loadRecordCounts() {
@@ -204,5 +215,116 @@ class BackupViewModel(application: Application) : AndroidViewModel(application) 
 
     fun clearMessage() {
         _uiState.update { it.copy(message = null, importResult = null) }
+    }
+
+    // ── Dropbox ──────────────────────────────────────────────────────
+
+    /** Verifica si hay una cuenta de Dropbox vinculada y actualiza el estado. */
+    fun checkDropboxLink() {
+        val context = getApplication<Application>()
+        _uiState.update { it.copy(dropboxLinked = DropboxHelper.isLinked(context)) }
+    }
+
+    /** Procesa el resultado de OAuth2 al regresar del navegador (onResume). */
+    fun onDropboxAuthResult() {
+        val context = getApplication<Application>()
+        if (DropboxHelper.handleAuthResult(context)) {
+            _uiState.update { it.copy(dropboxLinked = true, message = "Dropbox vinculado correctamente") }
+        }
+    }
+
+    /**
+     * Exporta las categorías seleccionadas a ZIP y lo sube a Dropbox.
+     * El archivo se guarda en /Serviaux/{dispositivo}/serviaux_backup_YYYY-MM-dd.zip.
+     */
+    fun uploadToDropbox(context: Context) {
+        val categories = _uiState.value.exportCategories
+        if (categories.isEmpty()) {
+            _uiState.update { it.copy(message = "Seleccione al menos una categoría") }
+            return
+        }
+        _uiState.update { it.copy(dropboxUploading = true, message = null) }
+        viewModelScope.launch(Dispatchers.IO) {
+            // Paso 1: Exportar ZIP local
+            val exportResult = backupRepository.exportToZip(context, categories)
+            if (!exportResult.success || exportResult.file == null) {
+                _uiState.update { it.copy(dropboxUploading = false, message = exportResult.message) }
+                return@launch
+            }
+            // Paso 2: Subir a Dropbox
+            val uploadResult = DropboxHelper.uploadFile(context, exportResult.file)
+            uploadResult.fold(
+                onSuccess = { path ->
+                    _uiState.update {
+                        it.copy(dropboxUploading = false, message = "Respaldo subido a Dropbox: ${path.substringAfterLast("/")}")
+                    }
+                },
+                onFailure = { e ->
+                    _uiState.update {
+                        it.copy(dropboxUploading = false, message = "Error subiendo a Dropbox: ${e.message}")
+                    }
+                }
+            )
+        }
+    }
+
+    /** Lista los respaldos disponibles en Dropbox y muestra el diálogo de selección. */
+    fun loadDropboxBackups(context: Context) {
+        _uiState.update { it.copy(loadingDropboxBackups = true, showDropboxBackups = true) }
+        viewModelScope.launch(Dispatchers.IO) {
+            val result = DropboxHelper.listBackups(context)
+            result.fold(
+                onSuccess = { list ->
+                    _uiState.update {
+                        it.copy(loadingDropboxBackups = false, dropboxBackups = list)
+                    }
+                },
+                onFailure = { e ->
+                    _uiState.update {
+                        it.copy(
+                            loadingDropboxBackups = false,
+                            showDropboxBackups = false,
+                            message = "Error listando respaldos: ${e.message}"
+                        )
+                    }
+                }
+            )
+        }
+    }
+
+    /**
+     * Descarga un respaldo de Dropbox al caché local y abre el diálogo de importación.
+     * Reutiliza [requestImport] para mostrar el checklist de categorías.
+     */
+    fun downloadFromDropbox(context: Context, entry: DropboxBackupEntry) {
+        _uiState.update { it.copy(dropboxDownloading = true, showDropboxBackups = false) }
+        viewModelScope.launch(Dispatchers.IO) {
+            val localFile = File(context.cacheDir, entry.name.substringAfterLast("/"))
+            val result = DropboxHelper.downloadFile(context, entry.path, localFile)
+            result.fold(
+                onSuccess = { file ->
+                    _uiState.update { it.copy(dropboxDownloading = false) }
+                    // Abrir flujo de importación normal con el archivo descargado
+                    val uri = Uri.fromFile(file)
+                    requestImport(uri)
+                },
+                onFailure = { e ->
+                    _uiState.update {
+                        it.copy(dropboxDownloading = false, message = "Error descargando: ${e.message}")
+                    }
+                }
+            )
+        }
+    }
+
+    /** Desvincula la cuenta de Dropbox eliminando la credencial almacenada. */
+    fun unlinkDropbox(context: Context) {
+        DropboxHelper.logout(context)
+        _uiState.update { it.copy(dropboxLinked = false, message = "Dropbox desvinculado") }
+    }
+
+    /** Cierra el diálogo de lista de respaldos de Dropbox. */
+    fun dismissDropboxBackups() {
+        _uiState.update { it.copy(showDropboxBackups = false) }
     }
 }

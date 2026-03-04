@@ -69,7 +69,7 @@ fun VehicleDetailScreen(
     onNavigateToEdit: (Long) -> Unit,
     onNavigateToOrder: (Long) -> Unit,
     onNavigateToCustomer: (Long) -> Unit,
-    viewModel: VehicleViewModel = viewModel()
+    viewModel: VehicleViewModel = viewModel(factory = VehicleViewModel.Factory)
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val dateFormat = remember { SimpleDateFormat("dd/MM/yyyy HH:mm", Locale("es")) }
@@ -83,6 +83,7 @@ fun VehicleDetailScreen(
     Scaffold(
         topBar = {
             TopAppBar(
+                expandedHeight = 40.dp,
                 title = { Text(vehicle?.plate ?: "Veh\u00edculo") },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {

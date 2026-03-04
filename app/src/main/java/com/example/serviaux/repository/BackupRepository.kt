@@ -55,13 +55,13 @@ class BackupRepository(private val database: ServiauxDatabase) {
         private const val PHOTOS_DIR = "vehicle_photos"
         private const val BACKUPS_DIR = "backups"
         private const val MANIFEST_FILE = "manifest.json"
-        private const val DB_VERSION = 3
+        private const val DB_VERSION = 4
 
         private val CATEGORY_TABLES = mapOf(
             BackupCategory.USERS to listOf("users"),
             BackupCategory.CLIENTS_VEHICLES to listOf("customers", "vehicles"),
             BackupCategory.PRODUCTS to listOf("parts"),
-            BackupCategory.WORK_ORDERS to listOf("work_orders", "service_lines", "work_order_parts", "work_order_payments", "work_order_status_log", "work_order_mechanics"),
+            BackupCategory.WORK_ORDERS to listOf("work_orders", "service_lines", "work_order_parts", "work_order_extras", "work_order_payments", "work_order_status_log", "work_order_mechanics"),
             BackupCategory.APPOINTMENTS to listOf("appointments"),
             BackupCategory.CATALOGS to listOf("catalog_brands", "catalog_models", "catalog_colors", "catalog_part_brands", "catalog_services", "catalog_vehicle_types", "catalog_accessories", "catalog_complaints", "catalog_diagnoses", "catalog_oil_types")
         )
@@ -93,6 +93,7 @@ class BackupRepository(private val database: ServiauxDatabase) {
             val workOrderPayments = if ("work_order_payments" in includedTables) database.workOrderPaymentDao().getAllDirect() else emptyList()
             val statusLogs = if ("work_order_status_log" in includedTables) database.workOrderStatusLogDao().getAllDirect() else emptyList()
             val workOrderMechanics = if ("work_order_mechanics" in includedTables) database.workOrderMechanicDao().getAllDirect() else emptyList()
+            val workOrderExtras = if ("work_order_extras" in includedTables) database.workOrderExtraDao().getAllDirect() else emptyList()
             val appointments = if ("appointments" in includedTables) database.appointmentDao().getAllDirect() else emptyList()
             val catalogBrands = if ("catalog_brands" in includedTables) database.catalogDao().getAllBrandsDirect() else emptyList()
             val catalogModels = if ("catalog_models" in includedTables) database.catalogDao().getAllModelsDirect() else emptyList()
@@ -116,6 +117,7 @@ class BackupRepository(private val database: ServiauxDatabase) {
             if ("work_order_payments" in includedTables) counts["work_order_payments"] = workOrderPayments.size
             if ("work_order_status_log" in includedTables) counts["work_order_status_log"] = statusLogs.size
             if ("work_order_mechanics" in includedTables) counts["work_order_mechanics"] = workOrderMechanics.size
+            if ("work_order_extras" in includedTables) counts["work_order_extras"] = workOrderExtras.size
             if ("appointments" in includedTables) counts["appointments"] = appointments.size
             if ("catalog_brands" in includedTables) counts["catalog_brands"] = catalogBrands.size
             if ("catalog_models" in includedTables) counts["catalog_models"] = catalogModels.size
@@ -153,6 +155,7 @@ class BackupRepository(private val database: ServiauxDatabase) {
                 if ("work_order_payments" in includedTables) writeZipEntry(zip, "data/work_order_payments.json", workOrderPaymentsToJson(workOrderPayments))
                 if ("work_order_status_log" in includedTables) writeZipEntry(zip, "data/work_order_status_log.json", statusLogsToJson(statusLogs))
                 if ("work_order_mechanics" in includedTables) writeZipEntry(zip, "data/work_order_mechanics.json", workOrderMechanicsToJson(workOrderMechanics))
+                if ("work_order_extras" in includedTables) writeZipEntry(zip, "data/work_order_extras.json", workOrderExtrasToJson(workOrderExtras))
                 if ("appointments" in includedTables) writeZipEntry(zip, "data/appointments.json", appointmentsToJson(appointments))
                 if ("catalog_brands" in includedTables) writeZipEntry(zip, "data/catalog_brands.json", catalogBrandsToJson(catalogBrands))
                 if ("catalog_models" in includedTables) writeZipEntry(zip, "data/catalog_models.json", catalogModelsToJson(catalogModels))
@@ -234,6 +237,8 @@ class BackupRepository(private val database: ServiauxDatabase) {
             val statusLogs = allStatusLogs.filter { it.workOrderId in orderIds }
             val allWorkOrderMechanics = database.workOrderMechanicDao().getAllDirect()
             val workOrderMechanics = allWorkOrderMechanics.filter { it.workOrderId in orderIds }
+            val allWorkOrderExtras = database.workOrderExtraDao().getAllDirect()
+            val workOrderExtras = allWorkOrderExtras.filter { it.workOrderId in orderIds }
 
             // Fetch all master data (always full)
             val users = database.userDao().getAllDirect()
@@ -263,6 +268,7 @@ class BackupRepository(private val database: ServiauxDatabase) {
                 "work_order_payments" to workOrderPayments.size,
                 "work_order_status_log" to statusLogs.size,
                 "work_order_mechanics" to workOrderMechanics.size,
+                "work_order_extras" to workOrderExtras.size,
                 "appointments" to appointments.size
             )
 
@@ -288,6 +294,7 @@ class BackupRepository(private val database: ServiauxDatabase) {
                 writeZipEntry(zip, "data/work_order_payments.json", workOrderPaymentsToJson(workOrderPayments))
                 writeZipEntry(zip, "data/work_order_status_log.json", statusLogsToJson(statusLogs))
                 writeZipEntry(zip, "data/work_order_mechanics.json", workOrderMechanicsToJson(workOrderMechanics))
+                writeZipEntry(zip, "data/work_order_extras.json", workOrderExtrasToJson(workOrderExtras))
                 writeZipEntry(zip, "data/appointments.json", appointmentsToJson(appointments))
                 writeZipEntry(zip, "data/catalog_brands.json", catalogBrandsToJson(catalogBrands))
                 writeZipEntry(zip, "data/catalog_models.json", catalogModelsToJson(catalogModels))
@@ -429,6 +436,7 @@ class BackupRepository(private val database: ServiauxDatabase) {
             // Delete data for selected categories (in reverse FK order)
             if (BackupCategory.WORK_ORDERS in categories) {
                 workOrderMechanicDao.deleteAll()
+                database.workOrderExtraDao().deleteAll()
                 statusLogDao.deleteAll()
                 workOrderPaymentDao.deleteAll()
                 workOrderPartDao.deleteAll()
@@ -611,6 +619,13 @@ class BackupRepository(private val database: ServiauxDatabase) {
                     val items = jsonToWorkOrderMechanics(String(bytes))
                     items.forEach { workOrderMechanicDao.insert(it) }
                     counts["work_order_mechanics"] = items.size
+                }
+            }
+            if ("work_order_extras" in includedTables) {
+                entries["data/work_order_extras.json"]?.let { bytes ->
+                    val items = jsonToWorkOrderExtras(String(bytes))
+                    items.forEach { database.workOrderExtraDao().insert(it) }
+                    counts["work_order_extras"] = items.size
                 }
             }
             if ("appointments" in includedTables) {
@@ -802,6 +817,7 @@ class BackupRepository(private val database: ServiauxDatabase) {
                 put("checklistNotes", o.checklistNotes ?: JSONObject.NULL)
                 put("totalLabor", o.totalLabor)
                 put("totalParts", o.totalParts)
+                put("totalExtras", o.totalExtras)
                 put("total", o.total)
                 put("photoPaths", o.photoPaths ?: JSONObject.NULL)
                 put("filePaths", o.filePaths ?: JSONObject.NULL)
@@ -899,6 +915,23 @@ class BackupRepository(private val database: ServiauxDatabase) {
                 put("commissionPaid", m.commissionPaid)
                 put("paidAt", m.paidAt ?: JSONObject.NULL)
                 put("createdAt", m.createdAt)
+            })
+        }
+        return arr.toString(2)
+    }
+
+    private fun workOrderExtrasToJson(extras: List<WorkOrderExtra>): String {
+        val arr = JSONArray()
+        extras.forEach { e ->
+            arr.put(JSONObject().apply {
+                put("id", e.id)
+                put("workOrderId", e.workOrderId)
+                put("description", e.description)
+                put("cost", e.cost)
+                put("discount", e.discount)
+                put("category", e.category ?: JSONObject.NULL)
+                put("createdAt", e.createdAt)
+                put("updatedAt", e.updatedAt)
             })
         }
         return arr.toString(2)
@@ -1171,6 +1204,7 @@ class BackupRepository(private val database: ServiauxDatabase) {
                 checklistNotes = o.optStringOrNull("checklistNotes"),
                 totalLabor = o.optDouble("totalLabor", 0.0),
                 totalParts = o.optDouble("totalParts", 0.0),
+                totalExtras = o.optDouble("totalExtras", 0.0),
                 total = o.optDouble("total", 0.0),
                 photoPaths = o.optStringOrNull("photoPaths"),
                 filePaths = o.optStringOrNull("filePaths"),
@@ -1268,6 +1302,23 @@ class BackupRepository(private val database: ServiauxDatabase) {
                 commissionPaid = o.optBoolean("commissionPaid", false),
                 paidAt = if (o.isNull("paidAt")) null else o.getLong("paidAt"),
                 createdAt = o.optLong("createdAt", System.currentTimeMillis())
+            )
+        }
+    }
+
+    private fun jsonToWorkOrderExtras(json: String): List<WorkOrderExtra> {
+        val arr = JSONArray(json)
+        return (0 until arr.length()).map { i ->
+            val o = arr.getJSONObject(i)
+            WorkOrderExtra(
+                id = o.getLong("id"),
+                workOrderId = o.getLong("workOrderId"),
+                description = o.getString("description"),
+                cost = o.getDouble("cost"),
+                discount = o.optDouble("discount", 0.0),
+                category = o.optStringOrNull("category"),
+                createdAt = o.optLong("createdAt", System.currentTimeMillis()),
+                updatedAt = o.optLong("updatedAt", System.currentTimeMillis())
             )
         }
     }

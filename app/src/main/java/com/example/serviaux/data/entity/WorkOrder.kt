@@ -71,6 +71,7 @@ data class WorkOrder(
     val checklistNotes: String? = null,
     val totalLabor: Double = 0.0,
     val totalParts: Double = 0.0,
+    val totalExtras: Double = 0.0,
     val total: Double = 0.0,
     val photoPaths: String? = null,
     val filePaths: String? = null,

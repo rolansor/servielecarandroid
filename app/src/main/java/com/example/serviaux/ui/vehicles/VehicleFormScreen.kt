@@ -85,7 +85,7 @@ fun VehicleFormScreen(
     preselectedCustomerId: Long? = null,
     onNavigateBack: () -> Unit,
     onSaved: () -> Unit,
-    viewModel: VehicleViewModel = viewModel()
+    viewModel: VehicleViewModel = viewModel(factory = VehicleViewModel.Factory)
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -206,6 +206,7 @@ fun VehicleFormScreen(
     Scaffold(
         topBar = {
             TopAppBar(
+                expandedHeight = 40.dp,
                 title = { Text(if (isEditing) "Editar Veh\u00edculo" else "Nuevo Veh\u00edculo") },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {

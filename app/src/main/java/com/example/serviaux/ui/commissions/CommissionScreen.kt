@@ -79,6 +79,7 @@ fun CommissionScreen(
     Scaffold(
         topBar = {
             TopAppBar(
+                expandedHeight = 40.dp,
                 title = { Text("Comisiones") },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {

@@ -84,6 +84,9 @@ interface WorkOrderDao {
     @Query("DELETE FROM work_order_status_log WHERE workOrderId = :workOrderId")
     suspend fun deleteStatusLogByOrder(workOrderId: Long)
 
+    @Query("DELETE FROM work_order_extras WHERE workOrderId = :workOrderId")
+    suspend fun deleteExtrasByOrder(workOrderId: Long)
+
     @Query("DELETE FROM work_orders")
     suspend fun deleteAll()
 

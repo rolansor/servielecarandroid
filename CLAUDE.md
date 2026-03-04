@@ -28,10 +28,10 @@ Serviaux es una app Android para gestión de talleres automotrices, construida c
 
 - `data/entity/` - Entidades Room y enums (incluye CatalogService para servicios predefinidos)
 - `data/dao/` - DAOs de Room
-- `data/ServiauxDatabase.kt` - Singleton de la BD con callback de seed (versión actual 3)
+- `data/ServiauxDatabase.kt` - Singleton de la BD con callback de seed (versión actual 1)
 - `repository/` - Repositorios con lógica de negocio
 - `di/AppContainer.kt` - Inyección de dependencias manual
-- `util/` - SecurityUtils, SessionManager, PhotoUtils, PdfReportGenerator, CommissionPdfGenerator, ShareUtils
+- `util/` - SecurityUtils, SessionManager, PhotoUtils, PdfReportGenerator, CommissionPdfGenerator, ShareUtils, DropboxHelper
 - `ui/` - Pantallas Compose organizadas por módulo de funcionalidad
 
 ## Patrones Importantes
@@ -57,6 +57,8 @@ Serviaux es una app Android para gestión de talleres automotrices, construida c
 - Campos de formulario de vehículo: tipo vehículo, combustible (default Gasolina, FilterChips), tipo aceite (autocomplete desde catálogo), capacidad aceite (dropdown en pasos de 1/2 galón hasta 10)
 - Reportes PDF incluyen datos completos del vehículo (tipo, versión, combustible, transmisión, tracción, motor) e info de la orden (tipo, fecha admisión, nota de entrega, factura, notas)
 - Columnas de tablas PDF usan alineación vertical consistente via helper `rightAlignAt`
+- Integración Dropbox: OAuth2 PKCE (app key, sin secret), token guardado en SharedPreferences (`dropbox_prefs`), respaldos en `/Serviaux/{deviceName}/` con nombre por fecha (sobrescribe si mismo día)
+- `DropboxHelper` es singleton con métodos de auth, upload, download, list y delete
 
 ## Datos Semilla
 

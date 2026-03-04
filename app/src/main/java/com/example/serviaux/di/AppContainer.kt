@@ -36,7 +36,8 @@ class AppContainer(context: Context) {
         workOrderPaymentDao = database.workOrderPaymentDao(),
         workOrderStatusLogDao = database.workOrderStatusLogDao(),
         partDao = database.partDao(),
-        workOrderMechanicDao = database.workOrderMechanicDao()
+        workOrderMechanicDao = database.workOrderMechanicDao(),
+        workOrderExtraDao = database.workOrderExtraDao()
     )
     val appointmentRepository = AppointmentRepository(database.appointmentDao())
     val commissionRepository = CommissionRepository(database.workOrderMechanicDao(), database.userDao())

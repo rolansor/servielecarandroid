@@ -39,7 +39,11 @@ object Routes {
     const val CATALOG_SETTINGS = "catalog_settings"
     const val BACKUP = "backup"
     const val COMMISSIONS = "commissions"
+    const val SERVICE_HISTORY = "service_history?customerId={customerId}"
+    const val SERVICE_HISTORY_BASE = "service_history"
 
+    fun serviceHistory(customerId: Long? = null) =
+        if (customerId != null) "service_history?customerId=$customerId" else "service_history"
     fun appointmentForm(id: Long? = null) = if (id != null) "appointments/form?appointmentId=$id" else "appointments/form"
     fun workOrderFormFromAppointment(customerId: Long, vehicleId: Long, appointmentId: Long) =
         "workorders/form?customerId=$customerId&vehicleId=$vehicleId&appointmentId=$appointmentId"

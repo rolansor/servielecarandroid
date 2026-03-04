@@ -87,6 +87,7 @@ fun CustomerFormScreen(
     Scaffold(
         topBar = {
             TopAppBar(
+                expandedHeight = 40.dp,
                 title = { Text(if (isEditing) "Editar Cliente" else "Nuevo Cliente") },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {

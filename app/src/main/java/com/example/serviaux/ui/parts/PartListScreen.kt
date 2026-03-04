@@ -74,6 +74,7 @@ fun PartListScreen(
         modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         topBar = {
             LargeTopAppBar(
+                collapsedHeight = 40.dp,
                 title = { Text("Repuestos") },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {

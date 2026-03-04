@@ -88,6 +88,7 @@ fun PartFormScreen(
     Scaffold(
         topBar = {
             TopAppBar(
+                expandedHeight = 40.dp,
                 title = { Text(if (isEditing) "Editar Repuesto" else "Nuevo Repuesto") },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {

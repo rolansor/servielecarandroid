@@ -109,6 +109,7 @@ fun AppointmentFormScreen(
     Scaffold(
         topBar = {
             TopAppBar(
+                expandedHeight = 40.dp,
                 title = { Text(if (isEditing) "Editar Turno" else "Nuevo Turno") },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {

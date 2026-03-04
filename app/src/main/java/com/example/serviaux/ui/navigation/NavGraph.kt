@@ -41,6 +41,7 @@ import com.example.serviaux.ui.workorders.WorkOrderListScreen
 import com.example.serviaux.ui.appointments.AppointmentListScreen
 import com.example.serviaux.ui.appointments.AppointmentFormScreen
 import com.example.serviaux.ui.commissions.CommissionScreen
+import com.example.serviaux.ui.history.ServiceHistoryScreen
 import com.example.serviaux.data.entity.OrderStatus
 
 @Composable
@@ -89,6 +90,7 @@ fun ServiauxNavGraph(navController: NavHostController) {
                 onNavigateToNewVehicle = { navController.navigate(Routes.vehicleForm()) },
                 onNavigateToAppointments = { navController.navigate(Routes.APPOINTMENT_LIST) },
                 onNavigateToCommissions = { navController.navigate(Routes.COMMISSIONS) },
+                onNavigateToHistory = { navController.navigate(Routes.serviceHistory()) },
                 onNavigateToBackup = { navController.navigate(Routes.BACKUP) },
                 onLogout = {
                     navController.navigate(Routes.LOGIN) {
@@ -117,7 +119,8 @@ fun ServiauxNavGraph(navController: NavHostController) {
                 onNavigateBack = { navController.popBackStack() },
                 onNavigateToEdit = { navController.navigate(Routes.customerForm(it)) },
                 onNavigateToVehicle = { navController.navigate(Routes.vehicleDetail(it)) },
-                onNavigateToNewVehicle = { navController.navigate(Routes.vehicleForm(customerId = it)) }
+                onNavigateToNewVehicle = { navController.navigate(Routes.vehicleForm(customerId = it)) },
+                onNavigateToHistory = { navController.navigate(Routes.serviceHistory(it)) }
             )
         }
 
@@ -363,6 +366,25 @@ fun ServiauxNavGraph(navController: NavHostController) {
         composable(Routes.BACKUP) {
             BackupScreen(
                 onNavigateBack = { navController.popBackStack() }
+            )
+        }
+
+        // Service History
+        composable(
+            Routes.SERVICE_HISTORY,
+            arguments = listOf(
+                navArgument("customerId") {
+                    type = NavType.StringType
+                    nullable = true
+                    defaultValue = null
+                }
+            )
+        ) { backStackEntry ->
+            val historyCustomerId = backStackEntry.arguments?.getString("customerId")?.toLongOrNull()
+            ServiceHistoryScreen(
+                customerId = historyCustomerId,
+                onNavigateBack = { navController.popBackStack() },
+                onNavigateToOrderDetail = { navController.navigate(Routes.workOrderDetail(it)) }
             )
         }
     }

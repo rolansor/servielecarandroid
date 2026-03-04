@@ -66,6 +66,7 @@ fun ReportsScreen(
     Scaffold(
         topBar = {
             TopAppBar(
+                expandedHeight = 40.dp,
                 title = { Text("Reportes") },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {

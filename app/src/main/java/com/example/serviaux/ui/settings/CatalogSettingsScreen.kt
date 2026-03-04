@@ -109,6 +109,7 @@ fun CatalogSettingsScreen(
     Scaffold(
         topBar = {
             TopAppBar(
+                expandedHeight = 40.dp,
                 title = { Text("Mantenimiento Cat\u00e1logos") },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {

@@ -65,7 +65,7 @@ fun VehicleListScreen(
     onNavigateToDetail: (Long) -> Unit,
     onNavigateToForm: () -> Unit,
     onNavigateToEdit: (Long) -> Unit,
-    viewModel: VehicleViewModel = viewModel()
+    viewModel: VehicleViewModel = viewModel(factory = VehicleViewModel.Factory)
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -109,6 +109,7 @@ fun VehicleListScreen(
         modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         topBar = {
             LargeTopAppBar(
+                collapsedHeight = 40.dp,
                 title = { Text("Veh\u00edculos") },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {

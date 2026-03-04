@@ -5,14 +5,17 @@
  * - Exportación: selección de categorías o exportación por año.
  * - Importación: selección de archivo ZIP con checklist de categorías a restaurar.
  * - Muestra resumen de datos actuales y resultados de la última importación.
+ * - Sección Dropbox: vincular/desvincular cuenta, subir y descargar respaldos en la nube.
  *
  * Solo accesible para administradores.
  */
 package com.example.serviaux.ui.backup
 
+import android.text.format.Formatter
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -27,6 +30,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Cloud
 import androidx.compose.material.icons.filled.CloudDownload
 import androidx.compose.material.icons.filled.CloudUpload
 import androidx.compose.material.icons.filled.Warning
@@ -49,6 +53,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -57,9 +62,16 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.serviaux.repository.BackupCategory
+import com.example.serviaux.util.DropboxHelper
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -76,12 +88,79 @@ fun BackupScreen(
         uri?.let { viewModel.requestImport(it) }
     }
 
+    // Detect onResume for Dropbox auth callback
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                viewModel.onDropboxAuthResult()
+                viewModel.checkDropboxLink()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+
     // Show toast messages
     LaunchedEffect(uiState.message) {
         uiState.message?.let { msg ->
             Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
             viewModel.clearMessage()
         }
+    }
+
+    // Dropbox backups list dialog
+    if (uiState.showDropboxBackups) {
+        AlertDialog(
+            onDismissRequest = { viewModel.dismissDropboxBackups() },
+            title = { Text("Respaldos en Dropbox") },
+            text = {
+                Column {
+                    if (uiState.loadingDropboxBackups) {
+                        CircularProgressIndicator(modifier = Modifier.align(Alignment.CenterHorizontally))
+                    } else if (uiState.dropboxBackups.isEmpty()) {
+                        Text(
+                            text = "No se encontraron respaldos en Dropbox.",
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                    } else {
+                        uiState.dropboxBackups.forEach { entry ->
+                            val dateStr = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault())
+                                .format(Date(entry.modified))
+                            val sizeStr = Formatter.formatShortFileSize(context, entry.size)
+                            Card(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 4.dp)
+                                    .clickable { viewModel.downloadFromDropbox(context, entry) },
+                                colors = CardDefaults.cardColors(
+                                    containerColor = MaterialTheme.colorScheme.surfaceVariant
+                                )
+                            ) {
+                                Column(modifier = Modifier.padding(12.dp)) {
+                                    Text(
+                                        text = entry.name,
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        fontWeight = FontWeight.Medium
+                                    )
+                                    Text(
+                                        text = "$dateStr · $sizeStr",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {},
+            dismissButton = {
+                TextButton(onClick = { viewModel.dismissDropboxBackups() }) {
+                    Text("Cerrar")
+                }
+            }
+        )
     }
 
     // Year picker dialog
@@ -200,6 +279,7 @@ fun BackupScreen(
     Scaffold(
         topBar = {
             TopAppBar(
+                expandedHeight = 40.dp,
                 title = { Text("Respaldos") },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
@@ -340,6 +420,100 @@ fun BackupScreen(
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Text("Exportar por Año")
+                    }
+                }
+            }
+
+            // Dropbox section
+            Card(modifier = Modifier.fillMaxWidth()) {
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Cloud,
+                        contentDescription = null,
+                        modifier = Modifier.size(48.dp),
+                        tint = MaterialTheme.colorScheme.tertiary
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "Dropbox",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+
+                    if (!uiState.dropboxLinked) {
+                        Text(
+                            text = "Vincula tu cuenta de Dropbox para subir y descargar respaldos en la nube.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            textAlign = TextAlign.Center
+                        )
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Button(
+                            onClick = { DropboxHelper.startAuth(context) },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text("Vincular Dropbox")
+                        }
+                    } else {
+                        Text(
+                            text = "Cuenta vinculada",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            textAlign = TextAlign.Center
+                        )
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Button(
+                            onClick = { viewModel.uploadToDropbox(context) },
+                            enabled = !uiState.dropboxUploading && !uiState.exporting && uiState.exportCategories.isNotEmpty(),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            if (uiState.dropboxUploading) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(20.dp),
+                                    strokeWidth = 2.dp,
+                                    color = MaterialTheme.colorScheme.onPrimary
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text("Subiendo...")
+                            } else {
+                                Icon(Icons.Default.CloudUpload, contentDescription = null, modifier = Modifier.size(20.dp))
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text("Subir Respaldo a Dropbox")
+                            }
+                        }
+                        Spacer(modifier = Modifier.height(8.dp))
+                        OutlinedButton(
+                            onClick = { viewModel.loadDropboxBackups(context) },
+                            enabled = !uiState.dropboxDownloading && !uiState.loadingDropboxBackups,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            if (uiState.dropboxDownloading) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(20.dp),
+                                    strokeWidth = 2.dp
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text("Descargando...")
+                            } else {
+                                Icon(Icons.Default.CloudDownload, contentDescription = null, modifier = Modifier.size(20.dp))
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text("Descargar de Dropbox")
+                            }
+                        }
+                        Spacer(modifier = Modifier.height(4.dp))
+                        TextButton(
+                            onClick = { viewModel.unlinkDropbox(context) }
+                        ) {
+                            Text(
+                                "Desvincular",
+                                color = MaterialTheme.colorScheme.error,
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                        }
                     }
                 }
             }

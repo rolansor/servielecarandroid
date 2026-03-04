@@ -101,6 +101,7 @@ fun AppointmentListScreen(
     Scaffold(
         topBar = {
             LargeTopAppBar(
+                collapsedHeight = 40.dp,
                 title = { Text("Turnos") },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {

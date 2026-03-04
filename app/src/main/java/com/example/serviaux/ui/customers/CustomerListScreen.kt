@@ -108,6 +108,7 @@ fun CustomerListScreen(
         modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         topBar = {
             LargeTopAppBar(
+                collapsedHeight = 40.dp,
                 title = { Text("Clientes") },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {

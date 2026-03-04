@@ -23,6 +23,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.DirectionsCar
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.History
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
@@ -31,6 +32,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
@@ -54,8 +56,9 @@ fun CustomerDetailScreen(
     onNavigateToEdit: (Long) -> Unit,
     onNavigateToVehicle: (Long) -> Unit,
     onNavigateToNewVehicle: (Long) -> Unit,
+    onNavigateToHistory: (Long) -> Unit = {},
     viewModel: CustomerViewModel = viewModel(),
-    vehicleViewModel: VehicleViewModel = viewModel()
+    vehicleViewModel: VehicleViewModel = viewModel(factory = VehicleViewModel.Factory)
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val vehicleUiState by vehicleViewModel.uiState.collectAsStateWithLifecycle()
@@ -71,6 +74,7 @@ fun CustomerDetailScreen(
     Scaffold(
         topBar = {
             TopAppBar(
+                expandedHeight = 40.dp,
                 title = { Text(customer?.fullName ?: "Cliente") },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
@@ -137,6 +141,18 @@ fun CustomerDetailScreen(
                     }
 
                     Spacer(modifier = Modifier.height(8.dp))
+                }
+
+                item {
+                    OutlinedButton(
+                        onClick = { onNavigateToHistory(customerId) },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Icon(Icons.Default.History, contentDescription = null)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Ver Historial de Servicios")
+                    }
+                    Spacer(modifier = Modifier.height(16.dp))
                 }
 
                 if (customerVehicles.isEmpty()) {

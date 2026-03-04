@@ -45,9 +45,10 @@ import java.io.InputStreamReader
         CatalogDiagnosis::class,
         WorkOrderMechanic::class,
         CatalogOilType::class,
-        Appointment::class
+        Appointment::class,
+        WorkOrderExtra::class
     ],
-    version = 3,
+    version = 1,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -65,6 +66,7 @@ abstract class ServiauxDatabase : RoomDatabase() {
     abstract fun catalogDao(): CatalogDao
     abstract fun workOrderMechanicDao(): WorkOrderMechanicDao
     abstract fun appointmentDao(): AppointmentDao
+    abstract fun workOrderExtraDao(): WorkOrderExtraDao
 
     companion object {
         @Volatile

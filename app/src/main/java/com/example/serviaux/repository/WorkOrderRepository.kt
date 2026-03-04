@@ -29,7 +29,8 @@ class WorkOrderRepository(
     private val workOrderPaymentDao: WorkOrderPaymentDao,
     private val workOrderStatusLogDao: WorkOrderStatusLogDao,
     private val partDao: PartDao,
-    private val workOrderMechanicDao: WorkOrderMechanicDao
+    private val workOrderMechanicDao: WorkOrderMechanicDao,
+    private val workOrderExtraDao: WorkOrderExtraDao
 ) {
     fun getAll(): Flow<List<WorkOrder>> = workOrderDao.getAll()
     fun getById(id: Long): Flow<WorkOrder?> = workOrderDao.getById(id)
@@ -138,6 +139,25 @@ class WorkOrderRepository(
     // Status Log
     fun getStatusLog(workOrderId: Long): Flow<List<WorkOrderStatusLog>> = workOrderStatusLogDao.getByWorkOrder(workOrderId)
 
+    // ── Extras de la orden ──────────────────────────────────────────
+    fun getWorkOrderExtras(workOrderId: Long): Flow<List<WorkOrderExtra>> = workOrderExtraDao.getByWorkOrder(workOrderId)
+
+    suspend fun addWorkOrderExtra(extra: WorkOrderExtra): Long {
+        val id = workOrderExtraDao.insert(extra)
+        recalculateTotals(extra.workOrderId)
+        return id
+    }
+
+    suspend fun updateWorkOrderExtra(extra: WorkOrderExtra) {
+        workOrderExtraDao.update(extra)
+        recalculateTotals(extra.workOrderId)
+    }
+
+    suspend fun deleteWorkOrderExtra(extra: WorkOrderExtra) {
+        workOrderExtraDao.delete(extra)
+        recalculateTotals(extra.workOrderId)
+    }
+
     // ── Mecánicos de la orden ──────────────────────────────────────
     fun getOrderMechanics(workOrderId: Long) = workOrderMechanicDao.getByWorkOrder(workOrderId)
     suspend fun getOrderMechanicsDirect(workOrderId: Long) = workOrderMechanicDao.getByWorkOrderDirect(workOrderId)
@@ -170,6 +190,7 @@ class WorkOrderRepository(
         }
         workOrderDao.deleteServiceLinesByOrder(orderId)
         workOrderDao.deletePartsByOrder(orderId)
+        workOrderDao.deleteExtrasByOrder(orderId)
         workOrderDao.deletePaymentsByOrder(orderId)
         workOrderDao.deleteStatusLogByOrder(orderId)
         workOrderMechanicDao.deleteByWorkOrder(orderId)
@@ -188,11 +209,13 @@ class WorkOrderRepository(
         val order = workOrderDao.getByIdDirect(workOrderId) ?: return
         val totalLabor = serviceLineDao.getTotalLabor(workOrderId)
         val totalParts = workOrderPartDao.getTotalParts(workOrderId)
+        val totalExtras = workOrderExtraDao.getTotalExtras(workOrderId)
         workOrderDao.update(
             order.copy(
                 totalLabor = totalLabor,
                 totalParts = totalParts,
-                total = totalLabor + totalParts,
+                totalExtras = totalExtras,
+                total = totalLabor + totalParts + totalExtras,
                 updatedAt = System.currentTimeMillis()
             )
         )

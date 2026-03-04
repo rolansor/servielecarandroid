@@ -93,6 +93,7 @@ fun UserFormScreen(
     Scaffold(
         topBar = {
             TopAppBar(
+                expandedHeight = 40.dp,
                 title = { Text(if (isEditing) "Editar Usuario" else "Nuevo Usuario") },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {

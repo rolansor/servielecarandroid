@@ -109,7 +109,7 @@ fun WorkOrderFormScreen(
     appointmentId: Long? = null,
     onNavigateBack: () -> Unit,
     onOrderCreated: (Long) -> Unit,
-    viewModel: WorkOrderViewModel = viewModel()
+    viewModel: WorkOrderViewModel = viewModel(factory = WorkOrderViewModel.Factory)
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -225,6 +225,7 @@ fun WorkOrderFormScreen(
     Scaffold(
         topBar = {
             TopAppBar(
+                expandedHeight = 40.dp,
                 title = { Text(if (isEditing) "Editar Orden" else "Nueva Orden de Trabajo") },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {

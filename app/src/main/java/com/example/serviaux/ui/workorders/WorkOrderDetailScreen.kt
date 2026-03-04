@@ -127,7 +127,7 @@ fun WorkOrderDetailScreen(
     orderId: Long,
     onNavigateBack: () -> Unit,
     onNavigateToEdit: (Long) -> Unit = {},
-    viewModel: WorkOrderViewModel = viewModel()
+    viewModel: WorkOrderViewModel = viewModel(factory = WorkOrderViewModel.Factory)
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -140,6 +140,8 @@ fun WorkOrderDetailScreen(
     var showPaymentDialog by remember { mutableStateOf(false) }
     var showDeleteServiceLineDialog by remember { mutableStateOf<Long?>(null) }
     var showDeletePartDialog by remember { mutableStateOf<Long?>(null) }
+    var showExtraDialog by remember { mutableStateOf(false) }
+    var showDeleteExtraDialog by remember { mutableStateOf<Long?>(null) }
     var showDeleteOrderDialog by remember { mutableStateOf(false) }
     var deleteConfirmationText by remember { mutableStateOf("") }
     var viewingPhotoPath by remember { mutableStateOf<String?>(null) }
@@ -354,6 +356,47 @@ fun WorkOrderDetailScreen(
         }
     }
 
+    // Extra dialog
+    if (showExtraDialog) {
+        ExtraDialog(
+            description = uiState.extraFormDescription,
+            cost = uiState.extraFormCost,
+            hasDiscount = uiState.extraFormHasDiscount,
+            discountAmount = uiState.extraFormDiscount,
+            category = uiState.extraFormCategory,
+            isEditing = uiState.editingExtraId != null,
+            onDescriptionChange = { viewModel.onExtraFormDescriptionChange(it) },
+            onCostChange = { viewModel.onExtraFormCostChange(it) },
+            onDiscountToggle = { viewModel.onExtraFormDiscountToggle(it) },
+            onDiscountChange = { viewModel.onExtraFormDiscountChange(it) },
+            onCategoryChange = { viewModel.onExtraFormCategoryChange(it) },
+            onSave = {
+                viewModel.saveExtra()
+                showExtraDialog = false
+            },
+            onDismiss = {
+                viewModel.cancelEditExtra()
+                showExtraDialog = false
+            }
+        )
+    }
+
+    // Delete extra confirmation
+    showDeleteExtraDialog?.let { extraId ->
+        val extra = uiState.orderExtras.find { it.id == extraId }
+        if (extra != null) {
+            ConfirmDialog(
+                title = "Eliminar Extra",
+                message = "¿Desea eliminar \"${extra.description}\"?",
+                onConfirm = {
+                    viewModel.deleteExtra(extra)
+                    showDeleteExtraDialog = null
+                },
+                onDismiss = { showDeleteExtraDialog = null }
+            )
+        }
+    }
+
     // Delete order confirmation dialog - requires typing order number
     if (showDeleteOrderDialog) {
         AlertDialog(
@@ -499,6 +542,7 @@ fun WorkOrderDetailScreen(
     Scaffold(
         topBar = {
             TopAppBar(
+                expandedHeight = 40.dp,
                 title = { Text("Orden #$orderId") },
                 navigationIcon = {
                     IconButton(onClick = {
@@ -1199,6 +1243,117 @@ fun WorkOrderDetailScreen(
                     }
                 }
 
+                // Extras
+                item {
+                    Card(modifier = Modifier.fillMaxWidth()) {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                SectionTitle("Extras", modifier = Modifier.weight(1f))
+                                IconButton(
+                                    onClick = {
+                                        viewModel.cancelEditExtra()
+                                        showExtraDialog = true
+                                    },
+                                    enabled = !isEntregado
+                                ) {
+                                    Icon(Icons.Default.Add, contentDescription = "Agregar extra")
+                                }
+                            }
+
+                            if (uiState.orderExtras.isEmpty()) {
+                                Text(
+                                    text = "No hay extras registrados",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                    }
+                }
+
+                items(uiState.orderExtras, key = { "ex_${it.id}" }) { extra ->
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                        )
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = extra.description,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = FontWeight.Medium
+                                )
+                                extra.category?.let { cat ->
+                                    Text(
+                                        text = cat,
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                                if (extra.discount > 0) {
+                                    Text(
+                                        text = String.format("$%.2f", extra.cost),
+                                        style = MaterialTheme.typography.bodySmall,
+                                        textDecoration = TextDecoration.LineThrough,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                    Text(
+                                        text = "Desc: -${String.format("$%.2f", extra.discount)}",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.error
+                                    )
+                                    Text(
+                                        text = String.format("$%.2f", extra.cost - extra.discount),
+                                        style = MaterialTheme.typography.bodySmall,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+                                } else {
+                                    Text(
+                                        text = String.format("$%.2f", extra.cost),
+                                        style = MaterialTheme.typography.bodySmall,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+                                }
+                            }
+                            IconButton(
+                                onClick = {
+                                    viewModel.startEditExtra(extra)
+                                    showExtraDialog = true
+                                },
+                                enabled = !isEntregado
+                            ) {
+                                Icon(
+                                    Icons.Default.Edit,
+                                    contentDescription = "Editar",
+                                    tint = if (isEntregado) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f) else MaterialTheme.colorScheme.primary
+                                )
+                            }
+                            IconButton(
+                                onClick = { showDeleteExtraDialog = extra.id },
+                                enabled = !isEntregado
+                            ) {
+                                Icon(
+                                    Icons.Default.Delete,
+                                    contentDescription = "Eliminar",
+                                    tint = if (isEntregado) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f) else MaterialTheme.colorScheme.error
+                                )
+                            }
+                        }
+                    }
+                }
+
                 // Totals Summary
                 item {
                     Card(
@@ -1211,6 +1366,9 @@ fun WorkOrderDetailScreen(
                             SectionTitle("Resumen")
                             InfoRow(label = "Mano de Obra", value = String.format("$%.2f", order.totalLabor))
                             InfoRow(label = "Repuestos", value = String.format("$%.2f", order.totalParts))
+                            if (order.totalExtras > 0) {
+                                InfoRow(label = "Extras", value = String.format("$%.2f", order.totalExtras))
+                            }
                             HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
@@ -1589,7 +1747,7 @@ private fun ServiceLineDialog(
         if (description.isBlank()) emptyList()
         else catalogServices.filter {
             it.name.contains(description, ignoreCase = true)
-        }
+        }.take(5)
     }
 
     AlertDialog(
@@ -1773,7 +1931,7 @@ private fun PartDialog(
                         else -> 3
                     }
                 })
-                .take(10)
+                .take(5)
         }
     }
 
@@ -1915,6 +2073,150 @@ private fun PartDialog(
                 val parsedQty = quantity.toIntOrNull()
                 if (parsedQty == null || parsedQty < 1) {
                     quantityError = "Cantidad debe ser al menos 1"
+                    hasError = true
+                }
+                if (!hasError) {
+                    onSave()
+                }
+            }) {
+                Text(if (isEditing) "Guardar" else "Agregar")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancelar")
+            }
+        }
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ExtraDialog(
+    description: String,
+    cost: String,
+    hasDiscount: Boolean = false,
+    discountAmount: String = "",
+    category: String?,
+    isEditing: Boolean = false,
+    onDescriptionChange: (String) -> Unit,
+    onCostChange: (String) -> Unit,
+    onDiscountToggle: (Boolean) -> Unit = {},
+    onDiscountChange: (String) -> Unit = {},
+    onCategoryChange: (String?) -> Unit,
+    onSave: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    var descriptionError by remember { mutableStateOf<String?>(null) }
+    var costError by remember { mutableStateOf<String?>(null) }
+    var categoryExpanded by remember { mutableStateOf(false) }
+
+    val categories = listOf("Ferretería", "Tercerizado", "Repuesto externo", "Herramienta", "Otro")
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(if (isEditing) "Editar Extra" else "Agregar Extra") },
+        text = {
+            Column {
+                OutlinedTextField(
+                    value = description,
+                    onValueChange = {
+                        onDescriptionChange(it)
+                        descriptionError = null
+                    },
+                    label = { Text("Descripción *") },
+                    keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
+                    singleLine = true,
+                    isError = descriptionError != null,
+                    supportingText = if (descriptionError != null) {
+                        { Text(descriptionError!!, color = MaterialTheme.colorScheme.error) }
+                    } else {
+                        { Text("${description.length}/200") }
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                OutlinedTextField(
+                    value = cost,
+                    onValueChange = {
+                        onCostChange(it)
+                        costError = null
+                    },
+                    label = { Text("Costo *") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                    prefix = { Text("$") },
+                    isError = costError != null,
+                    supportingText = costError?.let { error -> { Text(error, color = MaterialTheme.colorScheme.error) } },
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                ExposedDropdownMenuBox(
+                    expanded = categoryExpanded,
+                    onExpandedChange = { categoryExpanded = it }
+                ) {
+                    OutlinedTextField(
+                        value = category ?: "",
+                        onValueChange = {},
+                        readOnly = true,
+                        label = { Text("Categoría") },
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = categoryExpanded) },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .menuAnchor(MenuAnchorType.PrimaryNotEditable)
+                    )
+                    ExposedDropdownMenu(
+                        expanded = categoryExpanded,
+                        onDismissRequest = { categoryExpanded = false }
+                    ) {
+                        DropdownMenuItem(
+                            text = { Text("Sin categoría") },
+                            onClick = {
+                                onCategoryChange(null)
+                                categoryExpanded = false
+                            }
+                        )
+                        categories.forEach { cat ->
+                            DropdownMenuItem(
+                                text = { Text(cat) },
+                                onClick = {
+                                    onCategoryChange(cat)
+                                    categoryExpanded = false
+                                }
+                            )
+                        }
+                    }
+                }
+                Spacer(modifier = Modifier.height(4.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text("Aplicar descuento", style = MaterialTheme.typography.bodyMedium)
+                    Switch(checked = hasDiscount, onCheckedChange = onDiscountToggle)
+                }
+                if (hasDiscount) {
+                    OutlinedTextField(
+                        value = discountAmount,
+                        onValueChange = onDiscountChange,
+                        label = { Text("Monto descuento") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                        prefix = { Text("$") },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = {
+                var hasError = false
+                if (description.isBlank() || description.trim().length < 3) {
+                    descriptionError = if (description.isBlank()) "Descripción es obligatoria" else "Mínimo 3 caracteres"
+                    hasError = true
+                }
+                val parsedCost = cost.toDoubleOrNull()
+                if (parsedCost == null || parsedCost < 0) {
+                    costError = "Costo inválido"
                     hasError = true
                 }
                 if (!hasError) {

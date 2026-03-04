@@ -73,6 +73,7 @@ fun UserListScreen(
         modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         topBar = {
             LargeTopAppBar(
+                collapsedHeight = 40.dp,
                 title = { Text("Usuarios") },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {

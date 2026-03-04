@@ -55,6 +55,7 @@ data class WorkOrderReportData(
     val serviceLines: List<ServiceLine>,
     val orderParts: List<WorkOrderPart>,
     val availableParts: List<Part>,
+    val orderExtras: List<WorkOrderExtra> = emptyList(),
     val payments: List<WorkOrderPayment>,
     val mechanicName: String?,
     val photoPaths: List<String> = emptyList()
@@ -461,6 +462,55 @@ object PdfReportGenerator {
         }
 
         // ══════════════════════════════════════════
+        //  EXTRAS TABLE
+        // ══════════════════════════════════════════
+        if (data.orderExtras.isNotEmpty()) {
+            sectionHeader("EXTRAS")
+
+            val eNum = ML + 4f
+            val eDesc = ML + 30f
+            val eCat = MR - 130f
+            val eCostRight = MR - 8f
+
+            drawTableHeaderBg()
+            val headerTextY = y + 12f
+            c.drawText("#", eNum, headerTextY, pTableHeader)
+            c.drawText("Descripción", eDesc, headerTextY, pTableHeader)
+            c.drawText("Categoría", eCat, headerTextY, pTableHeader)
+            rightAlignAt("Costo", eCostRight, headerTextY, pTableHeader)
+            y += TABLE_HEADER_H + 2f
+
+            data.orderExtras.forEachIndexed { i, extra ->
+                ensureSpace(if (extra.discount > 0) ROW_H * 2 else ROW_H)
+                drawRowBg(i)
+                val rowTextY = y + 10f
+                c.drawText("${i + 1}", eNum, rowTextY, pBody)
+                val maxDescW = eCat - 10f - eDesc
+                c.drawText(truncate(extra.description, pBody, maxDescW), eDesc, rowTextY, pBody)
+                extra.category?.let { c.drawText(truncate(it, pBody, 80f), eCat, rowTextY, pBody) }
+                if (extra.discount > 0) {
+                    rightAlignAt(money(extra.cost), eCostRight, rowTextY, pMoney)
+                    y += ROW_H - 2f
+                    val pDiscount = paint(8f, 0xFFD32F2F.toInt())
+                    rightAlignAt("Desc: -${money(extra.discount)} = ${money(extra.cost - extra.discount)}", eCostRight, y + 10f, pDiscount)
+                } else {
+                    rightAlignAt(money(extra.cost), eCostRight, rowTextY, pMoney)
+                }
+                y += ROW_H
+            }
+
+            y += 4f
+            ensureSpace(16f)
+            c.drawLine(MR - 160f, y, MR, y, pLine)
+            y += 12f
+            c.drawText("Subtotal Extras:", MR - 160f, y, pMoneyBold)
+            rightAlignAt(money(data.order.totalExtras), eCostRight, y, pMoneyBold)
+            y += 6f
+            hLine()
+            y += SECTION_GAP
+        }
+
+        // ══════════════════════════════════════════
         //  PAYMENTS TABLE
         // ══════════════════════════════════════════
         if (data.payments.isNotEmpty()) {
@@ -520,7 +570,8 @@ object PdfReportGenerator {
         val totalDiscountsFinal = data.payments.sumOf { it.discount }
         val balance = data.order.total - totalPaidFinal - totalDiscountsFinal
         val hasPayments = data.payments.isNotEmpty()
-        val boxH = if (hasPayments) 80f else 60f
+        val hasExtras = data.order.totalExtras > 0
+        val boxH = 60f + (if (hasExtras) 16f else 0f) + (if (hasPayments) 20f else 0f)
 
         ensureSpace(boxH + 8f)
 
@@ -538,6 +589,12 @@ object PdfReportGenerator {
         y += 16f
         c.drawText("Repuestos:", labelX, y, pTotalLabel)
         rightAlignAt(money(data.order.totalParts), valueX, y, pTotalLabel)
+
+        if (hasExtras) {
+            y += 16f
+            c.drawText("Extras:", labelX, y, pTotalLabel)
+            rightAlignAt(money(data.order.totalExtras), valueX, y, pTotalLabel)
+        }
 
         y += 4f
         c.drawLine(labelX, y, valueX, y, pLine)

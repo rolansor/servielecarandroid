@@ -76,7 +76,7 @@ fun WorkOrderListScreen(
     onNavigateBack: () -> Unit,
     onNavigateToDetail: (Long) -> Unit,
     onNavigateToForm: () -> Unit,
-    viewModel: WorkOrderViewModel = viewModel()
+    viewModel: WorkOrderViewModel = viewModel(factory = WorkOrderViewModel.Factory)
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -98,6 +98,7 @@ fun WorkOrderListScreen(
         modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         topBar = {
             LargeTopAppBar(
+                collapsedHeight = 40.dp,
                 title = { Text("\u00d3rdenes de Trabajo") },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
@@ -126,7 +127,7 @@ fun WorkOrderListScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp, vertical = 4.dp),
-                placeholder = { Text("Buscar por cliente, placa, servicio, repuesto...") },
+                placeholder = { Text("Buscar por cliente o placa...") },
                 leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
                 trailingIcon = {
                     if (uiState.searchQuery.isNotEmpty()) {
