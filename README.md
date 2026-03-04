@@ -25,6 +25,7 @@ App Android para gestion integral de talleres mecanicos automotrices. Permite ad
 - Generacion de reportes PDF (ordenes de trabajo y comisiones) con compartir
 - Reportes de ingresos por rango de fechas y repuestos mas usados
 - Respaldo completo exportar/importar (ZIP con JSON + fotos) para migrar entre dispositivos
+- Respaldo en la nube con Dropbox (OAuth2 PKCE, carpeta por dispositivo, sobrescritura diaria)
 - Auditoria de cambios de estado con historial
 - Soporte offline (Room database local)
 - Tema mecanico/industrial con logo personalizado
@@ -37,6 +38,7 @@ App Android para gestion integral de talleres mecanicos automotrices. Permite ad
 - **Room Database** (SQLite) con KSP
 - **Navigation Compose**
 - **Coil 3** para carga de imagenes
+- **Dropbox SDK** (dropbox-core-sdk + dropbox-android-sdk 7.0.0) para respaldos en la nube
 - **Arquitectura MVVM**
 - **Manual DI** (AppContainer pattern)
 - **AGP** 9.0.1, compileSdk 36, minSdk 26
@@ -49,7 +51,7 @@ app/src/main/java/com/example/serviaux/
 │   ├── entity/              # Entidades Room (User, Customer, Vehicle, WorkOrder, Part, CatalogService, WorkOrderMechanic, etc.)
 │   ├── dao/                 # Data Access Objects
 │   ├── Converters.kt        # TypeConverters para enums
-│   └── ServiauxDatabase.kt  # Base de datos con seed data (version 3)
+│   └── ServiauxDatabase.kt  # Base de datos con seed data (version 1)
 ├── repository/              # Repositorios (Auth, Customer, Vehicle, Part, WorkOrder, Catalog, Commission, Backup)
 ├── di/
 │   └── AppContainer.kt      # Inyeccion de dependencias manual
@@ -59,7 +61,8 @@ app/src/main/java/com/example/serviaux/
 │   ├── PhotoUtils.kt        # Utilidades para fotos (crear archivo, URI, parsear rutas)
 │   ├── PdfReportGenerator.kt    # Generacion de PDF de ordenes de trabajo
 │   ├── CommissionPdfGenerator.kt # Generacion de PDF de comisiones pagadas
-│   └── ShareUtils.kt           # Compartir archivos via Intent
+│   ├── ShareUtils.kt           # Compartir archivos via Intent
+│   └── DropboxHelper.kt       # Integracion con Dropbox (OAuth2, upload, download, list)
 ├── ui/
 │   ├── theme/               # Tema mecanico (colores industriales, logo)
 │   ├── components/          # Componentes reutilizables (SearchableDropdown, StatusChip, etc.)
@@ -150,3 +153,35 @@ RECIBIDO → EN_DIAGNOSTICO → EN_PROCESO → EN_ESPERA_REPUESTO → LISTO → 
 ```
 
 Cada transicion de estado queda registrada en la tabla `StatusLog` con fecha, usuario y comentario opcional. Las ordenes no pueden marcarse como LISTO o ENTREGADO sin al menos un mecanico asignado.
+
+## Respaldo en Dropbox
+
+La app permite vincular una cuenta de Dropbox para subir y descargar respaldos en la nube, complementando la exportacion/importacion local por ZIP.
+
+### Autenticacion
+
+- Se usa **OAuth2 PKCE** (solo app key, sin app secret), por lo que no se requiere un servidor backend.
+- Al vincular, se abre el navegador del sistema para autorizar la app. Al regresar, la credencial se almacena como JSON serializado (`DbxCredential`) en `SharedPreferences` (`dropbox_prefs`).
+
+### Estructura de carpetas
+
+La app de Dropbox crea automaticamente la carpeta sandbox `/Aplicaciones/serviaux/`. Dentro de ella:
+
+```
+/Aplicaciones/serviaux/
+├── Samsung Galaxy S24/
+│   └── serviaux_backup_2026-03-03.zip
+├── Xiaomi Redmi Note 12/
+│   └── serviaux_backup_2026-03-02.zip
+└── ...
+```
+
+- Cada dispositivo crea una subcarpeta con su nombre (fabricante + modelo).
+- Los archivos ZIP se nombran por fecha (`serviaux_backup_YYYY-MM-dd.zip`).
+- Si se sube mas de una vez el mismo dia, el archivo anterior se **sobrescribe** (`WriteMode.OVERWRITE`).
+
+### Funcionalidad
+
+- **Subir:** Exporta las categorias seleccionadas a ZIP y lo sube a la carpeta del dispositivo.
+- **Descargar:** Lista todos los respaldos de todos los dispositivos y permite seleccionar uno para restaurar (reutiliza el flujo de importacion con checklist de categorias).
+- **Desvincular:** Elimina la credencial almacenada localmente.

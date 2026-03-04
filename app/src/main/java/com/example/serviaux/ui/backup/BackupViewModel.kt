@@ -104,7 +104,7 @@ class BackupViewModel(application: Application) : AndroidViewModel(application) 
     fun toggleImportCategory(category: BackupCategory) {
         _uiState.update { state ->
             val current = state.importCategories
-            // Only allow toggling categories that exist in the backup
+            // Solo permitir alternar categorías que existen en el respaldo
             if (category !in state.backupContents) return@update state
             val updated = if (category in current) current - category else current + category
             state.copy(importCategories = updated)

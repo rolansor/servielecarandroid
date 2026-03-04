@@ -133,16 +133,28 @@ object DropboxHelper {
 
             // Listar subcarpetas de dispositivos en la raíz de la app
             try {
-                val folderResult = client.files().listFolder("")
-                val folders = folderResult.entries.filterIsInstance<FolderMetadata>()
+                var folderResult = client.files().listFolder("")
+                val folders = mutableListOf<FolderMetadata>()
+                folders.addAll(folderResult.entries.filterIsInstance<FolderMetadata>())
+                // Paginar si hay más resultados en la raíz
+                while (folderResult.hasMore) {
+                    folderResult = client.files().listFolderContinue(folderResult.cursor)
+                    folders.addAll(folderResult.entries.filterIsInstance<FolderMetadata>())
+                }
 
                 for (folder in folders) {
                     val folderPath = folder.pathLower ?: continue
                     try {
                         // Listar ZIPs dentro de cada subcarpeta de dispositivo
-                        val subResult = client.files().listFolder(folderPath)
-                        subResult.entries
-                            .filterIsInstance<FileMetadata>()
+                        var subResult = client.files().listFolder(folderPath)
+                        val allFiles = mutableListOf<FileMetadata>()
+                        allFiles.addAll(subResult.entries.filterIsInstance<FileMetadata>())
+                        // Paginar si hay más archivos en la subcarpeta
+                        while (subResult.hasMore) {
+                            subResult = client.files().listFolderContinue(subResult.cursor)
+                            allFiles.addAll(subResult.entries.filterIsInstance<FileMetadata>())
+                        }
+                        allFiles
                             .filter { it.name.endsWith(".zip", ignoreCase = true) }
                             .forEach { meta ->
                                 val filePath = meta.pathLower ?: return@forEach
@@ -160,7 +172,7 @@ object DropboxHelper {
                     }
                 }
             } catch (_: ListFolderErrorException) {
-                // La carpeta /Serviaux/ aún no existe — lista vacía
+                // La carpeta raíz de la app aún no existe — lista vacía
             }
 
             entries.sortByDescending { it.modified }

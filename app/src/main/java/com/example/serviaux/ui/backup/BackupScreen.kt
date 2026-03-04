@@ -88,7 +88,7 @@ fun BackupScreen(
         uri?.let { viewModel.requestImport(it) }
     }
 
-    // Detect onResume for Dropbox auth callback
+    // Detectar onResume para callback de autenticación de Dropbox
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
@@ -101,7 +101,7 @@ fun BackupScreen(
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
-    // Show toast messages
+    // Mostrar mensajes toast
     LaunchedEffect(uiState.message) {
         uiState.message?.let { msg ->
             Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
@@ -109,13 +109,13 @@ fun BackupScreen(
         }
     }
 
-    // Dropbox backups list dialog
+    // Diálogo de lista de respaldos en Dropbox
     if (uiState.showDropboxBackups) {
         AlertDialog(
             onDismissRequest = { viewModel.dismissDropboxBackups() },
             title = { Text("Respaldos en Dropbox") },
             text = {
-                Column {
+                Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
                     if (uiState.loadingDropboxBackups) {
                         CircularProgressIndicator(modifier = Modifier.align(Alignment.CenterHorizontally))
                     } else if (uiState.dropboxBackups.isEmpty()) {
@@ -163,7 +163,7 @@ fun BackupScreen(
         )
     }
 
-    // Year picker dialog
+    // Diálogo de selección de año
     if (uiState.showYearPicker) {
         AlertDialog(
             onDismissRequest = { viewModel.dismissYearPicker() },
@@ -196,7 +196,7 @@ fun BackupScreen(
         )
     }
 
-    // Import confirm dialog with category checklist
+    // Diálogo de confirmación de importación con checklist de categorías
     if (uiState.showConfirmDialog) {
         AlertDialog(
             onDismissRequest = { viewModel.cancelImport() },
@@ -301,7 +301,7 @@ fun BackupScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // Current data summary
+            // Resumen de datos actuales
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 colors = CardDefaults.cardColors(
@@ -344,7 +344,7 @@ fun BackupScreen(
 
             HorizontalDivider()
 
-            // Export section
+            // Sección de exportación
             Card(modifier = Modifier.fillMaxWidth()) {
                 Column(
                     modifier = Modifier.padding(16.dp),
@@ -371,7 +371,7 @@ fun BackupScreen(
                     )
                     Spacer(modifier = Modifier.height(12.dp))
 
-                    // Export category checklist
+                    // Checklist de categorías para exportar
                     BackupCategory.entries.forEach { category ->
                         Row(
                             modifier = Modifier
@@ -424,7 +424,91 @@ fun BackupScreen(
                 }
             }
 
-            // Dropbox section
+            // Sección de importación
+            Card(modifier = Modifier.fillMaxWidth()) {
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.CloudDownload,
+                        contentDescription = null,
+                        modifier = Modifier.size(48.dp),
+                        tint = MaterialTheme.colorScheme.secondary
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "Restaurar Respaldo",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = "Selecciona un archivo .zip de respaldo. Podrás elegir qué categorías restaurar.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                    OutlinedButton(
+                        onClick = {
+                            filePickerLauncher.launch(arrayOf("application/zip", "application/octet-stream"))
+                        },
+                        enabled = !uiState.exporting && !uiState.importing,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        if (uiState.importing) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(20.dp),
+                                strokeWidth = 2.dp
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Restaurando...")
+                        } else {
+                            Text("Seleccionar Archivo")
+                        }
+                    }
+                }
+            }
+
+            // Resultados de importación
+            uiState.importResult?.let { results ->
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.tertiaryContainer
+                    )
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Text(
+                            text = "Resumen de restauración",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        results.forEach { (table, count) ->
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text(
+                                    text = table,
+                                    style = MaterialTheme.typography.bodyMedium
+                                )
+                                Text(
+                                    text = count.toString(),
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
+            HorizontalDivider()
+
+            // Sección de Dropbox
             Card(modifier = Modifier.fillMaxWidth()) {
                 Column(
                     modifier = Modifier.padding(16.dp),
@@ -513,88 +597,6 @@ fun BackupScreen(
                                 color = MaterialTheme.colorScheme.error,
                                 style = MaterialTheme.typography.bodySmall
                             )
-                        }
-                    }
-                }
-            }
-
-            // Import section
-            Card(modifier = Modifier.fillMaxWidth()) {
-                Column(
-                    modifier = Modifier.padding(16.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.CloudDownload,
-                        contentDescription = null,
-                        modifier = Modifier.size(48.dp),
-                        tint = MaterialTheme.colorScheme.secondary
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        text = "Restaurar Respaldo",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = "Selecciona un archivo .zip de respaldo. Podrás elegir qué categorías restaurar.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        textAlign = TextAlign.Center
-                    )
-                    Spacer(modifier = Modifier.height(16.dp))
-                    OutlinedButton(
-                        onClick = {
-                            filePickerLauncher.launch(arrayOf("application/zip", "application/octet-stream"))
-                        },
-                        enabled = !uiState.exporting && !uiState.importing,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        if (uiState.importing) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(20.dp),
-                                strokeWidth = 2.dp
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text("Restaurando...")
-                        } else {
-                            Text("Seleccionar Archivo")
-                        }
-                    }
-                }
-            }
-
-            // Import results
-            uiState.importResult?.let { results ->
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.tertiaryContainer
-                    )
-                ) {
-                    Column(modifier = Modifier.padding(16.dp)) {
-                        Text(
-                            text = "Resumen de restauración",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        results.forEach { (table, count) ->
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween
-                            ) {
-                                Text(
-                                    text = table,
-                                    style = MaterialTheme.typography.bodyMedium
-                                )
-                                Text(
-                                    text = count.toString(),
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    fontWeight = FontWeight.Bold
-                                )
-                            }
                         }
                     }
                 }

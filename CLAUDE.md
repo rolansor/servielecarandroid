@@ -12,6 +12,7 @@ Serviaux es una app Android para gestión de talleres automotrices, construida c
 - DI manual via AppContainer (NO Hilt - por compatibilidad con AGP 9.x)
 - MVVM con AndroidViewModel + StateFlow
 - Coil 3 para carga de imágenes
+- Dropbox SDK (dropbox-core-sdk + dropbox-android-sdk 7.0.0) para respaldos en la nube
 - AGP 9.0.1, compileSdk 36, minSdk 26
 
 ## Convenciones Clave
@@ -28,7 +29,7 @@ Serviaux es una app Android para gestión de talleres automotrices, construida c
 
 - `data/entity/` - Entidades Room y enums (incluye CatalogService para servicios predefinidos)
 - `data/dao/` - DAOs de Room
-- `data/ServiauxDatabase.kt` - Singleton de la BD con callback de seed (versión actual 1)
+- `data/ServiauxDatabase.kt` - Singleton de la BD con callback de seed (versión actual 1, reiniciada tras reestructuración)
 - `repository/` - Repositorios con lógica de negocio
 - `di/AppContainer.kt` - Inyección de dependencias manual
 - `util/` - SecurityUtils, SessionManager, PhotoUtils, PdfReportGenerator, CommissionPdfGenerator, ShareUtils, DropboxHelper
@@ -57,8 +58,11 @@ Serviaux es una app Android para gestión de talleres automotrices, construida c
 - Campos de formulario de vehículo: tipo vehículo, combustible (default Gasolina, FilterChips), tipo aceite (autocomplete desde catálogo), capacidad aceite (dropdown en pasos de 1/2 galón hasta 10)
 - Reportes PDF incluyen datos completos del vehículo (tipo, versión, combustible, transmisión, tracción, motor) e info de la orden (tipo, fecha admisión, nota de entrega, factura, notas)
 - Columnas de tablas PDF usan alineación vertical consistente via helper `rightAlignAt`
-- Integración Dropbox: OAuth2 PKCE (app key, sin secret), token guardado en SharedPreferences (`dropbox_prefs`), respaldos en `/Serviaux/{deviceName}/` con nombre por fecha (sobrescribe si mismo día)
-- `DropboxHelper` es singleton con métodos de auth, upload, download, list y delete
+- Integración Dropbox: OAuth2 PKCE (app key, sin secret), dependencias `dropbox-core-sdk` y `dropbox-android-sdk` 7.0.0
+- Token Dropbox guardado en SharedPreferences (`dropbox_prefs`) como JSON serializado de `DbxCredential`
+- Estructura de carpetas Dropbox: la app sandbox crea `/Aplicaciones/serviaux/` automáticamente; dentro se crean subcarpetas por dispositivo (`/{nombreDispositivo}/`) con archivos ZIP nombrados por fecha (`serviaux_backup_YYYY-MM-dd.zip`) que se sobrescriben si se sube el mismo día
+- `DropboxHelper` es singleton en `util/` con métodos: `startAuth`, `handleAuthResult`, `isLinked`, `logout`, `uploadFile`, `listBackups`, `downloadFile`, `deleteFile`
+- Flujo Dropbox en BackupScreen: vincular cuenta abre navegador para OAuth2, onResume captura credencial; subir exporta ZIP y lo sube; descargar lista backups de todos los dispositivos y reutiliza flujo de importación normal
 
 ## Datos Semilla
 
