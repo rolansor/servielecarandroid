@@ -87,7 +87,7 @@ fun StatusChip(status: OrderStatus, modifier: Modifier = Modifier) {
         OrderStatus.EN_ESPERA_REPUESTO -> StatusEsperaRepuesto
         OrderStatus.LISTO -> StatusListo
         OrderStatus.ENTREGADO -> StatusEntregado
-        OrderStatus.CANCELADO -> StatusCancelado
+        OrderStatus.CERRADO -> StatusCancelado
     }
     Surface(
         color = color.copy(alpha = 0.15f),

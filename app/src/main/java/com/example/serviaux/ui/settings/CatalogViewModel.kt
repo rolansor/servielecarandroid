@@ -298,26 +298,28 @@ class CatalogViewModel(application: Application) : AndroidViewModel(application)
     }
 
     fun updateDialogText(text: String) {
+        // Los nombres de catálogo se normalizan a mayúsculas; el JSON de import se respeta tal cual.
+        val upper = text.uppercase()
         _uiState.update { state ->
             val newDialog = when (val d = state.dialogState) {
-                is CatalogDialogState.AddBrand -> d.copy(name = text)
-                is CatalogDialogState.EditBrand -> d.copy(name = text)
-                is CatalogDialogState.AddModel -> d.copy(name = text)
-                is CatalogDialogState.EditModel -> d.copy(name = text)
-                is CatalogDialogState.AddColor -> d.copy(name = text)
-                is CatalogDialogState.EditColor -> d.copy(name = text)
-                is CatalogDialogState.AddPartBrand -> d.copy(name = text)
-                is CatalogDialogState.EditPartBrand -> d.copy(name = text)
-                is CatalogDialogState.AddVehicleType -> d.copy(name = text)
-                is CatalogDialogState.EditVehicleType -> d.copy(name = text)
-                is CatalogDialogState.AddAccessory -> d.copy(name = text)
-                is CatalogDialogState.EditAccessory -> d.copy(name = text)
-                is CatalogDialogState.AddComplaint -> d.copy(name = text)
-                is CatalogDialogState.EditComplaint -> d.copy(name = text)
-                is CatalogDialogState.AddDiagnosis -> d.copy(name = text)
-                is CatalogDialogState.EditDiagnosis -> d.copy(name = text)
-                is CatalogDialogState.AddOilType -> d.copy(name = text)
-                is CatalogDialogState.EditOilType -> d.copy(name = text)
+                is CatalogDialogState.AddBrand -> d.copy(name = upper)
+                is CatalogDialogState.EditBrand -> d.copy(name = upper)
+                is CatalogDialogState.AddModel -> d.copy(name = upper)
+                is CatalogDialogState.EditModel -> d.copy(name = upper)
+                is CatalogDialogState.AddColor -> d.copy(name = upper)
+                is CatalogDialogState.EditColor -> d.copy(name = upper)
+                is CatalogDialogState.AddPartBrand -> d.copy(name = upper)
+                is CatalogDialogState.EditPartBrand -> d.copy(name = upper)
+                is CatalogDialogState.AddVehicleType -> d.copy(name = upper)
+                is CatalogDialogState.EditVehicleType -> d.copy(name = upper)
+                is CatalogDialogState.AddAccessory -> d.copy(name = upper)
+                is CatalogDialogState.EditAccessory -> d.copy(name = upper)
+                is CatalogDialogState.AddComplaint -> d.copy(name = upper)
+                is CatalogDialogState.EditComplaint -> d.copy(name = upper)
+                is CatalogDialogState.AddDiagnosis -> d.copy(name = upper)
+                is CatalogDialogState.EditDiagnosis -> d.copy(name = upper)
+                is CatalogDialogState.AddOilType -> d.copy(name = upper)
+                is CatalogDialogState.EditOilType -> d.copy(name = upper)
                 is CatalogDialogState.ImportDialog -> d.copy(jsonText = text)
                 else -> d
             }
@@ -326,20 +328,22 @@ class CatalogViewModel(application: Application) : AndroidViewModel(application)
     }
 
     fun updateServiceDialogField(field: String, value: String) {
+        // Los campos de texto del servicio (category, name, vehicleType) se normalizan a mayúsculas.
+        val normalized = if (field == "price") value else value.uppercase()
         _uiState.update { state ->
             val newDialog = when (val d = state.dialogState) {
                 is CatalogDialogState.AddService -> when (field) {
-                    "category" -> d.copy(category = value)
-                    "name" -> d.copy(name = value)
-                    "price" -> d.copy(price = value)
-                    "vehicleType" -> d.copy(vehicleType = value)
+                    "category" -> d.copy(category = normalized)
+                    "name" -> d.copy(name = normalized)
+                    "price" -> d.copy(price = normalized)
+                    "vehicleType" -> d.copy(vehicleType = normalized)
                     else -> d
                 }
                 is CatalogDialogState.EditService -> when (field) {
-                    "category" -> d.copy(category = value)
-                    "name" -> d.copy(name = value)
-                    "price" -> d.copy(price = value)
-                    "vehicleType" -> d.copy(vehicleType = value)
+                    "category" -> d.copy(category = normalized)
+                    "name" -> d.copy(name = normalized)
+                    "price" -> d.copy(price = normalized)
+                    "vehicleType" -> d.copy(vehicleType = normalized)
                     else -> d
                 }
                 else -> d

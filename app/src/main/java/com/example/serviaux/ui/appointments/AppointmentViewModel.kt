@@ -139,7 +139,7 @@ class AppointmentViewModel(application: Application) : AndroidViewModel(applicat
     }
 
     fun onFormNotesChange(value: String) {
-        _uiState.update { it.copy(formNotes = value) }
+        _uiState.update { it.copy(formNotes = value.uppercase()) }
     }
 
     fun onFormStatusChange(value: AppointmentStatus) {

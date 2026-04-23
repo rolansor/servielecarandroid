@@ -39,14 +39,16 @@ Serviaux es una app Android para gestión de talleres automotrices, construida c
 
 - Las operaciones de guardado son asíncronas (coroutine). Las pantallas de formulario usan flag `savedSuccessfully` en UiState + LaunchedEffect para navegar después de guardar.
 - Cada módulo tiene: ListScreen, DetailScreen (si aplica), FormScreen, ViewModel
-- Estados de orden: RECIBIDO, EN_DIAGNOSTICO, EN_PROCESO, EN_ESPERA_REPUESTO, LISTO, ENTREGADO, CANCELADO
+- Estados de orden: RECIBIDO, EN_DIAGNOSTICO, EN_PROCESO, EN_ESPERA_REPUESTO, LISTO, ENTREGADO, CERRADO
 - Cambio de estado en detalle de orden usa FilterChips inline (no un diálogo)
+- CERRADO es el único estado que bloquea ediciones (servicios, repuestos, extras, pagos, fotos, archivos, mecánicos, campos del formulario). Todos los demás estados permiten edición libre incluso después de ENTREGADO.
 - Validación de mecánico: las órdenes no pueden marcarse como LISTO o ENTREGADO sin al menos un mecánico asignado
 - Múltiples mecánicos por orden con comisión personalizable (tipo: PORCENTAJE/FIJA, valor por mecánico)
 - Estado de comisión mostrado como badges en detalle de orden (Sin comisión / Pagada / Pendiente) — sin edición inline
 - Pagos de comisiones gestionados en pantalla dedicada solo-admin "Comisiones" con pago por lotes + reporte PDF
 - Solo las comisiones de órdenes en estado LISTO o ENTREGADO aparecen en la pantalla de pago de comisiones
 - Validación de descuento: descuento de servicio no puede exceder laborCost, descuento de repuesto no puede exceder subtotal
+- El historial de cambios de estado se sigue registrando en `work_order_status_log`, pero ya no se muestra en el detalle de la orden
 - Cambios de estado permitidos incluso desde ENTREGADO (solo admin) para soportar correcciones
 - Ajustes de stock automáticos al agregar/eliminar WorkOrderParts
 - Gestión de sesión usa singleton `SessionManager` con `StateFlow<User?>` para el estado del usuario actual

@@ -722,7 +722,7 @@ object PdfReportGenerator {
         OrderStatus.EN_ESPERA_REPUESTO -> 0xFFF44336.toInt()
         OrderStatus.LISTO -> 0xFF8BC34A.toInt()
         OrderStatus.ENTREGADO -> 0xFF607D8B.toInt()
-        OrderStatus.CANCELADO -> 0xFF9E9E9E.toInt()
+        OrderStatus.CERRADO -> 0xFF9E9E9E.toInt()
     }
 
     private fun money(amount: Double): String = "$${String.format(Locale.US, "%.2f", amount)}"

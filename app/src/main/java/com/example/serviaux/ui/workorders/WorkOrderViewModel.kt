@@ -23,6 +23,7 @@ import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.example.serviaux.ServiauxApp
+import com.example.serviaux.data.dao.WorkOrderPaymentSummary
 import com.example.serviaux.data.entity.*
 import com.example.serviaux.util.PdfReportGenerator
 import com.example.serviaux.util.PhotoUtils
@@ -38,6 +39,14 @@ import kotlinx.coroutines.withContext
 import java.io.File
 import java.util.Calendar
 import java.util.Locale
+
+/** Filtro por estado de pago de la orden, aplicado sobre la lista. */
+enum class PaymentFilter(val displayName: String) {
+    TODAS("Todas"),
+    PAGADAS("Pagadas"),
+    PARCIALES("Parciales"),
+    NO_PAGADAS("Sin pagar")
+}
 
 data class WorkOrderUiState(
     val orders: List<WorkOrder> = emptyList(),
@@ -58,6 +67,9 @@ data class WorkOrderUiState(
     val filter: OrderStatus? = null,
     val filterYear: Int = Calendar.getInstance().get(Calendar.YEAR),
     val availableYears: List<Int> = (2024..Calendar.getInstance().get(Calendar.YEAR)).toList(),
+    val paymentFilter: PaymentFilter = PaymentFilter.TODAS,
+    /** Mapa orderId -> (totalPagado, totalDescuentos) para mostrar abono y saldo en la lista. */
+    val paymentSummaryMap: Map<Long, Pair<Double, Double>> = emptyMap(),
     val isLoading: Boolean = false,
     val error: String? = null,
     // Create/edit order form
@@ -121,7 +133,6 @@ data class WorkOrderUiState(
     val detailDeliveryNote: String = "",
     val detailInvoiceNumber: String = "",
     val detailNotes: String = "",
-    val detailFieldsChanged: Boolean = false,
     val selectedCustomer: Customer? = null,
     val selectedVehicle: Vehicle? = null,
     val pdfGenerating: Boolean = false,
@@ -189,6 +200,17 @@ class WorkOrderViewModel(
         loadCatalogComplaints()
         loadCatalogDiagnoses()
         loadCatalogAccessories()
+        loadPaymentSummaries()
+    }
+
+    private fun loadPaymentSummaries() {
+        viewModelScope.launch {
+            workOrderRepo.getAllPaymentSummaries().collect { summaries ->
+                val map = summaries.associate { it.workOrderId to (it.totalPaid to it.totalDiscount) }
+                _uiState.update { it.copy(paymentSummaryMap = map) }
+                applySearchFilter()
+            }
+        }
     }
 
     private fun restoreFormState() {
@@ -298,14 +320,15 @@ class WorkOrderViewModel(
         applySearchFilter()
     }
 
+    fun onPaymentFilterChanged(filter: PaymentFilter) {
+        _uiState.update { it.copy(paymentFilter = filter) }
+        applySearchFilter()
+    }
+
     private fun applySearchFilter() {
         val state = _uiState.value
         val terms = state.searchQuery.uppercase().split(" ").filter { it.isNotBlank() }
-        if (terms.isEmpty()) {
-            _uiState.update { it.copy(filteredOrders = it.orders) }
-            return
-        }
-        val filtered = state.orders.filter { order ->
+        val byText = if (terms.isEmpty()) state.orders else state.orders.filter { order ->
             val searchText = buildString {
                 append(state.customerMap[order.customerId] ?: "")
                 append(" ")
@@ -313,7 +336,20 @@ class WorkOrderViewModel(
             }.uppercase()
             terms.all { term -> searchText.contains(term) }
         }
+        val filtered = byText.filter { order -> matchesPaymentFilter(order, state) }
         _uiState.update { it.copy(filteredOrders = filtered) }
+    }
+
+    private fun matchesPaymentFilter(order: WorkOrder, state: WorkOrderUiState): Boolean {
+        if (state.paymentFilter == PaymentFilter.TODAS) return true
+        val (paid, discount) = state.paymentSummaryMap[order.id] ?: (0.0 to 0.0)
+        val balance = order.total - paid - discount
+        return when (state.paymentFilter) {
+            PaymentFilter.PAGADAS -> order.total > 0.0 && balance <= 0.01
+            PaymentFilter.NO_PAGADAS -> paid <= 0.0 && discount <= 0.0
+            PaymentFilter.PARCIALES -> (paid > 0.0 || discount > 0.0) && balance > 0.01
+            PaymentFilter.TODAS -> true
+        }
     }
 
     private fun loadCatalogServices() {
@@ -395,8 +431,7 @@ class WorkOrderViewModel(
                         detailFuelLevel = order?.fuelLevel ?: "1/2",
                         detailDeliveryNote = order?.deliveryNote ?: "",
                         detailInvoiceNumber = order?.invoiceNumber ?: "",
-                        detailNotes = order?.notes ?: "",
-                        detailFieldsChanged = false
+                        detailNotes = order?.notes ?: ""
                     )
                 }
                 order?.let { o ->
@@ -1397,29 +1432,33 @@ class WorkOrderViewModel(
         }
     }
 
-    // Detail field change handlers
+    // Detail field change handlers — sólo actualizan UiState; el guardado real
+    // se dispara desde el composable al perder el foco (onFocusChanged).
     fun onDetailEntryMileageChange(value: String) {
         val filtered = value.filter { it.isDigit() }.take(7)
-        _uiState.update { it.copy(detailEntryMileage = filtered, detailFieldsChanged = true) }
+        _uiState.update { it.copy(detailEntryMileage = filtered) }
         saveFormState()
     }
+    /** El nivel de combustible es selección discreta de un dropdown: persistir al instante. */
     fun onDetailFuelLevelChange(value: String) {
-        _uiState.update { it.copy(detailFuelLevel = value, detailFieldsChanged = true) }
+        _uiState.update { it.copy(detailFuelLevel = value) }
         saveFormState()
+        saveDetailFields()
     }
     fun onDetailDeliveryNoteChange(value: String) {
-        _uiState.update { it.copy(detailDeliveryNote = value, detailFieldsChanged = true) }
+        _uiState.update { it.copy(detailDeliveryNote = value) }
         saveFormState()
     }
     fun onDetailInvoiceNumberChange(value: String) {
-        _uiState.update { it.copy(detailInvoiceNumber = value, detailFieldsChanged = true) }
+        _uiState.update { it.copy(detailInvoiceNumber = value) }
         saveFormState()
     }
     fun onDetailNotesChange(value: String) {
-        _uiState.update { it.copy(detailNotes = value, detailFieldsChanged = true) }
+        _uiState.update { it.copy(detailNotes = value) }
         saveFormState()
     }
 
+    /** Persiste los campos editables del detalle. Se invoca al perder foco de cada campo. */
     fun saveDetailFields() {
         val order = _uiState.value.selectedOrder ?: return
         viewModelScope.launch {
@@ -1434,7 +1473,6 @@ class WorkOrderViewModel(
                     updatedBy = session.currentUserId
                 )
                 workOrderRepo.update(updated)
-                _uiState.update { it.copy(detailFieldsChanged = false) }
             } catch (e: Exception) {
                 _uiState.update { it.copy(error = e.message ?: "Error al guardar") }
             }

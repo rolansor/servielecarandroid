@@ -361,7 +361,7 @@ fun DashboardScreen(
                         OrderStatus.EN_ESPERA_REPUESTO -> StatusEsperaRepuesto
                         OrderStatus.LISTO -> StatusListo
                         OrderStatus.ENTREGADO -> StatusEntregado
-                        OrderStatus.CANCELADO -> Color.Gray
+                        OrderStatus.CERRADO -> Color.Gray
                     }
                     Card(
                         modifier = Modifier

@@ -8,7 +8,6 @@
  * - Tabla de servicios (mano de obra) con CRUD inline.
  * - Tabla de repuestos con búsqueda, precios y ajuste de stock.
  * - Registro de pagos con descuentos y múltiples métodos de pago.
- * - Historial de cambios de estado.
  * - Galería de fotos y archivos adjuntos.
  * - Cambio de estado, asignación de mecánico, generación de PDF.
  * - Notas de entrega, número de factura.
@@ -17,6 +16,9 @@
 package com.example.serviaux.ui.workorders
 
 import android.Manifest
+import com.example.serviaux.ui.theme.Amber40
+import com.example.serviaux.ui.theme.BrakeRed40
+import com.example.serviaux.ui.theme.StatusListo
 import android.content.Intent
 import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -146,7 +148,6 @@ fun WorkOrderDetailScreen(
     var deleteConfirmationText by remember { mutableStateOf("") }
     var viewingPhotoPath by remember { mutableStateOf<String?>(null) }
     var viewingPhotoIndex by remember { mutableIntStateOf(-1) }
-    var showUnsavedChangesDialog by remember { mutableStateOf(false) }
 
     // Camera & Gallery for order photos
     val detailContext = LocalContext.current
@@ -209,7 +210,7 @@ fun WorkOrderDetailScreen(
     }
 
     val order = uiState.selectedOrder
-    val isEntregado = order?.status == OrderStatus.ENTREGADO
+    val isLocked = order?.status == OrderStatus.CERRADO
     val isAdmin = uiState.isAdmin
 
     // Mechanic assignment dialog
@@ -456,37 +457,6 @@ fun WorkOrderDetailScreen(
         )
     }
 
-    // Unsaved changes dialog
-    if (showUnsavedChangesDialog) {
-        AlertDialog(
-            onDismissRequest = { showUnsavedChangesDialog = false },
-            title = { Text("Cambios sin guardar") },
-            text = { Text("\u00bfDesea guardar los cambios antes de salir?") },
-            confirmButton = {
-                TextButton(onClick = {
-                    viewModel.saveDetailFields()
-                    showUnsavedChangesDialog = false
-                    onNavigateBack()
-                }) {
-                    Text("Guardar y salir")
-                }
-            },
-            dismissButton = {
-                Row {
-                    TextButton(onClick = {
-                        showUnsavedChangesDialog = false
-                        onNavigateBack()
-                    }) {
-                        Text("Salir sin guardar")
-                    }
-                    TextButton(onClick = { showUnsavedChangesDialog = false }) {
-                        Text("Cancelar")
-                    }
-                }
-            }
-        )
-    }
-
     // Full-screen photo viewer
     viewingPhotoPath?.let { path ->
         AlertDialog(
@@ -503,7 +473,7 @@ fun WorkOrderDetailScreen(
                 }
             },
             dismissButton = {
-                if (!isEntregado && viewingPhotoIndex >= 0) {
+                if (!isLocked && viewingPhotoIndex >= 0) {
                     TextButton(
                         onClick = {
                             viewModel.removeDetailPhoto(viewingPhotoIndex)
@@ -546,11 +516,8 @@ fun WorkOrderDetailScreen(
                 title = { Text("Orden #$orderId") },
                 navigationIcon = {
                     IconButton(onClick = {
-                        if (uiState.detailFieldsChanged) {
-                            showUnsavedChangesDialog = true
-                        } else {
-                            onNavigateBack()
-                        }
+                        viewModel.saveDetailFields()
+                        onNavigateBack()
                     }) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Volver")
                     }
@@ -558,18 +525,18 @@ fun WorkOrderDetailScreen(
                 actions = {
                     IconButton(
                         onClick = { onNavigateToEdit(orderId) },
-                        enabled = !isEntregado
+                        enabled = !isLocked
                     ) {
                         Icon(Icons.Default.Edit, contentDescription = "Editar orden")
                     }
                     IconButton(
                         onClick = { showDeleteOrderDialog = true },
-                        enabled = !isEntregado
+                        enabled = !isLocked
                     ) {
                         Icon(
                             Icons.Default.Delete,
                             contentDescription = "Eliminar orden",
-                            tint = if (isEntregado) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f) else MaterialTheme.colorScheme.error
+                            tint = if (isLocked) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f) else MaterialTheme.colorScheme.error
                         )
                     }
                     if (uiState.pdfGenerating) {
@@ -700,27 +667,37 @@ fun WorkOrderDetailScreen(
                         Column(modifier = Modifier.padding(16.dp)) {
                             SectionTitle("Datos del Proceso")
                             Spacer(modifier = Modifier.height(8.dp))
+
+                            // Cada campo se persiste al perder el foco v\u00eda saveDetailFields().
+                            var mileageWasFocused by remember { mutableStateOf(false) }
                             OutlinedTextField(
                                 value = uiState.detailEntryMileage,
                                 onValueChange = { viewModel.onDetailEntryMileageChange(it) },
                                 label = { Text("Kilometraje de Entrada") },
                                 singleLine = true,
-                                enabled = !isEntregado,
+                                enabled = !isLocked,
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                                modifier = Modifier.fillMaxWidth()
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .onFocusChanged { focusState ->
+                                        if (mileageWasFocused && !focusState.isFocused) {
+                                            viewModel.saveDetailFields()
+                                        }
+                                        mileageWasFocused = focusState.isFocused
+                                    }
                             )
                             Spacer(modifier = Modifier.height(8.dp))
                             var fuelExpanded by remember { mutableStateOf(false) }
                             val fuelLevels = listOf("Vac\u00edo", "1/4", "1/2", "3/4", "Lleno")
                             ExposedDropdownMenuBox(
                                 expanded = fuelExpanded,
-                                onExpandedChange = { if (!isEntregado) fuelExpanded = it }
+                                onExpandedChange = { if (!isLocked) fuelExpanded = it }
                             ) {
                                 OutlinedTextField(
                                     value = uiState.detailFuelLevel,
                                     onValueChange = {},
                                     readOnly = true,
-                                    enabled = !isEntregado,
+                                    enabled = !isLocked,
                                     label = { Text("Nivel de Combustible") },
                                     trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = fuelExpanded) },
                                     modifier = Modifier
@@ -743,42 +720,60 @@ fun WorkOrderDetailScreen(
                                 }
                             }
                             Spacer(modifier = Modifier.height(8.dp))
+                            var deliveryWasFocused by remember { mutableStateOf(false) }
                             OutlinedTextField(
                                 value = uiState.detailDeliveryNote,
-                                onValueChange = { viewModel.onDetailDeliveryNoteChange(it) },
+                                onValueChange = { viewModel.onDetailDeliveryNoteChange(it.uppercase()) },
                                 label = { Text("Nota de Entrega") },
                                 singleLine = true,
-                                enabled = !isEntregado,
-                                modifier = Modifier.fillMaxWidth()
+                                enabled = !isLocked,
+                                keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Characters),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .onFocusChanged { focusState ->
+                                        if (deliveryWasFocused && !focusState.isFocused) {
+                                            viewModel.saveDetailFields()
+                                        }
+                                        deliveryWasFocused = focusState.isFocused
+                                    }
                             )
                             Spacer(modifier = Modifier.height(8.dp))
+                            var invoiceWasFocused by remember { mutableStateOf(false) }
                             OutlinedTextField(
                                 value = uiState.detailInvoiceNumber,
-                                onValueChange = { viewModel.onDetailInvoiceNumberChange(it) },
+                                onValueChange = { viewModel.onDetailInvoiceNumberChange(it.uppercase()) },
                                 label = { Text("Factura") },
                                 singleLine = true,
-                                enabled = !isEntregado,
-                                modifier = Modifier.fillMaxWidth()
+                                enabled = !isLocked,
+                                keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Characters),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .onFocusChanged { focusState ->
+                                        if (invoiceWasFocused && !focusState.isFocused) {
+                                            viewModel.saveDetailFields()
+                                        }
+                                        invoiceWasFocused = focusState.isFocused
+                                    }
                             )
                             Spacer(modifier = Modifier.height(8.dp))
+                            var notesWasFocused by remember { mutableStateOf(false) }
                             OutlinedTextField(
                                 value = uiState.detailNotes,
-                                onValueChange = { viewModel.onDetailNotesChange(it) },
+                                onValueChange = { viewModel.onDetailNotesChange(it.uppercase()) },
                                 label = { Text("Notas") },
-                                enabled = !isEntregado,
+                                enabled = !isLocked,
                                 minLines = 2,
                                 maxLines = 4,
-                                modifier = Modifier.fillMaxWidth()
+                                keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Characters),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .onFocusChanged { focusState ->
+                                        if (notesWasFocused && !focusState.isFocused) {
+                                            viewModel.saveDetailFields()
+                                        }
+                                        notesWasFocused = focusState.isFocused
+                                    }
                             )
-                            if (uiState.detailFieldsChanged) {
-                                Spacer(modifier = Modifier.height(12.dp))
-                                Button(
-                                    onClick = { viewModel.saveDetailFields() },
-                                    modifier = Modifier.fillMaxWidth()
-                                ) {
-                                    Text("Guardar Datos del Proceso")
-                                }
-                            }
                         }
                     }
                 }
@@ -824,7 +819,7 @@ fun WorkOrderDetailScreen(
                                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                             IconButton(
                                                 onClick = { launchDetailCamera() },
-                                                enabled = !isEntregado
+                                                enabled = !isLocked
                                             ) {
                                                 Icon(
                                                     Icons.Default.AddAPhoto,
@@ -835,7 +830,7 @@ fun WorkOrderDetailScreen(
                                             }
                                             IconButton(
                                                 onClick = { detailGalleryLauncher.launch("image/*") },
-                                                enabled = !isEntregado
+                                                enabled = !isLocked
                                             ) {
                                                 Icon(
                                                     Icons.Default.Image,
@@ -863,7 +858,7 @@ fun WorkOrderDetailScreen(
                                 SectionTitle("Archivos Adjuntos (${uiState.detailFilePaths.size})", modifier = Modifier.weight(1f))
                                 IconButton(
                                     onClick = { detailFileLauncher.launch(arrayOf("*/*")) },
-                                    enabled = !isEntregado
+                                    enabled = !isLocked
                                 ) {
                                     Icon(Icons.Default.AttachFile, contentDescription = "Adjuntar archivo")
                                 }
@@ -927,7 +922,7 @@ fun WorkOrderDetailScreen(
                                             tint = MaterialTheme.colorScheme.primary
                                         )
                                     }
-                                    if (!isEntregado) IconButton(
+                                    if (!isLocked) IconButton(
                                         onClick = { viewModel.removeDetailFile(index) },
                                         modifier = Modifier.size(32.dp)
                                     ) {
@@ -953,7 +948,7 @@ fun WorkOrderDetailScreen(
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 SectionTitle("Mec\u00e1nicos", modifier = Modifier.weight(1f))
-                                if (!isEntregado && isAdmin) {
+                                if (!isLocked && isAdmin) {
                                     IconButton(onClick = { showMechanicDialog = true }) {
                                         Icon(Icons.Default.Add, contentDescription = "Agregar mec\u00e1nico")
                                     }
@@ -1016,7 +1011,7 @@ fun WorkOrderDetailScreen(
                                                 modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
                                             )
                                         }
-                                        if (!isEntregado && isAdmin) {
+                                        if (!isLocked && isAdmin) {
                                             IconButton(onClick = { viewModel.removeMechanicFromOrder(wm) }) {
                                                 Icon(
                                                     Icons.Default.Close,
@@ -1047,7 +1042,7 @@ fun WorkOrderDetailScreen(
                                         viewModel.cancelEditServiceLine()
                                         showServiceLineDialog = true
                                     },
-                                    enabled = !isEntregado
+                                    enabled = !isLocked
                                 ) {
                                     Icon(Icons.Default.Add, contentDescription = "Agregar servicio")
                                 }
@@ -1117,22 +1112,22 @@ fun WorkOrderDetailScreen(
                                     viewModel.startEditServiceLine(serviceLine)
                                     showServiceLineDialog = true
                                 },
-                                enabled = !isEntregado
+                                enabled = !isLocked
                             ) {
                                 Icon(
                                     Icons.Default.Edit,
                                     contentDescription = "Editar",
-                                    tint = if (isEntregado) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f) else MaterialTheme.colorScheme.primary
+                                    tint = if (isLocked) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f) else MaterialTheme.colorScheme.primary
                                 )
                             }
                             IconButton(
                                 onClick = { showDeleteServiceLineDialog = serviceLine.id },
-                                enabled = !isEntregado
+                                enabled = !isLocked
                             ) {
                                 Icon(
                                     Icons.Default.Delete,
                                     contentDescription = "Eliminar",
-                                    tint = if (isEntregado) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f) else MaterialTheme.colorScheme.error
+                                    tint = if (isLocked) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f) else MaterialTheme.colorScheme.error
                                 )
                             }
                         }
@@ -1150,7 +1145,7 @@ fun WorkOrderDetailScreen(
                                 SectionTitle("Repuestos Utilizados", modifier = Modifier.weight(1f))
                                 IconButton(
                                     onClick = { showPartDialog = true },
-                                    enabled = !isEntregado
+                                    enabled = !isLocked
                                 ) {
                                     Icon(Icons.Default.Add, contentDescription = "Agregar repuesto")
                                 }
@@ -1221,22 +1216,22 @@ fun WorkOrderDetailScreen(
                                     viewModel.startEditPart(orderPart)
                                     showPartDialog = true
                                 },
-                                enabled = !isEntregado
+                                enabled = !isLocked
                             ) {
                                 Icon(
                                     Icons.Default.Edit,
                                     contentDescription = "Editar",
-                                    tint = if (isEntregado) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f) else MaterialTheme.colorScheme.primary
+                                    tint = if (isLocked) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f) else MaterialTheme.colorScheme.primary
                                 )
                             }
                             IconButton(
                                 onClick = { showDeletePartDialog = orderPart.id },
-                                enabled = !isEntregado
+                                enabled = !isLocked
                             ) {
                                 Icon(
                                     Icons.Default.Delete,
                                     contentDescription = "Eliminar",
-                                    tint = if (isEntregado) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f) else MaterialTheme.colorScheme.error
+                                    tint = if (isLocked) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f) else MaterialTheme.colorScheme.error
                                 )
                             }
                         }
@@ -1257,7 +1252,7 @@ fun WorkOrderDetailScreen(
                                         viewModel.cancelEditExtra()
                                         showExtraDialog = true
                                     },
-                                    enabled = !isEntregado
+                                    enabled = !isLocked
                                 ) {
                                     Icon(Icons.Default.Add, contentDescription = "Agregar extra")
                                 }
@@ -1332,22 +1327,22 @@ fun WorkOrderDetailScreen(
                                     viewModel.startEditExtra(extra)
                                     showExtraDialog = true
                                 },
-                                enabled = !isEntregado
+                                enabled = !isLocked
                             ) {
                                 Icon(
                                     Icons.Default.Edit,
                                     contentDescription = "Editar",
-                                    tint = if (isEntregado) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f) else MaterialTheme.colorScheme.primary
+                                    tint = if (isLocked) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f) else MaterialTheme.colorScheme.primary
                                 )
                             }
                             IconButton(
                                 onClick = { showDeleteExtraDialog = extra.id },
-                                enabled = !isEntregado
+                                enabled = !isLocked
                             ) {
                                 Icon(
                                     Icons.Default.Delete,
                                     contentDescription = "Eliminar",
-                                    tint = if (isEntregado) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f) else MaterialTheme.colorScheme.error
+                                    tint = if (isLocked) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f) else MaterialTheme.colorScheme.error
                                 )
                             }
                         }
@@ -1384,6 +1379,37 @@ fun WorkOrderDetailScreen(
                                     style = MaterialTheme.typography.titleMedium,
                                     fontWeight = FontWeight.Bold,
                                     color = MaterialTheme.colorScheme.primary
+                                )
+                            }
+
+                            val totalPaidSummary = uiState.payments.sumOf { it.amount }
+                            val totalDiscountsSummary = uiState.payments.sumOf { it.discount }
+                            val balanceSummary = (order.total - totalPaidSummary - totalDiscountsSummary).coerceAtLeast(0.0)
+                            val balanceColor = when {
+                                order.total <= 0.0 -> MaterialTheme.colorScheme.onSurfaceVariant
+                                balanceSummary <= 0.01 -> StatusListo
+                                totalPaidSummary > 0.0 || totalDiscountsSummary > 0.0 -> Amber40
+                                else -> BrakeRed40
+                            }
+                            Spacer(modifier = Modifier.height(4.dp))
+                            InfoRow(label = "Pagado", value = String.format("$%.2f", totalPaidSummary))
+                            if (totalDiscountsSummary > 0.0) {
+                                InfoRow(label = "Descuentos", value = String.format("$%.2f", totalDiscountsSummary))
+                            }
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text(
+                                    text = "SALDO",
+                                    style = MaterialTheme.typography.titleSmall,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                                Text(
+                                    text = String.format("$%.2f", balanceSummary),
+                                    style = MaterialTheme.typography.titleSmall,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = balanceColor
                                 )
                             }
                         }
@@ -1479,67 +1505,8 @@ fun WorkOrderDetailScreen(
                     }
                 }
 
-                // Status Log
-                item {
-                    Card(modifier = Modifier.fillMaxWidth()) {
-                        Column(modifier = Modifier.padding(16.dp)) {
-                            SectionTitle("Historial de Estados")
-
-                            if (uiState.statusLog.isEmpty()) {
-                                Text(
-                                    text = "Sin historial",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                        }
-                    }
-                }
-
-                items(uiState.statusLog, key = { "log_${it.id}" }) { logEntry ->
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
-                        )
-                    ) {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(12.dp)
-                        ) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                logEntry.oldStatus?.let { old ->
-                                    Text(
-                                        text = "${old.displayName}  >>  ",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                }
-                                Text(
-                                    text = logEntry.newStatus.displayName,
-                                    style = MaterialTheme.typography.bodySmall,
-                                    fontWeight = FontWeight.SemiBold
-                                )
-                            }
-                            Text(
-                                text = dateFormat.format(Date(logEntry.changedAt)),
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                            logEntry.note?.let { note ->
-                                Text(
-                                    text = note,
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                        }
-                    }
-                }
+                // El historial de cambios de estado se sigue registrando en BD
+                // (work_order_status_log) pero ya no se presenta en la UI.
 
                 item { Spacer(modifier = Modifier.height(16.dp)) }
             }
@@ -2121,11 +2088,11 @@ private fun ExtraDialog(
                 OutlinedTextField(
                     value = description,
                     onValueChange = {
-                        onDescriptionChange(it)
+                        onDescriptionChange(it.uppercase())
                         descriptionError = null
                     },
                     label = { Text("Descripción *") },
-                    keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
+                    keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Characters),
                     singleLine = true,
                     isError = descriptionError != null,
                     supportingText = if (descriptionError != null) {
@@ -2318,8 +2285,9 @@ private fun PaymentDialog(
                 Spacer(modifier = Modifier.height(8.dp))
                 OutlinedTextField(
                     value = notes,
-                    onValueChange = onNotesChange,
+                    onValueChange = { onNotesChange(it.uppercase()) },
                     label = { Text("Notas") },
+                    keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Characters),
                     modifier = Modifier.fillMaxWidth()
                 )
             }

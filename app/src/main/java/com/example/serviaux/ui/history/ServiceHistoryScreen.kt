@@ -261,7 +261,7 @@ private fun OrderHistoryCard(
         OrderStatus.EN_ESPERA_REPUESTO -> StatusEsperaRepuesto
         OrderStatus.LISTO -> StatusListo
         OrderStatus.ENTREGADO -> StatusEntregado
-        OrderStatus.CANCELADO -> Color.Gray
+        OrderStatus.CERRADO -> Color.Gray
     }
 
     Card(

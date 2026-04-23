@@ -133,6 +133,8 @@ class WorkOrderRepository(
     fun getPayments(workOrderId: Long): Flow<List<WorkOrderPayment>> = workOrderPaymentDao.getByWorkOrder(workOrderId)
     suspend fun getPaymentsDirect(workOrderId: Long): List<WorkOrderPayment> = workOrderPaymentDao.getByWorkOrderDirect(workOrderId)
     fun getTotalPayments(workOrderId: Long): Flow<Double> = workOrderPaymentDao.getTotalPayments(workOrderId)
+    fun getAllPaymentSummaries(): Flow<List<com.example.serviaux.data.dao.WorkOrderPaymentSummary>> =
+        workOrderPaymentDao.getAllPaymentSummaries()
 
     suspend fun addPayment(payment: WorkOrderPayment): Long = workOrderPaymentDao.insert(payment)
 

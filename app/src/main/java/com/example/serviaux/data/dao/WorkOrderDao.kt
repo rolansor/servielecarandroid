@@ -57,8 +57,8 @@ interface WorkOrderDao {
     @Query("SELECT * FROM work_orders WHERE status = :status AND createdAt BETWEEN :from AND :to ORDER BY createdAt DESC")
     fun getByStatusAndDateRange(status: OrderStatus, from: Long, to: Long): Flow<List<WorkOrder>>
 
-    /** Suma total facturada en un rango de fechas, excluyendo órdenes canceladas; usado en reportes. */
-    @Query("SELECT COALESCE(SUM(total), 0.0) FROM work_orders WHERE createdAt BETWEEN :from AND :to AND status != 'CANCELADO'")
+    /** Suma total facturada en un rango de fechas; usado en reportes. */
+    @Query("SELECT COALESCE(SUM(total), 0.0) FROM work_orders WHERE createdAt BETWEEN :from AND :to")
     fun getTotalByDateRange(from: Long, to: Long): Flow<Double>
 
     @Query("SELECT * FROM work_orders")

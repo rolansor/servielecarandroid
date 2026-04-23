@@ -62,7 +62,7 @@ class UserViewModel(application: Application) : AndroidViewModel(application) {
 
     fun onFormNameChange(value: String) {
         if (value.length <= 80) {
-            _uiState.update { it.copy(formName = value, formNameError = null) }
+            _uiState.update { it.copy(formName = value.uppercase(), formNameError = null) }
         }
     }
 

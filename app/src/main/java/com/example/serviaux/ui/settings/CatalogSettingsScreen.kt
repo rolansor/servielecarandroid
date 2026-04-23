@@ -28,6 +28,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
@@ -878,6 +879,7 @@ private fun TextInputDialog(
                 onValueChange = onValueChange,
                 label = { Text(label) },
                 singleLine = true,
+                keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Characters),
                 modifier = Modifier.fillMaxWidth()
             )
         },
@@ -923,6 +925,7 @@ private fun ServiceInputDialog(
                     onValueChange = onCategoryChange,
                     label = { Text("Categor\u00eda") },
                     singleLine = true,
+                    keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Characters),
                     modifier = Modifier.fillMaxWidth()
                 )
                 // Show existing categories as quick chips
@@ -950,6 +953,7 @@ private fun ServiceInputDialog(
                     onValueChange = onNameChange,
                     label = { Text("Nombre del servicio") },
                     singleLine = true,
+                    keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Characters),
                     modifier = Modifier.fillMaxWidth()
                 )
                 OutlinedTextField(

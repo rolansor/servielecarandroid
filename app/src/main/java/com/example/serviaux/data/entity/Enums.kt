@@ -27,7 +27,8 @@ enum class UserRole(val displayName: String) {
  * Flujo principal:
  * RECIBIDO -> EN_DIAGNOSTICO -> EN_PROCESO -> LISTO -> ENTREGADO.
  * [EN_ESPERA_REPUESTO] es un estado intermedio cuando faltan piezas.
- * [CANCELADO] puede ocurrir desde cualquier estado previo a la entrega.
+ * [CERRADO] bloquea cualquier modificación de la orden (uso administrativo
+ * para archivar órdenes finalizadas).
  */
 enum class OrderStatus(val displayName: String) {
     RECIBIDO("Recibido"),
@@ -36,7 +37,7 @@ enum class OrderStatus(val displayName: String) {
     EN_ESPERA_REPUESTO("En Espera de Repuesto"),
     LISTO("Listo"),
     ENTREGADO("Entregado"),
-    CANCELADO("Cancelado")
+    CERRADO("Cerrado")
 }
 
 /** Nivel de prioridad asignado a una orden de trabajo. */
