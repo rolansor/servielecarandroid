@@ -1182,6 +1182,17 @@ class BackupRepository(private val database: ServiauxDatabase) {
         }
     }
 
+    /**
+     * Convierte el nombre serializado de un OrderStatus a su valor de enum.
+     * Mapea "CANCELADO" (estado retirado en v2) a CERRADO para que respaldos
+     * antiguos puedan restaurarse sin romper. Para cualquier otro valor desconocido
+     * cae a RECIBIDO como fallback seguro.
+     */
+    private fun parseOrderStatus(name: String): OrderStatus = when (name) {
+        "CANCELADO" -> OrderStatus.CERRADO
+        else -> try { OrderStatus.valueOf(name) } catch (_: Exception) { OrderStatus.RECIBIDO }
+    }
+
     private fun jsonToWorkOrders(json: String): List<WorkOrder> {
         val arr = JSONArray(json)
         return (0 until arr.length()).map { i ->
@@ -1192,7 +1203,7 @@ class BackupRepository(private val database: ServiauxDatabase) {
                 customerId = o.getLong("customerId"),
                 entryDate = o.optLong("entryDate", System.currentTimeMillis()),
                 admissionDate = if (o.has("admissionDate") && !o.isNull("admissionDate")) o.getLong("admissionDate") else null,
-                status = OrderStatus.valueOf(o.getString("status")),
+                status = parseOrderStatus(o.getString("status")),
                 priority = Priority.valueOf(o.getString("priority")),
                 orderType = try { OrderType.valueOf(o.getString("orderType")) } catch (_: Exception) { OrderType.SERVICIO_NUEVO },
                 customerComplaint = o.getString("customerComplaint"),
@@ -1279,8 +1290,8 @@ class BackupRepository(private val database: ServiauxDatabase) {
             WorkOrderStatusLog(
                 id = o.getLong("id"),
                 workOrderId = o.getLong("workOrderId"),
-                oldStatus = o.optStringOrNull("oldStatus")?.let { OrderStatus.valueOf(it) },
-                newStatus = OrderStatus.valueOf(o.getString("newStatus")),
+                oldStatus = o.optStringOrNull("oldStatus")?.let { parseOrderStatus(it) },
+                newStatus = parseOrderStatus(o.getString("newStatus")),
                 changedByUserId = o.getLong("changedByUserId"),
                 changedAt = o.optLong("changedAt", System.currentTimeMillis()),
                 note = o.optStringOrNull("note")

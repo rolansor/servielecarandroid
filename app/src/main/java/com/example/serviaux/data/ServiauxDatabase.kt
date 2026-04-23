@@ -142,6 +142,20 @@ abstract class ServiauxDatabase : RoomDatabase() {
     private class SeedCallback(private val context: Context) : RoomDatabase.Callback() {
         override fun onCreate(db: SupportSQLiteDatabase) {
             super.onCreate(db)
+            seed(db)
+        }
+
+        /**
+         * Cuando se sube la versión del schema, Room dropea y recrea las tablas con
+         * fallbackToDestructiveMigration; onCreate NO vuelve a dispararse, así que
+         * hay que volver a sembrar aquí para no quedarnos sin admin ni catálogos.
+         */
+        override fun onDestructiveMigration(db: SupportSQLiteDatabase) {
+            super.onDestructiveMigration(db)
+            seed(db)
+        }
+
+        private fun seed(db: SupportSQLiteDatabase) {
             try {
                 executeSqlFile(context, db, "seed/seed_data.sql")
                 context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
