@@ -1,0 +1,1127 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet data-dc-atomics=""><meta name="design_doc_mode" content="canvas"><link rel="stylesheet" href="_ds/organic-d9d06648-2ae9-484f-a7d7-03355e10f2fd/styles.css"><script src="_ds/organic-d9d06648-2ae9-484f-a7d7-03355e10f2fd/_ds_bundle.js"></script><style>
+:root{
+--color-bg:#f1eff7;--color-surface:#e4e2f0;--color-text:#1e1c26;--color-divider:rgba(30,28,38,.14);
+--color-accent:#5a5bd6;--color-accent-100:#eeeeff;--color-accent-200:#dcdcfb;--color-accent-300:#c3c3f5;--color-accent-400:#a0a1ec;--color-accent-500:#7c7ee0;--color-accent-600:#6062cc;--color-accent-700:#4a4bab;--color-accent-800:#363688;--color-accent-900:#262560;
+--color-accent-2-100:#e3f6f2;--color-accent-2-200:#cbeae4;--color-accent-2-300:#a9d8cf;--color-accent-2-400:#7fbeb3;--color-accent-2-500:#5da296;--color-accent-2-600:#47857a;--color-accent-2-700:#35655d;--color-accent-2-800:#244841;--color-accent-2-900:#17302b;
+--color-neutral-100:#f7f6fb;--color-neutral-200:#ecebf3;--color-neutral-300:#d9d7e4;--color-neutral-400:#bab7c8;--color-neutral-500:#9b98ab;--color-neutral-600:#7d7a8d;--color-neutral-700:#605d6f;--color-neutral-800:#43414f;--color-neutral-900:#2b2934;
+}
+body{margin:0;background:var(--color-neutral-200)}
+a{color:var(--color-accent-700)}a:hover{color:var(--color-accent-800)}
+.fl{padding:40px 44px 34px;border-bottom:1px solid var(--color-divider);scroll-margin-top:16px}
+.flh{display:flex;align-items:baseline;gap:10px;margin:0 0 6px}
+.flid{font:600 10px ui-monospace,Menlo,monospace;padding:3px 8px;background:var(--color-neutral-900);color:var(--color-neutral-100);border-radius:999px;text-decoration:none}
+.flname{font:600 13px/1.2 var(--font-body);color:var(--color-text)}
+.flsub{margin:0 0 20px;font:12.5px/1.5 var(--font-body);color:var(--color-neutral-700);max-width:720px}
+.row{display:flex;flex-wrap:wrap;gap:30px;align-items:flex-start}
+.scr{flex:none;display:flex;flex-direction:column;gap:9px;scroll-margin-top:16px}
+.sid{font:600 10.5px ui-monospace,Menlo,monospace;padding:3px 7px;background:var(--color-neutral-300);color:var(--color-neutral-900);border-radius:999px;text-decoration:none}
+.slab{display:flex;align-items:baseline;gap:8px;font:400 12px/1.35 var(--font-body);color:var(--color-neutral-700);max-width:390px}
+.scr:target .sid{background:var(--color-accent-700);color:var(--color-neutral-100)}
+.ph{width:390px;height:812px;background:var(--color-bg);border-radius:40px;overflow:hidden;position:relative;box-shadow:var(--shadow-lg);display:flex;flex-direction:column}
+.sb{display:flex;justify-content:space-between;align-items:center;height:42px;padding:0 24px;font:600 12px var(--font-body);color:var(--color-neutral-700);flex:none}
+.bd{flex:1;overflow:hidden;display:flex;flex-direction:column}
+.bn{flex:none;display:flex;padding:8px 6px 18px;background:var(--color-surface);border-top:1px solid var(--color-divider)}
+.bni{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;font:600 10.5px var(--font-body);color:var(--color-neutral-600);min-height:44px;justify-content:center}
+.bnd{width:22px;height:22px;border-radius:999px;background:var(--color-neutral-300)}
+.hdr{padding:2px 20px 8px;flex:none;display:flex;align-items:center;gap:12px}
+.plate{font-family:var(--font-heading);font-size:20px;letter-spacing:.02em}
+.sec{background:var(--color-surface);border-radius:32px;padding:16px 18px;display:flex;flex-direction:column;gap:10px}
+.seck{font-size:12px;letter-spacing:.06em;color:var(--color-neutral-700)}
+.fill{background:var(--color-accent-700);color:var(--color-neutral-100)}
+.fill2{background:var(--color-accent-2-700);color:var(--color-neutral-100)}
+.wait{background:var(--color-accent-100);color:var(--color-accent-800);border:1px dashed var(--color-accent-600)}
+.pill{display:inline-flex;align-items:center;gap:7px;border-radius:999px;padding:10px 16px;font:600 13.5px var(--font-body);min-height:42px}
+</style></helmet>
+
+<section class="fl" id="sistema">
+<div class="flh"><a class="flid" href="#sistema">sistema</a><span class="flname">Índigo — las reglas que ya no cambian</span></div>
+<p class="flsub">Se retiró la terracota. La app queda en índigo sobre lila muy claro, con verde-agua como segunda voz. Identidad propia: se apaga el color dinámico de Android. Teléfono vertical, cuerpo mínimo 14px, toques ≥44px. Un solo patrón de tarjeta, un solo chip de estado.</p>
+<div style="display:flex;gap:24px;flex-wrap:wrap;max-width:1300px">
+<div class="card elev-sm" style="width:400px">
+<span class="card-kicker">Estados de orden</span>
+<div style="display:flex;flex-wrap:wrap;gap:6px;margin:2px 0 8px">
+<span class="tag tag-neutral">Recibido</span>
+<span class="tag" style="background:var(--color-accent-200);color:var(--color-accent-800)">En diagnóstico</span>
+<span class="tag fill">En proceso</span>
+<span class="tag wait">Espera repuesto</span>
+<span class="tag fill2">Listo</span>
+<span class="tag" style="background:var(--color-accent-2-200);color:var(--color-accent-2-800)">Entregado</span>
+<span class="tag" style="background:var(--color-neutral-300);color:var(--color-neutral-800)">Cerrado</span>
+</div>
+<p class="card-body" style="font-size:13.5px;margin:0">Índigo sólido = está pasando ahora. Verde-agua = terminado. Punteado = esperando algo de fuera. Neutro = inerte. Los rellenos siempre son el paso 700 de la rampa con texto claro; nunca el 500.</p>
+</div>
+<div class="card elev-sm" style="width:400px">
+<span class="card-kicker">Dinero</span>
+<div style="display:flex;flex-direction:column;gap:6px;margin-bottom:6px;font-size:14px">
+<div><span style="color:var(--color-accent-2-800);font-weight:700">$0,00</span> saldo — saldado</div>
+<div><span style="color:var(--color-accent-800);font-weight:700">$3.450,00</span> saldo — abonado o sin pagos</div>
+</div>
+<p class="card-body" style="font-size:13.5px;margin:0">Moneda siempre con separador de miles y dos decimales: <strong>$3.450,00</strong>. El saldo es el único número que se pinta de color.</p>
+</div>
+<div class="card elev-sm" style="width:400px">
+<span class="card-kicker">Navegación</span>
+<p class="card-body" style="font-size:13.5px">Cinco destinos fijos abajo: <strong>Taller · Órdenes · Autos · Refacciones · Más</strong>. El resto (comisiones, reportes, catálogos, respaldos, usuarios) vive dentro de Más y solo lo ve el administrador.</p>
+<p class="card-body" style="font-size:13.5px;margin:0">Adiós al dashboard de 20 módulos: la pantalla de inicio es el taller mismo.</p>
+</div>
+</div>
+</section>
+
+<section class="fl" id="f1">
+<div class="flh"><a class="flid" href="#f1">flujo 1</a><span class="flname">Entrar y ver el taller</span></div>
+<p class="flsub">El teléfono es compartido: entrar debe costar un toque. Al abrir, nadie ve métricas: ve los autos que tiene dentro.</p>
+<div class="row">
+
+<div class="scr" id="s1">
+<div class="slab"><a class="sid" href="#s1">1</a>Login. Huella primero, usuario y contraseña como respaldo.</div>
+<div class="ph">
+<div class="sb"><span>9:41</span><span></span></div>
+<div class="bd" style="padding:0 28px;justify-content:center;gap:16px">
+
+<div style="width: 96px; height: 96px; border-radius: 999px; background: var(--color-accent-700); display: grid; place-items: center; margin-bottom: 6px; justify-content: center; align-items: center; position: static; align-self: center">
+<span style="font-family:var(--font-heading);font-size:34px;color:var(--color-neutral-100)">S</span>
+</div><div>
+<h3 style="margin: 0; font-size: 30px; position: static; text-align: center">Servielecar</h3>
+<div style="font-size: 14px; color: var(--color-neutral-700); text-align: center">Control de taller · Serviaux</div>
+</div>
+<div style="display:flex;flex-direction:column;gap:10px;margin-top:8px">
+<div class="pill fill" style="justify-content:center;min-height:54px;font-size:15.5px">
+<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--color-neutral-100)" stroke-width="2.75" stroke-linecap="round"><path d="M12 10a2 2 0 0 0-2 2v3M12 6a6 6 0 0 0-6 6v4M12 2a10 10 0 0 0-10 10v5M22 12a10 10 0 0 0-6-9M18 12v6"></path></svg>
+Entrar con huella
+</div>
+<div style="text-align:center;font-size:13px;color:var(--color-neutral-700);padding:2px 0">o con tu usuario</div>
+<div class="field"><label>Usuario</label><div class="input" style="min-height:46px;display:flex;align-items:center;font-size:15px">recepcion</div></div>
+<div class="field"><label>Contraseña</label><div class="input" style="min-height:46px;display:flex;align-items:center;justify-content:space-between;font-size:15px"><span>••••••••</span>
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--color-neutral-600)" stroke-width="2.75" stroke-linecap="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"></path><circle cx="12" cy="12" r="3"></circle></svg></div></div>
+<div class="btn btn-secondary btn-block" style="min-height:48px;font-size:15px">Iniciar sesión</div>
+</div>
+</div>
+</div>
+</div>
+
+<div class="scr" id="s2">
+<div class="slab"><a class="sid" href="#s2">2</a>Inicio — el taller hoy. Carriles por estado; el siguiente paso es un botón en la tarjeta, nunca se arrastra.</div>
+<div class="ph">
+<div class="sb"><span>9:41</span><span>Servielecar</span></div>
+<div class="bd">
+<div style="padding:4px 20px 10px;flex:none;display:flex;align-items:flex-end;gap:10px">
+<div>
+<h3 style="margin:0;font-size:26px">El taller hoy</h3>
+<div style="font-size:13.5px;color:var(--color-neutral-700)">miércoles 29 jul · 9 autos dentro</div>
+</div>
+<div style="margin-left:auto;width:40px;height:40px;border-radius:999px;display:grid;place-items:center;font:600 13px var(--font-body)" class="fill2">JS</div>
+</div>
+<div style="flex:1;overflow:hidden;display:flex;gap:12px;padding:6px 0 0 20px">
+<div style="flex:none;width:252px;display:flex;flex-direction:column;gap:10px">
+<div style="display:flex;align-items:center;gap:8px">
+<span class="tag fill">En proceso</span><span style="font-family:var(--font-heading);font-size:18px">3</span>
+</div>
+<div class="card elev-sm" style="padding:14px;gap:8px">
+<span class="plate">PBC-4218</span>
+<div style="font-size:14px;font-weight:600">Nissan Versa 2019</div>
+<div style="font-size:13.5px;color:var(--color-neutral-700)">Frenos · Jorge S. · desde ayer</div>
+<div style="display:flex;align-items:center;gap:8px;margin-top:2px">
+<div class="pill fill2" style="padding:9px 14px;font-size:13px;min-height:40px">Pasar a Listo
+<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--color-neutral-100)" stroke-width="2.75" stroke-linecap="round"><path d="M5 12h14m-7-7 7 7-7 7"></path></svg></div>
+<div style="margin-left:auto;width:40px;height:40px;border-radius:999px;border:1px solid var(--color-divider);display:grid;place-items:center">
+<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="var(--color-neutral-700)" stroke-width="2.75" stroke-linecap="round"><circle cx="12" cy="5" r="1"></circle><circle cx="12" cy="12" r="1"></circle><circle cx="12" cy="19" r="1"></circle></svg>
+</div>
+</div>
+</div>
+<div class="card elev-sm" style="padding:14px;gap:8px">
+<span class="plate">PCJ-8804</span>
+<div style="font-size:14px;font-weight:600">Chevrolet Aveo 2016</div>
+<div style="font-size:13.5px;color:var(--color-neutral-700)">Servicio 40 mil · María F. · hoy 8:05</div>
+<div style="display:flex;align-items:center;gap:8px;margin-top:2px">
+<div class="pill fill2" style="padding:9px 14px;font-size:13px;min-height:40px">Pasar a Listo
+<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--color-neutral-100)" stroke-width="2.75" stroke-linecap="round"><path d="M5 12h14m-7-7 7 7-7 7"></path></svg></div>
+</div>
+</div>
+</div>
+<div style="flex:none;width:252px;display:flex;flex-direction:column;gap:10px">
+<div style="display:flex;align-items:center;gap:8px">
+<span class="tag wait">Espera repuesto</span><span style="font-family:var(--font-heading);font-size:18px">2</span>
+</div>
+<div class="card elev-sm" style="padding:14px;gap:8px">
+<span class="plate">GSD-1577</span>
+<div style="font-size:14px;font-weight:600">VW Jetta 2014</div>
+<div style="font-size:13.5px;color:var(--color-neutral-700)">Bomba de gasolina · 4 días parado</div>
+<div class="pill fill" style="padding:9px 14px;font-size:13px;min-height:40px;margin-top:2px">Llegó el repuesto</div>
+</div>
+</div>
+</div>
+<div style="flex:none;display:flex;align-items:center;gap:8px;padding:12px 20px 4px">
+<div style="display:flex;gap:5px">
+<div style="width:22px;height:5px;border-radius:999px;background:var(--color-accent-700)"></div>
+<div style="width:5px;height:5px;border-radius:999px;background:var(--color-neutral-400)"></div>
+<div style="width:5px;height:5px;border-radius:999px;background:var(--color-neutral-400)"></div>
+<div style="width:5px;height:5px;border-radius:999px;background:var(--color-neutral-400)"></div>
+<div style="width:5px;height:5px;border-radius:999px;background:var(--color-neutral-400)"></div>
+</div>
+<span style="margin-left:auto;font-size:12.5px;color:var(--color-neutral-700)">Recibido · Diagnóstico · Proceso · Espera · Listo</span>
+</div>
+</div>
+<div style="position:absolute;right:20px;bottom:96px;width:58px;height:58px;border-radius:999px;background:var(--color-accent-700);box-shadow:var(--shadow-md);display:grid;place-items:center">
+<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="var(--color-neutral-100)" stroke-width="2.75" stroke-linecap="round"><path d="M5 12h14M12 5v14"></path></svg>
+</div>
+<div class="bn">
+<div class="bni" style="color:var(--color-accent-700)"><div class="bnd" style="background:var(--color-accent-300)"></div>Taller</div>
+<div class="bni"><div class="bnd"></div>Órdenes</div>
+<div class="bni"><div class="bnd"></div>Autos</div>
+<div class="bni"><div class="bnd"></div>Refacciones</div>
+<div class="bni"><div class="bnd"></div>Más</div>
+</div>
+</div>
+</div>
+
+<div class="scr" id="s3">
+<div class="slab"><a class="sid" href="#s3">3</a>Más. Todo lo administrativo en un solo lugar, con el pendiente a la vista. El mecánico no ve esta lista.</div>
+<div class="ph">
+<div class="sb"><span>9:41</span><span>Más</span></div>
+<div class="bd">
+<div style="padding:4px 20px 12px;flex:none;display:flex;align-items:center;gap:12px">
+<div style="width:48px;height:48px;border-radius:999px;display:grid;place-items:center;font:600 15px var(--font-body)" class="fill">JS</div>
+<div>
+<h3 style="margin:0;font-size:22px">Jorge Salazar</h3>
+<div style="font-size:13px;color:var(--color-neutral-700)">Administrador</div>
+</div>
+</div>
+<div style="flex:1;overflow:hidden;padding:0 20px;display:flex;flex-direction:column;gap:10px">
+<div class="sec" style="gap:2px;padding:6px 6px">
+<div style="display:flex;align-items:center;gap:12px;padding:14px;min-height:52px">
+<div style="flex:1;font-size:15.5px;font-weight:600">Comisiones</div>
+<span class="tag fill">2 por pagar · $1.840</span>
+</div>
+<div style="height:1px;background:var(--color-divider);margin:0 14px"></div>
+<div style="display:flex;align-items:center;gap:12px;padding:14px;min-height:52px">
+<div style="flex:1;font-size:15.5px">Reportes del mes</div>
+<span style="font-size:13.5px;color:var(--color-neutral-700)">$84.320 facturado</span>
+</div>
+<div style="height:1px;background:var(--color-divider);margin:0 14px"></div>
+<div style="display:flex;align-items:center;gap:12px;padding:14px;min-height:52px">
+<div style="flex:1;font-size:15.5px">Catálogos</div>
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--color-neutral-500)" stroke-width="2.75" stroke-linecap="round"><path d="m9 18 6-6-6-6"></path></svg>
+</div>
+<div style="height:1px;background:var(--color-divider);margin:0 14px"></div>
+<div style="display:flex;align-items:center;gap:12px;padding:14px;min-height:52px">
+<div style="flex:1;font-size:15.5px">Usuarios del taller</div>
+<span style="font-size:13.5px;color:var(--color-neutral-700)">3</span>
+</div>
+</div>
+<div class="sec" style="gap:8px">
+<div class="seck">RESPALDO</div>
+<div style="display:flex;align-items:center;gap:10px">
+<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--color-accent-2-700)" stroke-width="2.75" stroke-linecap="round"><path d="M20 6 9 17l-5-5"></path></svg>
+<div style="flex:1;font-size:14px">Al día · ayer 20:14 en Dropbox</div>
+</div>
+<div class="btn btn-secondary" style="min-height:44px;font-size:14.5px">Respaldar ahora</div>
+</div>
+<div style="padding:4px 6px;font-size:13.5px;color:var(--color-accent-800);font-weight:600">Cerrar sesión</div>
+</div>
+</div>
+<div class="bn">
+<div class="bni"><div class="bnd"></div>Taller</div>
+<div class="bni"><div class="bnd"></div>Órdenes</div>
+<div class="bni"><div class="bnd"></div>Autos</div>
+<div class="bni"><div class="bnd"></div>Refacciones</div>
+<div class="bni" style="color:var(--color-accent-700)"><div class="bnd" style="background:var(--color-accent-300)"></div>Más</div>
+</div>
+</div>
+</div>
+
+</div>
+</section>
+
+<section class="fl" id="f2">
+<div class="flh"><a class="flid" href="#f2">flujo 2</a><span class="flname">Recepción del vehículo — la placa manda</span></div>
+<p class="flsub">Tres pasos. El primero no pide datos: los devuelve. La placa trae el auto, el dueño, su historial y las garantías vigentes.</p>
+<div class="row">
+
+<div class="scr" id="s4">
+<div class="slab"><a class="sid" href="#s4">4</a>Paso 1 — la placa contesta con toda la memoria del auto.</div>
+<div class="ph">
+<div class="sb"><span>9:41</span><span>Paso 1 de 3</span></div>
+<div class="bd">
+<div class="hdr">
+<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--color-text)" stroke-width="2.75" stroke-linecap="round"><path d="m12 19-7-7 7-7M19 12H5"></path></svg>
+<div style="flex:1;display:flex;gap:5px">
+<div style="flex:1;height:5px;border-radius:999px;background:var(--color-accent-700)"></div>
+<div style="flex:1;height:5px;border-radius:999px;background:var(--color-neutral-300)"></div>
+<div style="flex:1;height:5px;border-radius:999px;background:var(--color-neutral-300)"></div>
+</div>
+</div>
+<div style="flex:1;overflow:hidden;padding:8px 20px 0;display:flex;flex-direction:column;gap:14px">
+<h3 style="margin:0;font-size:27px">¿Qué placa entró?</h3>
+<div style="display:flex;align-items:center;gap:10px;background:var(--color-surface);border:2px solid var(--color-accent);border-radius:999px;padding:14px 20px">
+<span style="font-family:var(--font-heading);font-size:24px;letter-spacing:.06em">PBC-4218</span>
+<div style="width:2px;height:24px;background:var(--color-accent)"></div>
+</div>
+<div class="card elev-md" style="padding:18px;gap:12px;background:var(--color-accent-2-100)">
+<div style="display:flex;align-items:center;gap:8px">
+<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="var(--color-accent-2-700)" stroke-width="2.75" stroke-linecap="round"><path d="M20 6 9 17l-5-5"></path></svg>
+<span style="font-family:var(--font-heading);font-size:17px">Ya lo conocemos</span>
+</div>
+<div>
+<div style="font-size:16px;font-weight:700">Nissan Versa 2019 · gris</div>
+<div style="font-size:14px;color:var(--color-neutral-700)">Jorge Salgado · 099 184 2907 · desde 2023</div>
+</div>
+<div style="display:flex;gap:8px">
+<div style="flex:1;background:var(--color-bg);border-radius:20px;padding:10px 12px">
+<div style="font-family:var(--font-heading);font-size:20px">3</div>
+<div style="font-size:11.5px;color:var(--color-neutral-700)">servicios previos</div>
+</div>
+<div style="flex:1;background:var(--color-bg);border-radius:20px;padding:10px 12px">
+<div style="font-family:var(--font-heading);font-size:20px">21 d</div>
+<div style="font-size:11.5px;color:var(--color-neutral-700)">desde el último</div>
+</div>
+</div>
+<div style="display:flex;flex-direction:column;gap:7px">
+<div style="font-size:13.5px;color:var(--color-neutral-800)"><strong>8 jul</strong> · Pastillas delanteras · $2.980,00 <span class="tag" style="background:var(--color-accent-300);color:var(--color-accent-900);font-size:10px;padding:2px 8px">en garantía</span></div>
+<div style="font-size:13.5px;color:var(--color-neutral-700)"><strong>14 mar</strong> · Afinación mayor · $4.150,00</div>
+<div style="font-size:13.5px;color:var(--color-neutral-700)"><strong>2 nov 2025</strong> · Cambio de aceite · $890,00</div>
+</div>
+<div style="font-size:13px;color:var(--color-accent-800);font-weight:600">Aceite recomendado: 5W-30 sintético · 4.5 L</div>
+</div>
+</div>
+<div style="flex:none;padding:12px 20px 16px;display:flex;gap:10px">
+<div class="btn btn-secondary" style="min-height:48px;font-size:15px;flex:1">No es este auto</div>
+<div class="btn btn-primary fill" style="min-height:48px;font-size:15px;flex:1.3">Continuar</div>
+</div>
+</div>
+</div>
+</div>
+
+<div class="scr" id="s5">
+<div class="slab"><a class="sid" href="#s5">5</a>Paso 2 — la queja se dicta; el historial avisa si es garantía.</div>
+<div class="ph">
+<div class="sb"><span>9:41</span><span>Paso 2 de 3</span></div>
+<div class="bd">
+<div class="hdr">
+<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--color-text)" stroke-width="2.75" stroke-linecap="round"><path d="m12 19-7-7 7-7M19 12H5"></path></svg>
+<div style="flex:1;display:flex;gap:5px">
+<div style="flex:1;height:5px;border-radius:999px;background:var(--color-accent-700)"></div>
+<div style="flex:1;height:5px;border-radius:999px;background:var(--color-accent-700)"></div>
+<div style="flex:1;height:5px;border-radius:999px;background:var(--color-neutral-300)"></div>
+</div>
+</div>
+<div style="flex:1;overflow:hidden;padding:8px 20px 0;display:flex;flex-direction:column;gap:13px">
+<div>
+<h3 style="margin:0;font-size:27px">¿Por qué viene?</h3>
+<div style="font-size:13.5px;color:var(--color-neutral-700)">PBC-4218 · Nissan Versa 2019</div>
+</div>
+<div class="sec">
+<div class="seck">QUEJA DEL CLIENTE</div>
+<div style="font-size:16px;line-height:1.4">Ruido al frenar y el volante vibra pasando de 80</div>
+<div style="display:flex;gap:8px;align-items:center">
+<div class="pill fill">
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--color-neutral-100)" stroke-width="2.75" stroke-linecap="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3zM19 10v2a7 7 0 0 1-14 0v-2M12 19v3"></path></svg>
+Dictar de nuevo</div>
+<span style="font-size:12.5px;color:var(--color-neutral-700)">o toca para editar</span>
+</div>
+</div>
+<div style="display:flex;gap:10px;align-items:flex-start;border-radius:28px;padding:14px 16px" class="wait">
+<svg width="19" height="19" style="flex:none;margin-top:1px" viewBox="0 0 24 24" fill="none" stroke="var(--color-accent-700)" stroke-width="2.75" stroke-linecap="round"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3 2"></path></svg>
+<div style="font-size:13.5px"><strong>Ojo:</strong> las pastillas se cambiaron hace 21 días ($2.980,00). Si es lo mismo, va como garantía.</div>
+</div>
+<div class="field">
+<label style="font-size:12px">TIPO DE ORDEN</label>
+<div style="display:flex;flex-wrap:wrap;gap:6px">
+<span class="tag fill" style="font-size:13px;padding:8px 15px">Garantía</span>
+<span class="tag tag-neutral" style="font-size:13px;padding:8px 15px">Correctivo</span>
+<span class="tag tag-neutral" style="font-size:13px;padding:8px 15px">Preventivo</span>
+<span class="tag tag-neutral" style="font-size:13px;padding:8px 15px">Diagnóstico</span>
+</div>
+</div>
+<div style="display:flex;gap:10px">
+<div class="field" style="flex:1"><label style="font-size:12px">KILOMETRAJE</label>
+<div class="input" style="min-height:44px;display:flex;align-items:center;font-size:16px;font-weight:600">98.400 km</div></div>
+<div class="field" style="flex:1"><label style="font-size:12px">CÓMO LLEGÓ</label>
+<div class="input" style="min-height:44px;display:flex;align-items:center;font-size:15px">Rodando</div></div>
+</div>
+</div>
+<div style="flex:none;padding:12px 20px 16px">
+<div class="btn btn-primary btn-block fill" style="margin:0;min-height:50px;font-size:15.5px">Continuar a fotos</div>
+</div>
+</div>
+</div>
+</div>
+
+<div class="scr" id="s6">
+<div class="slab"><a class="sid" href="#s6">6</a>Paso 3 — evidencia, checklist, mecánico, y se abre la orden.</div>
+<div class="ph">
+<div class="sb"><span>9:41</span><span>Paso 3 de 3</span></div>
+<div class="bd">
+<div class="hdr">
+<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--color-text)" stroke-width="2.75" stroke-linecap="round"><path d="m12 19-7-7 7-7M19 12H5"></path></svg>
+<div style="flex:1;display:flex;gap:5px">
+<div style="flex:1;height:5px;border-radius:999px;background:var(--color-accent-700)"></div>
+<div style="flex:1;height:5px;border-radius:999px;background:var(--color-accent-700)"></div>
+<div style="flex:1;height:5px;border-radius:999px;background:var(--color-accent-700)"></div>
+</div>
+</div>
+<div style="flex:1;overflow:hidden;padding:8px 20px 0;display:flex;flex-direction:column;gap:14px">
+<h3 style="margin:0;font-size:27px">Cómo se lo recibimos</h3>
+<div class="sec">
+<div style="display:flex;align-items:center"><div class="seck">FOTOS</div><span style="margin-left:auto;font-size:12.5px;color:var(--color-neutral-700)">3 / 6</span></div>
+<div style="display:flex;gap:8px">
+<div style="width:70px;height:70px;border-radius:20px;background:var(--color-neutral-300)"></div>
+<div style="width:70px;height:70px;border-radius:20px;background:var(--color-neutral-300)"></div>
+<div style="width:70px;height:70px;border-radius:20px;background:var(--color-neutral-300)"></div>
+<div style="width:70px;height:70px;border-radius:20px;display:grid;place-items:center" class="wait">
+<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--color-accent-700)" stroke-width="2.75" stroke-linecap="round"><path d="M5 12h14M12 5v14"></path></svg>
+</div>
+</div>
+</div>
+<div class="sec">
+<div class="seck">TRAE CONSIGO</div>
+<div style="display:flex;flex-wrap:wrap;gap:7px">
+<span class="tag fill2" style="font-size:13px;padding:8px 15px">Llanta de refacción</span>
+<span class="tag fill2" style="font-size:13px;padding:8px 15px">Gato</span>
+<span class="tag tag-neutral" style="font-size:13px;padding:8px 15px">Tapetes</span>
+<span class="tag tag-neutral" style="font-size:13px;padding:8px 15px">Estéreo</span>
+<span class="tag tag-neutral" style="font-size:13px;padding:8px 15px">Herramienta</span>
+</div>
+</div>
+<div class="sec" style="flex-direction:row;align-items:center;gap:12px">
+<div style="width:42px;height:42px;flex:none;border-radius:999px;display:grid;place-items:center;font:600 14px var(--font-body)" class="fill2">DM</div>
+<div style="flex:1">
+<div class="seck">MECÁNICO</div>
+<div style="font-size:15.5px;font-weight:600">Daniel Morán</div>
+</div>
+<span class="btn btn-ghost" style="font-size:13.5px;color:var(--color-accent-700)">Cambiar</span>
+</div>
+</div>
+<div style="flex:none;padding:12px 20px 16px;display:flex;flex-direction:column;gap:8px">
+<div style="display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--color-neutral-700)">
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--color-accent-2-700)" stroke-width="2.75" stroke-linecap="round"><path d="M20 6 9 17l-5-5"></path></svg>
+Placa, queja, kilometraje y fotos capturados
+</div>
+<div class="btn btn-primary btn-block fill" style="margin:0;min-height:52px;font-size:16px">Abrir orden #1043</div>
+</div>
+</div>
+</div>
+</div>
+
+</div>
+</section>
+
+<section class="fl" id="f3">
+<div class="flh"><a class="flid" href="#f3">flujo 3</a><span class="flname">Trabajar la orden, cobrar y consultar el historial</span></div>
+<p class="flsub">El detalle de orden deja de ser un scroll de diez secciones: el dinero vive arriba y el trabajo se organiza en cuatro pestañas. Cobrar es un solo teclado.</p>
+<div class="row">
+
+<div class="scr" id="s7">
+<div class="slab"><a class="sid" href="#s7">7</a>Detalle de orden. Saldo siempre visible; pestañas Trabajo · Dinero · Fotos · Historial.</div>
+<div class="ph">
+<div class="sb"><span>9:41</span><span>Orden #1042</span></div>
+<div class="bd">
+<div class="hdr" style="padding-bottom:6px">
+<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--color-text)" stroke-width="2.75" stroke-linecap="round"><path d="m12 19-7-7 7-7M19 12H5"></path></svg>
+<div style="flex:1">
+<div class="plate" style="font-size:22px">PBC-4218</div>
+<div style="font-size:13px;color:var(--color-neutral-700)">Nissan Versa 2019 · Jorge Salgado</div>
+</div>
+<div style="width:40px;height:40px;border-radius:999px;border:1px solid var(--color-divider);display:grid;place-items:center">
+<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="var(--color-neutral-700)" stroke-width="2.75" stroke-linecap="round"><circle cx="12" cy="5" r="1"></circle><circle cx="12" cy="12" r="1"></circle><circle cx="12" cy="19" r="1"></circle></svg>
+</div>
+</div>
+<div style="padding:0 20px 10px;flex:none;display:flex;flex-direction:column;gap:10px">
+<div style="border-radius:32px;padding:16px 18px;display:flex;flex-direction:column;gap:10px;background:var(--color-accent-700);color:var(--color-neutral-100)">
+<div style="display:flex;align-items:baseline;gap:10px">
+<div>
+<div style="font-size:11.5px;letter-spacing:.06em;opacity:.85">SALDO POR COBRAR</div>
+<div style="font-family:var(--font-heading);font-size:32px;line-height:1.1">$3.450,00</div>
+</div>
+<div style="margin-left:auto;text-align:right;font-size:12.5px;opacity:.9">Total $8.900,00<br>Abonado $5.450,00</div>
+</div>
+<div style="display:flex;gap:8px">
+<div class="pill" style="background:var(--color-neutral-100);color:var(--color-accent-800);padding:9px 16px;font-size:13.5px">Registrar pago</div>
+<div class="pill" style="border:1px solid rgba(247,246,251,.5);padding:9px 16px;font-size:13.5px;color:var(--color-neutral-100)">Pasar a Listo</div>
+</div>
+</div>
+<div style="display:flex;gap:6px">
+<span class="tag fill" style="font-size:13px;padding:8px 15px">Trabajo</span>
+<span class="tag tag-neutral" style="font-size:13px;padding:8px 15px">Dinero</span>
+<span class="tag tag-neutral" style="font-size:13px;padding:8px 15px">Fotos 3</span>
+<span class="tag tag-neutral" style="font-size:13px;padding:8px 15px">Historial</span>
+</div>
+</div>
+<div style="flex:1;overflow:hidden;padding:0 20px;display:flex;flex-direction:column;gap:10px">
+<div class="sec" style="gap:9px">
+<div style="display:flex;align-items:center"><div class="seck">MANO DE OBRA</div><span style="margin-left:auto;font-size:13.5px;font-weight:700">$2.400,00</span></div>
+<div style="font-size:14.5px">Rectificado de discos delanteros</div>
+<div style="font-size:13.5px;color:var(--color-neutral-700)">Daniel Morán · comisión 20%</div>
+<div class="pill" style="align-self:flex-start;border:1px solid var(--color-divider);padding:8px 14px;font-size:13px;min-height:40px">+ Agregar trabajo</div>
+</div>
+<div class="sec" style="gap:9px">
+<div style="display:flex;align-items:center"><div class="seck">REPUESTOS</div><span style="margin-left:auto;font-size:13.5px;font-weight:700">$6.500,00</span></div>
+<div style="display:flex;align-items:baseline;gap:8px;font-size:14.5px"><span style="flex:1">Pastillas de freno Brembo</span><span style="color:var(--color-neutral-700)">2 × $1.450,00</span></div>
+<div style="display:flex;align-items:baseline;gap:8px;font-size:14.5px"><span style="flex:1">Discos ventilados delanteros</span><span style="color:var(--color-neutral-700)">2 × $1.800,00</span></div>
+<div style="font-size:13px;color:var(--color-accent-800)">Descontados del inventario · quedan 4 juegos</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+
+<div class="scr" id="s8">
+<div class="slab"><a class="sid" href="#s8">8</a>Registrar pago. Teclado grande, método en píldoras, y el saldo que quedará antes de confirmar.</div>
+<div class="ph">
+<div class="sb"><span>9:41</span><span>Pago</span></div>
+<div class="bd">
+<div class="hdr" style="padding-bottom:10px">
+<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--color-text)" stroke-width="2.75" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"></path></svg>
+<div style="flex:1;font-size:15.5px;font-weight:600">Orden #1042 · PBC-4218</div>
+</div>
+<div style="flex:1;overflow:hidden;padding:0 20px;display:flex;flex-direction:column;gap:14px">
+<div style="text-align:center;padding:8px 0 0">
+<div style="font-size:12px;letter-spacing:.06em;color:var(--color-neutral-700)">ABONO</div>
+<div style="font-family:var(--font-heading);font-size:46px;line-height:1.1">$3.450,00</div>
+<div style="font-size:13.5px;color:var(--color-accent-2-800);font-weight:600">Con esto la orden queda saldada</div>
+</div>
+<div style="display:flex;flex-wrap:wrap;gap:6px;justify-content:center">
+<span class="tag fill" style="font-size:13px;padding:8px 15px">Efectivo</span>
+<span class="tag tag-neutral" style="font-size:13px;padding:8px 15px">Transferencia</span>
+<span class="tag tag-neutral" style="font-size:13px;padding:8px 15px">Tarjeta</span>
+<span class="tag tag-neutral" style="font-size:13px;padding:8px 15px">Mixta</span>
+</div>
+<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px">
+<div class="sec" style="align-items:center;padding:16px 0;font-family:var(--font-heading);font-size:24px">1</div>
+<div class="sec" style="align-items:center;padding:16px 0;font-family:var(--font-heading);font-size:24px">2</div>
+<div class="sec" style="align-items:center;padding:16px 0;font-family:var(--font-heading);font-size:24px">3</div>
+<div class="sec" style="align-items:center;padding:16px 0;font-family:var(--font-heading);font-size:24px">4</div>
+<div class="sec" style="align-items:center;padding:16px 0;font-family:var(--font-heading);font-size:24px">5</div>
+<div class="sec" style="align-items:center;padding:16px 0;font-family:var(--font-heading);font-size:24px">6</div>
+<div class="sec" style="align-items:center;padding:16px 0;font-family:var(--font-heading);font-size:24px">7</div>
+<div class="sec" style="align-items:center;padding:16px 0;font-family:var(--font-heading);font-size:24px">8</div>
+<div class="sec" style="align-items:center;padding:16px 0;font-family:var(--font-heading);font-size:24px">9</div>
+<div class="sec" style="align-items:center;padding:16px 0;font-family:var(--font-heading);font-size:20px;color:var(--color-neutral-700)">.</div>
+<div class="sec" style="align-items:center;padding:16px 0;font-family:var(--font-heading);font-size:24px">0</div>
+<div class="sec" style="align-items:center;padding:16px 0">
+<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--color-neutral-700)" stroke-width="2.75" stroke-linecap="round"><path d="M20 5H9l-6 7 6 7h11a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2zM17 9l-6 6M11 9l6 6"></path></svg>
+</div>
+</div>
+</div>
+<div style="flex:none;padding:12px 20px 16px">
+<div class="btn btn-primary btn-block fill" style="margin:0;min-height:52px;font-size:16px">Cobrar $3.450,00</div>
+</div>
+</div>
+</div>
+</div>
+
+<div class="scr" id="s9">
+<div class="slab"><a class="sid" href="#s9">9</a>Historial del vehículo. La respuesta al “¿qué le hemos hecho a este auto?”, con lo que toca después.</div>
+<div class="ph">
+<div class="sb"><span>9:41</span><span>Vehículo</span></div>
+<div class="bd">
+<div class="hdr" style="padding-bottom:6px">
+<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--color-text)" stroke-width="2.75" stroke-linecap="round"><path d="m12 19-7-7 7-7M19 12H5"></path></svg>
+<div style="flex:1">
+<div class="plate" style="font-size:24px">PBC-4218</div>
+<div style="font-size:13px;color:var(--color-neutral-700)">Nissan Versa 2019 · gris · 98.400 km</div>
+</div>
+</div>
+<div style="flex:1;overflow:hidden;padding:0 20px;display:flex;flex-direction:column;gap:11px">
+<div class="sec" style="flex-direction:row;align-items:center;gap:12px">
+<div style="width:44px;height:44px;flex:none;border-radius:999px;display:grid;place-items:center;font:600 14px var(--font-body)" class="fill2">JS</div>
+<div style="flex:1">
+<div style="font-size:15.5px;font-weight:600">Jorge Salgado</div>
+<div style="font-size:13px;color:var(--color-neutral-700)">099 184 2907 · cliente desde 2023</div>
+</div>
+<div style="width:42px;height:42px;border-radius:999px;display:grid;place-items:center" class="fill">
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--color-neutral-100)" stroke-width="2.75" stroke-linecap="round"><path d="M13 3a9 9 0 0 1 8 8M12.5 8a4 4 0 0 1 3.5 3.5M6 3l3 5-2 2a12 12 0 0 0 5 5l2-2 5 3-1.5 3A15 15 0 0 1 3 4.5z"></path></svg>
+</div>
+</div>
+<div style="display:flex;gap:8px">
+<div class="sec" style="flex:1;gap:2px;padding:12px 14px">
+<div style="font-family:var(--font-heading);font-size:22px">4</div>
+<div style="font-size:11.5px;color:var(--color-neutral-700)">visitas</div>
+</div>
+<div class="sec" style="flex:1;gap:2px;padding:12px 14px">
+<div style="font-family:var(--font-heading);font-size:22px">$11.470</div>
+<div style="font-size:11.5px;color:var(--color-neutral-700)">gastado</div>
+</div>
+<div class="sec" style="flex:1;gap:2px;padding:12px 14px">
+<div style="font-family:var(--font-heading);font-size:22px">21 d</div>
+<div style="font-size:11.5px;color:var(--color-neutral-700)">última visita</div>
+</div>
+</div>
+<div style="display:flex;flex-direction:column;gap:10px;padding-left:14px;border-left:2px solid var(--color-accent-300);margin-left:6px">
+<div class="card elev-sm" style="padding:14px;gap:5px">
+<div style="display:flex;align-items:center;gap:8px">
+<span style="font-size:13px;color:var(--color-neutral-700)">Hoy · 98.400 km</span>
+<span class="tag fill" style="margin-left:auto">En proceso</span>
+</div>
+<div style="font-size:15px;font-weight:600">Ruido al frenar · garantía</div>
+<div style="font-size:13.5px;color:var(--color-neutral-700)">Daniel Morán · orden #1042</div>
+</div>
+<div class="card elev-sm" style="padding:14px;gap:5px">
+<div style="display:flex;align-items:center;gap:8px">
+<span style="font-size:13px;color:var(--color-neutral-700)">8 jul · 96.900 km</span>
+<span style="margin-left:auto;font-size:14px;font-weight:700">$2.980,00</span>
+</div>
+<div style="font-size:15px;font-weight:600">Pastillas delanteras</div>
+<div style="font-size:13.5px;color:var(--color-accent-2-800)">Garantía vigente hasta el 8 oct</div>
+</div>
+<div class="card elev-sm" style="padding:14px;gap:5px">
+<div style="display:flex;align-items:center;gap:8px">
+<span style="font-size:13px;color:var(--color-neutral-700)">14 mar · 91.200 km</span>
+<span style="margin-left:auto;font-size:14px;font-weight:700">$4.150,00</span>
+</div>
+<div style="font-size:15px;font-weight:600">Afinación mayor</div>
+</div>
+</div>
+<div style="border-radius:28px;padding:14px 16px;display:flex;gap:10px;align-items:center" class="wait">
+<svg width="19" height="19" style="flex:none" viewBox="0 0 24 24" fill="none" stroke="var(--color-accent-700)" stroke-width="2.75" stroke-linecap="round"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3 2"></path></svg>
+<div style="font-size:13.5px">Toca cambio de aceite a los <strong>100.000 km</strong> — faltan 1.600 km.</div>
+</div>
+</div>
+</div>
+<div class="bn">
+<div class="bni"><div class="bnd"></div>Taller</div>
+<div class="bni"><div class="bnd"></div>Órdenes</div>
+<div class="bni" style="color:var(--color-accent-700)"><div class="bnd" style="background:var(--color-accent-300)"></div>Autos</div>
+<div class="bni"><div class="bnd"></div>Refacciones</div>
+<div class="bni"><div class="bnd"></div>Más</div>
+</div>
+</div>
+</div>
+
+</div>
+</section>
+
+<section class="fl" id="f4">
+<div class="flh"><a class="flid" href="#f4">flujo 4</a><span class="flname">Refacciones — inventario que se mantiene solo</span></div>
+<p class="flsub">El inventario no se administra por gusto: se mantiene porque las órdenes lo consumen. La lista abre por lo que falta, y cada refacción muestra de dónde salió y a dónde se fue.</p>
+<div class="row">
+
+<div class="scr" id="s10">
+<div class="slab"><a class="sid" href="#s10">10</a>Inventario. Abre con lo que está por acabarse, no con el catálogo completo.</div>
+<div class="ph">
+<div class="sb"><span>9:41</span><span>Refacciones</span></div>
+<div class="bd">
+<div style="padding:4px 20px 12px;flex:none">
+<h3 style="margin:0 0 2px;font-size:26px">Refacciones</h3>
+<div style="font-size:13.5px;color:var(--color-neutral-700);margin-bottom:12px">148 en catálogo · valor $86.400,00</div>
+<div style="display:flex;align-items:center;gap:8px;background:var(--color-surface);border:1px solid var(--color-divider);border-radius:999px;padding:10px 14px;margin-bottom:10px">
+<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="var(--color-neutral-600)" stroke-width="2.75" stroke-linecap="round"><circle cx="11" cy="11" r="8"></circle><path d="m21 21-4.35-4.35"></path></svg>
+<span style="font-size:14px;color:var(--color-neutral-600)">Nombre, código o marca</span>
+</div>
+<div style="display:flex;gap:6px">
+<span class="tag fill" style="font-size:12.5px;padding:7px 14px">Por acabarse 4</span>
+<span class="tag tag-neutral" style="font-size:12.5px;padding:7px 14px">Todo 148</span>
+<span class="tag tag-neutral" style="font-size:12.5px;padding:7px 14px">Movimientos</span>
+</div>
+</div>
+<div style="flex:1;overflow:hidden;padding:0 20px 84px;display:flex;flex-direction:column;gap:10px">
+<div style="border-radius:28px;padding:14px 16px;display:flex;gap:10px;align-items:center" class="wait">
+<div style="width:32px;height:32px;flex:none;border-radius:999px;background:var(--color-accent-700);display:grid;place-items:center;font:700 16px var(--font-body);color:var(--color-neutral-100)">!</div>
+<div style="font-size:13.5px">1 refacción se agotó y 3 están bajo el mínimo. Toca para armar el pedido.</div>
+</div>
+<div class="card elev-sm" style="padding:14px 16px;gap:7px">
+<div style="display:flex;align-items:center;gap:10px">
+<div style="flex:1">
+<div style="font-size:15.5px;font-weight:600">Filtro de aceite Nissan</div>
+<div style="font-size:13px;color:var(--color-neutral-700)">FA-1520 · Nissan original</div>
+</div>
+<span class="tag fill" style="font-size:12px">0 pzas</span>
+</div>
+<div style="display:flex;align-items:baseline;gap:8px;font-size:13.5px;color:var(--color-neutral-700)">
+<span>Mínimo 4</span><span>·</span><span>Venta $210,00</span>
+<span class="btn btn-ghost" style="margin-left:auto;font-size:13px;color:var(--color-accent-800)">Registrar entrada</span>
+</div>
+</div>
+<div class="card elev-sm" style="padding:14px 16px;gap:7px">
+<div style="display:flex;align-items:center;gap:10px">
+<div style="flex:1">
+<div style="font-size:15.5px;font-weight:600">Pastillas de freno Brembo</div>
+<div style="font-size:13px;color:var(--color-neutral-700)">BR-8842 · Brembo</div>
+</div>
+<span class="tag" style="background:var(--color-accent-200);color:var(--color-accent-800);font-size:12px">2 juegos</span>
+</div>
+<div style="display:flex;align-items:baseline;gap:8px;font-size:13.5px;color:var(--color-neutral-700)">
+<span>Mínimo 4</span><span>·</span><span>Venta $1.450,00</span>
+</div>
+</div>
+<div class="card elev-sm" style="padding:14px 16px;gap:7px">
+<div style="display:flex;align-items:center;gap:10px">
+<div style="flex:1">
+<div style="font-size:15.5px;font-weight:600">Aceite 5W-30 sintético</div>
+<div style="font-size:13px;color:var(--color-neutral-700)">AC-530 · Mobil · a granel</div>
+</div>
+<span class="tag" style="background:var(--color-accent-200);color:var(--color-accent-800);font-size:12px">6.5 L</span>
+</div>
+<div style="display:flex;align-items:baseline;gap:8px;font-size:13.5px;color:var(--color-neutral-700)">
+<span>Mínimo 20 L</span><span>·</span><span>Venta $185,00 / L</span>
+</div>
+</div>
+<div class="card elev-sm" style="padding:14px 16px;gap:7px">
+<div style="display:flex;align-items:center;gap:10px">
+<div style="flex:1">
+<div style="font-size:15.5px;font-weight:600">Bujías iridio NGK</div>
+<div style="font-size:13px;color:var(--color-neutral-700)">NG-4477 · NGK</div>
+</div>
+<span class="tag" style="background:var(--color-accent-200);color:var(--color-accent-800);font-size:12px">3 pzas</span>
+</div>
+</div>
+</div>
+</div>
+<div style="position:absolute;right:20px;bottom:96px;width:58px;height:58px;border-radius:999px;background:var(--color-accent-700);box-shadow:var(--shadow-md);display:grid;place-items:center">
+<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="var(--color-neutral-100)" stroke-width="2.75" stroke-linecap="round"><path d="M5 12h14M12 5v14"></path></svg>
+</div>
+<div class="bn">
+<div class="bni"><div class="bnd"></div>Taller</div>
+<div class="bni"><div class="bnd"></div>Órdenes</div>
+<div class="bni"><div class="bnd"></div>Autos</div>
+<div class="bni" style="color:var(--color-accent-700)"><div class="bnd" style="background:var(--color-accent-300)"></div>Refacciones</div>
+<div class="bni"><div class="bnd"></div>Más</div>
+</div>
+</div>
+</div>
+
+<div class="scr" id="s11">
+<div class="slab"><a class="sid" href="#s11">11</a>Ficha de refacción. Stock que se ajusta con dos toques y el rastro de en qué órdenes se usó.</div>
+<div class="ph">
+<div class="sb"><span>9:41</span><span>BR-8842</span></div>
+<div class="bd">
+<div class="hdr" style="padding-bottom:6px">
+<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--color-text)" stroke-width="2.75" stroke-linecap="round"><path d="m12 19-7-7 7-7M19 12H5"></path></svg>
+<div style="flex:1">
+<h4 style="margin:0;font-size:20px">Pastillas de freno Brembo</h4>
+<div style="font-size:13px;color:var(--color-neutral-700)">BR-8842 · Brembo</div>
+</div>
+</div>
+<div style="flex:1;overflow:hidden;padding:0 20px;display:flex;flex-direction:column;gap:11px">
+<div class="sec" style="gap:12px">
+<div class="seck">EN EXISTENCIA</div>
+<div style="display:flex;align-items:center;gap:14px">
+<div style="width:46px;height:46px;border-radius:999px;border:1px solid var(--color-divider);display:grid;place-items:center">
+<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--color-neutral-800)" stroke-width="2.75" stroke-linecap="round"><path d="M5 12h14"></path></svg>
+</div>
+<div style="flex:1;text-align:center">
+<div style="font-family:var(--font-heading);font-size:34px;line-height:1">2</div>
+<div style="font-size:12px;color:var(--color-neutral-700)">juegos · mínimo 4</div>
+</div>
+<div style="width:46px;height:46px;border-radius:999px;display:grid;place-items:center" class="fill">
+<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--color-neutral-100)" stroke-width="2.75" stroke-linecap="round"><path d="M5 12h14M12 5v14"></path></svg>
+</div>
+</div>
+<div class="pill fill" style="justify-content:center;font-size:14.5px;min-height:46px">Registrar entrada de compra</div>
+</div>
+<div class="sec" style="gap:8px">
+<div class="seck">PRECIOS</div>
+<div style="display:flex;font-size:14.5px"><span style="flex:1;color:var(--color-neutral-700)">Costo</span><span style="font-weight:600">$980,00</span></div>
+<div style="display:flex;font-size:14.5px"><span style="flex:1;color:var(--color-neutral-700)">Venta</span><span style="font-weight:600">$1.450,00</span></div>
+<div style="display:flex;font-size:14.5px"><span style="flex:1;color:var(--color-neutral-700)">Margen</span><span style="font-weight:700;color:var(--color-accent-2-800)">32% · $470,00</span></div>
+</div>
+<div class="sec" style="gap:9px">
+<div style="display:flex;align-items:center"><div class="seck">SE USÓ EN</div><span style="margin-left:auto;font-size:12.5px;color:var(--color-neutral-700)">6 órdenes este año</span></div>
+<div style="display:flex;align-items:baseline;gap:8px;font-size:14px"><span style="flex:1">Hoy · PBC-4218</span><span style="color:var(--color-neutral-700)">2 juegos</span></div>
+<div style="display:flex;align-items:baseline;gap:8px;font-size:14px"><span style="flex:1">8 jul · PBC-4218</span><span style="color:var(--color-neutral-700)">1 juego</span></div>
+<div style="display:flex;align-items:baseline;gap:8px;font-size:14px"><span style="flex:1">19 jun · GHV-7021</span><span style="color:var(--color-neutral-700)">1 juego</span></div>
+<span class="btn btn-ghost" style="align-self:flex-start;font-size:13.5px;color:var(--color-accent-800)">Ver todos los movimientos</span>
+</div>
+</div>
+<div style="flex:none;padding:10px 20px 16px">
+<div class="btn btn-secondary btn-block" style="margin:0;min-height:46px;font-size:14.5px">Editar refacción</div>
+</div>
+</div>
+</div>
+</div>
+
+<div class="scr" id="s12">
+<div class="slab"><a class="sid" href="#s12">12</a>Pedido sugerido. El cierre del ciclo: lo que se acabó, agrupado por proveedor y listo para mandar por WhatsApp.</div>
+<div class="ph">
+<div class="sb"><span>9:41</span><span>Pedido</span></div>
+<div class="bd">
+<div class="hdr" style="padding-bottom:10px">
+<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--color-text)" stroke-width="2.75" stroke-linecap="round"><path d="m12 19-7-7 7-7M19 12H5"></path></svg>
+<div style="flex:1">
+<h4 style="margin:0;font-size:20px">Pedido sugerido</h4>
+<div style="font-size:13px;color:var(--color-neutral-700)">4 refacciones bajo el mínimo</div>
+</div>
+</div>
+<div style="flex:1;overflow:hidden;padding:0 20px;display:flex;flex-direction:column;gap:11px">
+<div class="sec" style="gap:10px">
+<div style="display:flex;align-items:center"><div class="seck">REFACCIONES DEL BAJÍO</div><span style="margin-left:auto;font-size:13px;font-weight:700">$4.900,00</span></div>
+<div style="display:flex;align-items:center;gap:10px">
+<div style="width:24px;height:24px;border-radius:999px;display:grid;place-items:center" class="fill2">
+<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--color-neutral-100)" stroke-width="2.75" stroke-linecap="round"><path d="M20 6 9 17l-5-5"></path></svg>
+</div>
+<div style="flex:1;font-size:14.5px">Pastillas de freno Brembo</div>
+<span style="font-size:14px;font-weight:600">4</span>
+</div>
+<div style="display:flex;align-items:center;gap:10px">
+<div style="width:24px;height:24px;border-radius:999px;display:grid;place-items:center" class="fill2">
+<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--color-neutral-100)" stroke-width="2.75" stroke-linecap="round"><path d="M20 6 9 17l-5-5"></path></svg>
+</div>
+<div style="flex:1;font-size:14.5px">Bujías iridio NGK</div>
+<span style="font-size:14px;font-weight:600">8</span>
+</div>
+</div>
+<div class="sec" style="gap:10px">
+<div style="display:flex;align-items:center"><div class="seck">LUBRICANTES MORELOS</div><span style="margin-left:auto;font-size:13px;font-weight:700">$3.180,00</span></div>
+<div style="display:flex;align-items:center;gap:10px">
+<div style="width:24px;height:24px;border-radius:999px;display:grid;place-items:center" class="fill2">
+<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--color-neutral-100)" stroke-width="2.75" stroke-linecap="round"><path d="M20 6 9 17l-5-5"></path></svg>
+</div>
+<div style="flex:1;font-size:14.5px">Aceite 5W-30 sintético</div>
+<span style="font-size:14px;font-weight:600">20 L</span>
+</div>
+<div style="display:flex;align-items:center;gap:10px;opacity:.55">
+<div style="width:24px;height:24px;border-radius:999px;border:1px solid var(--color-divider)"></div>
+<div style="flex:1;font-size:14.5px">Filtro de aceite Nissan</div>
+<span style="font-size:14px;font-weight:600">6</span>
+</div>
+</div>
+<div style="padding:0 6px;font-size:13px;color:var(--color-neutral-700)">Se calcula con el consumo de los últimos 90 días y el mínimo de cada refacción.</div>
+</div>
+<div style="flex:none;padding:10px 20px 16px;display:flex;flex-direction:column;gap:8px">
+<div style="display:flex;align-items:baseline;gap:8px;padding:0 6px">
+<span style="font-size:14px;color:var(--color-neutral-700)">Total del pedido</span>
+<span style="margin-left:auto;font-family:var(--font-heading);font-size:22px">$8.080,00</span>
+</div>
+<div class="btn btn-primary btn-block fill" style="margin:0;min-height:52px;font-size:16px">Enviar por WhatsApp</div>
+</div>
+</div>
+</div>
+</div>
+
+</div>
+<p class="dv-next" style="margin:24px 0 0;font:12.5px/1.6 var(--font-body);color:var(--color-neutral-700)">Sigue: “agrega comisiones y reportes” · “modo oscuro de estas 12 pantallas” · “documenta los tokens para el desarrollador” · “vuélvelo navegable”</p>
+</section>
+
+
+
+<section class="fl" id="f5">
+<div class="flh"><a class="flid" href="#f5">flujo 5</a><span class="flname">Lo que faltaba — adaptado de tus capturas reales</span></div>
+<p class="flsub">Rediseño de las pantallas que ya existen en Serviaux: turnos, el formulario de vehículo (el más pesado), los catálogos de 9 pestañas, reportes sin gráficos y comisiones. Datos en formato Ecuador: cédula, placas y moneda $1.234,56.</p>
+<div class="row">
+
+<div class="scr" id="s13">
+<div class="slab"><a class="sid" href="#s13">13</a>Turnos del día. Cada turno tiene un botón "Ya llegó" que abre la recepción con cliente y vehículo prellenados — el flujo "convertir" de hoy, en un toque.</div>
+<div class="ph">
+<div class="sb"><span>9:41</span><span>Turnos</span></div>
+<div class="bd">
+<div style="padding:4px 20px 12px;flex:none">
+<h3 style="margin:0 0 2px;font-size:26px">Turnos</h3>
+<div style="font-size:13.5px;color:var(--color-neutral-700);margin-bottom:12px">jueves 30 jul · 3 agendados</div>
+<div style="display:flex;gap:6px">
+<span class="tag fill" style="font-size:12.5px;padding:7px 14px">Hoy 3</span>
+<span class="tag tag-neutral" style="font-size:12.5px;padding:7px 14px">Semana 7</span>
+<span class="tag tag-neutral" style="font-size:12.5px;padding:7px 14px">Sin confirmar 2</span>
+</div>
+</div>
+<div style="flex:1;overflow:hidden;padding:0 20px 84px;display:flex;flex-direction:column;gap:10px">
+<div class="card elev-sm" style="padding:14px 16px;gap:8px">
+<div style="display:flex;align-items:center;gap:12px">
+<div style="width:54px;height:54px;flex:none;border-radius:999px;background:var(--color-accent-200);display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1.05">
+<span style="font-family:var(--font-heading);font-size:17px;color:var(--color-accent-800)">8:30</span>
+</div>
+<div style="flex:1;min-width:0">
+<div style="display:flex;align-items:center;gap:8px"><span class="plate" style="font-size:18px">GYT-2290</span><span class="tag fill2" style="font-size:10.5px">Confirmado</span></div>
+<div style="font-size:14px;font-weight:600">Kia Sportage 2021 · Carmen Delgado</div>
+<div style="font-size:13.5px;color:var(--color-neutral-700)">Cambio de aceite y revisión de frenos</div>
+</div>
+</div>
+<div class="pill fill" style="justify-content:center;font-size:14px;min-height:44px">Ya llegó — abrir orden</div>
+</div>
+<div class="card elev-sm" style="padding:14px 16px;gap:8px">
+<div style="display:flex;align-items:center;gap:12px">
+<div style="width:54px;height:54px;flex:none;border-radius:999px;background:var(--color-neutral-200);display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1.05">
+<span style="font-family:var(--font-heading);font-size:17px;color:var(--color-neutral-800)">10:00</span>
+</div>
+<div style="flex:1;min-width:0">
+<div style="display:flex;align-items:center;gap:8px"><span class="plate" style="font-size:18px">PBC-4218</span><span class="tag tag-neutral" style="font-size:10.5px">Pendiente</span></div>
+<div style="font-size:14px;font-weight:600">Nissan Versa 2019 · Jorge Salgado</div>
+<div style="font-size:13.5px;color:var(--color-neutral-700)">Revisión de garantía de pastillas</div>
+</div>
+</div>
+<div style="display:flex;gap:8px">
+<div class="btn btn-secondary" style="flex:1;min-height:42px;font-size:13.5px">Confirmar</div>
+<div class="btn btn-secondary" style="flex:1;min-height:42px;font-size:13.5px">WhatsApp</div>
+</div>
+</div>
+<div class="card elev-sm" style="padding:14px 16px;gap:8px;opacity:.75">
+<div style="display:flex;align-items:center;gap:12px">
+<div style="width:54px;height:54px;flex:none;border-radius:999px;background:var(--color-neutral-200);display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1.05">
+<span style="font-family:var(--font-heading);font-size:17px;color:var(--color-neutral-800)">15:30</span>
+</div>
+<div style="flex:1;min-width:0">
+<div style="display:flex;align-items:center;gap:8px"><span class="plate" style="font-size:18px">GHV-7021</span><span class="tag tag-neutral" style="font-size:10.5px">Pendiente</span></div>
+<div style="font-size:14px;font-weight:600">Ford Ranger 2020 · Rosa Elena Vera</div>
+<div style="font-size:13.5px;color:var(--color-neutral-700)">Ruido en el clutch</div>
+</div>
+</div>
+</div>
+<div style="padding:0 6px;font-size:13px;color:var(--color-neutral-700)">Los turnos confirmados de hoy aparecen en el tablero como carril "Por llegar".</div>
+</div>
+</div>
+<div style="position:absolute;right:20px;bottom:96px;width:58px;height:58px;border-radius:999px;background:var(--color-accent-700);box-shadow:var(--shadow-md);display:grid;place-items:center">
+<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="var(--color-neutral-100)" stroke-width="2.75" stroke-linecap="round"><path d="M5 12h14M12 5v14"></path></svg>
+</div>
+<div class="bn">
+<div class="bni" style="color:var(--color-accent-700)"><div class="bnd" style="background:var(--color-accent-300)"></div>Taller</div>
+<div class="bni"><div class="bnd"></div>Órdenes</div>
+<div class="bni"><div class="bnd"></div>Autos</div>
+<div class="bni"><div class="bnd"></div>Refacciones</div>
+<div class="bni"><div class="bnd"></div>Más</div>
+</div>
+</div>
+</div>
+
+<div class="scr" id="s14">
+<div class="slab"><a class="sid" href="#s14">14</a>Nuevo vehículo. Hoy son ~15 campos en un scroll; aquí solo la placa es obligatoria y la ficha técnica queda plegada para cuando haya calma.</div>
+<div class="ph">
+<div class="sb"><span>9:41</span><span>Nuevo vehículo</span></div>
+<div class="bd">
+<div class="hdr" style="padding-bottom:8px">
+<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--color-text)" stroke-width="2.75" stroke-linecap="round"><path d="m12 19-7-7 7-7M19 12H5"></path></svg>
+<h4 style="margin:0;font-size:20px">Nuevo vehículo</h4>
+</div>
+<div style="flex:1;overflow:hidden;padding:0 20px;display:flex;flex-direction:column;gap:12px">
+<div class="sec">
+<div class="seck">PLACA *</div>
+<div style="display:flex;align-items:center;gap:10px;background:var(--color-bg);border:2px solid var(--color-accent);border-radius:999px;padding:12px 18px">
+<span style="font-family:var(--font-heading);font-size:22px;letter-spacing:.06em">PCH-3321</span>
+<div style="width:2px;height:22px;background:var(--color-accent)"></div>
+<span style="margin-left:auto;font-size:11.5px;color:var(--color-neutral-700)">siempre MAYÚSCULAS</span>
+</div>
+<div style="display:flex;gap:10px">
+<div class="field" style="flex:1"><label>Marca</label><div class="input" style="min-height:44px;display:flex;align-items:center;font-size:15px">Kia</div></div>
+<div class="field" style="flex:1"><label>Modelo</label><div class="input" style="min-height:44px;display:flex;align-items:center;font-size:15px">Sportage</div></div>
+</div>
+<div style="display:flex;gap:10px">
+<div class="field" style="flex:1"><label>Año</label><div class="input" style="min-height:44px;display:flex;align-items:center;font-size:15px">2021</div></div>
+<div class="field" style="flex:1"><label>Color</label><div class="input" style="min-height:44px;display:flex;align-items:center;font-size:15px">Plata</div></div>
+</div>
+</div>
+<div class="sec" style="flex-direction:row;align-items:center;gap:12px">
+<div style="width:42px;height:42px;flex:none;border-radius:999px;display:grid;place-items:center;font:600 14px var(--font-body)" class="fill2">CD</div>
+<div style="flex:1">
+<div class="seck">DUEÑO</div>
+<div style="font-size:15px;font-weight:600">Carmen Delgado · CI 0912845330</div>
+</div>
+<span class="btn btn-ghost" style="font-size:13.5px;color:var(--color-accent-700)">Cambiar</span>
+</div>
+<div style="display:flex;align-items:center;gap:10px;padding:13px 18px;border-radius:28px;background:var(--color-surface)">
+<div style="flex:1;font-size:14.5px;font-weight:600">Ficha técnica <span style="font-weight:400;color:var(--color-neutral-700)">· opcional</span></div>
+<span style="font-size:12.5px;color:var(--color-neutral-700)">VIN, motor, tracción…</span>
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--color-neutral-600)" stroke-width="2.75" stroke-linecap="round"><path d="m9 18 6-6-6-6"></path></svg>
+</div>
+<div style="display:flex;align-items:center;gap:10px;padding:13px 18px;border-radius:28px;background:var(--color-surface)">
+<div style="flex:1;font-size:14.5px;font-weight:600">Aceite</div>
+<span style="font-size:13.5px;color:var(--color-accent-800);font-weight:600">5W-30 sintético · 4 L</span>
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--color-neutral-600)" stroke-width="2.75" stroke-linecap="round"><path d="m9 18 6-6-6-6"></path></svg>
+</div>
+<div style="display:flex;align-items:center;gap:10px;padding:13px 18px;border-radius:28px;background:var(--color-surface)">
+<div style="flex:1;font-size:14.5px;font-weight:600">Fotos</div>
+<span style="font-size:12.5px;color:var(--color-neutral-700)">Matrícula 1/2 · Vehículo 0/6</span>
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--color-neutral-600)" stroke-width="2.75" stroke-linecap="round"><path d="m9 18 6-6-6-6"></path></svg>
+</div>
+</div>
+<div style="flex:none;padding:10px 20px 16px;display:flex;flex-direction:column;gap:8px">
+<div style="font-size:12.5px;color:var(--color-neutral-700);padding:0 6px">Solo la placa es obligatoria; lo demás se completa cuando se pueda.</div>
+<div class="btn btn-primary btn-block fill" style="margin:0;min-height:50px;font-size:15.5px">Guardar vehículo</div>
+</div>
+</div>
+</div>
+</div>
+
+<div class="scr" id="s15">
+<div class="slab"><a class="sid" href="#s15">15</a>Catálogos. Las 9 pestañas se vuelven una lista con buscador global — todo visible, nada escondido fuera de la pantalla.</div>
+<div class="ph">
+<div class="sb"><span>9:41</span><span>Catálogos</span></div>
+<div class="bd">
+<div class="hdr" style="padding-bottom:8px">
+<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--color-text)" stroke-width="2.75" stroke-linecap="round"><path d="m12 19-7-7 7-7M19 12H5"></path></svg>
+<h4 style="margin:0;font-size:20px">Catálogos</h4>
+</div>
+<div style="flex:1;overflow:hidden;padding:0 20px;display:flex;flex-direction:column;gap:12px">
+<div style="display:flex;align-items:center;gap:8px;background:var(--color-surface);border:1px solid var(--color-divider);border-radius:999px;padding:10px 14px">
+<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="var(--color-neutral-600)" stroke-width="2.75" stroke-linecap="round"><circle cx="11" cy="11" r="8"></circle><path d="m21 21-4.35-4.35"></path></svg>
+<span style="font-size:14px;color:var(--color-neutral-600)">Buscar en todos los catálogos</span>
+</div>
+<div class="sec" style="gap:2px;padding:6px">
+<div style="display:flex;align-items:center;gap:12px;padding:13px 14px;min-height:50px">
+<div style="flex:1;font-size:15px;font-weight:600">Marcas y modelos</div>
+<span style="font-size:13.5px;color:var(--color-neutral-700)">94</span>
+<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="var(--color-neutral-500)" stroke-width="2.75" stroke-linecap="round"><path d="m9 18 6-6-6-6"></path></svg>
+</div>
+<div style="height:1px;background:var(--color-divider);margin:0 14px"></div>
+<div style="display:flex;align-items:center;gap:12px;padding:13px 14px;min-height:50px">
+<div style="flex:1;font-size:15px;font-weight:600">Servicios y precios</div>
+<span style="font-size:13.5px;color:var(--color-neutral-700)">32</span>
+<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="var(--color-neutral-500)" stroke-width="2.75" stroke-linecap="round"><path d="m9 18 6-6-6-6"></path></svg>
+</div>
+<div style="height:1px;background:var(--color-divider);margin:0 14px"></div>
+<div style="display:flex;align-items:center;gap:12px;padding:13px 14px;min-height:50px">
+<div style="flex:1;font-size:15px;font-weight:600">Motivos y diagnósticos</div>
+<span style="font-size:13.5px;color:var(--color-neutral-700)">24</span>
+<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="var(--color-neutral-500)" stroke-width="2.75" stroke-linecap="round"><path d="m9 18 6-6-6-6"></path></svg>
+</div>
+<div style="height:1px;background:var(--color-divider);margin:0 14px"></div>
+<div style="display:flex;align-items:center;gap:12px;padding:13px 14px;min-height:50px">
+<div style="flex:1;font-size:15px;font-weight:600">Colores</div>
+<span style="font-size:13.5px;color:var(--color-neutral-700)">18</span>
+<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="var(--color-neutral-500)" stroke-width="2.75" stroke-linecap="round"><path d="m9 18 6-6-6-6"></path></svg>
+</div>
+<div style="height:1px;background:var(--color-divider);margin:0 14px"></div>
+<div style="display:flex;align-items:center;gap:12px;padding:13px 14px;min-height:50px">
+<div style="flex:1;font-size:15px;font-weight:600">Accesorios del checklist</div>
+<span style="font-size:13.5px;color:var(--color-neutral-700)">12</span>
+<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="var(--color-neutral-500)" stroke-width="2.75" stroke-linecap="round"><path d="m9 18 6-6-6-6"></path></svg>
+</div>
+<div style="height:1px;background:var(--color-divider);margin:0 14px"></div>
+<div style="display:flex;align-items:center;gap:12px;padding:13px 14px;min-height:50px">
+<div style="flex:1;font-size:15px;font-weight:600">Aceites</div>
+<span style="font-size:13.5px;color:var(--color-neutral-700)">9</span>
+<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="var(--color-neutral-500)" stroke-width="2.75" stroke-linecap="round"><path d="m9 18 6-6-6-6"></path></svg>
+</div>
+<div style="height:1px;background:var(--color-divider);margin:0 14px"></div>
+<div style="display:flex;align-items:center;gap:12px;padding:13px 14px;min-height:50px">
+<div style="flex:1;font-size:15px;font-weight:600">Tipos de vehículo</div>
+<span style="font-size:13.5px;color:var(--color-neutral-700)">6</span>
+<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="var(--color-neutral-500)" stroke-width="2.75" stroke-linecap="round"><path d="m9 18 6-6-6-6"></path></svg>
+</div>
+</div>
+<div style="padding:0 6px;font-size:13px;color:var(--color-neutral-700)">Los repuestos ya no viven aquí: tienen su propia pestaña con stock y movimientos.</div>
+</div>
+</div>
+</div>
+</div>
+
+<div class="scr" id="s16">
+<div class="slab"><a class="sid" href="#s16">16</a>Reportes. Deja de ser tres números: facturación por semana, desglose por origen y top de repuestos con barras.</div>
+<div class="ph">
+<div class="sb"><span>9:41</span><span>Reportes</span></div>
+<div class="bd">
+<div class="hdr" style="padding-bottom:8px">
+<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--color-text)" stroke-width="2.75" stroke-linecap="round"><path d="m12 19-7-7 7-7M19 12H5"></path></svg>
+<h4 style="margin:0;font-size:20px">Reportes</h4>
+</div>
+<div style="flex:1;overflow:hidden;padding:0 20px;display:flex;flex-direction:column;gap:12px">
+<div style="display:flex;gap:6px">
+<span class="tag fill" style="font-size:12.5px;padding:7px 14px">Julio</span>
+<span class="tag tag-neutral" style="font-size:12.5px;padding:7px 14px">90 días</span>
+<span class="tag tag-neutral" style="font-size:12.5px;padding:7px 14px">2026</span>
+<span class="tag tag-neutral" style="font-size:12.5px;padding:7px 14px">Elegir…</span>
+</div>
+<div class="sec" style="gap:8px">
+<div class="seck">FACTURADO EN JULIO</div>
+<div style="display:flex;align-items:baseline;gap:10px">
+<span style="font-family:var(--font-heading);font-size:34px;line-height:1">$4.980,00</span>
+<span class="tag tag-accent-2" style="font-size:11px">+18% vs junio</span>
+</div>
+<div style="font-size:13px;color:var(--color-neutral-700)">12 órdenes cerradas · ticket promedio $415,00</div>
+<svg width="100%" height="90" viewBox="0 0 300 90">
+<rect x="10" y="46" width="55" height="38" rx="9" fill="var(--color-accent-300)"></rect>
+<rect x="85" y="30" width="55" height="54" rx="9" fill="var(--color-accent-300)"></rect>
+<rect x="160" y="52" width="55" height="32" rx="9" fill="var(--color-accent-300)"></rect>
+<rect x="235" y="14" width="55" height="70" rx="9" fill="var(--color-accent-700)"></rect>
+<text x="37" y="78" text-anchor="middle" font-size="10" font-family="Figtree" fill="var(--color-accent-900)">S1</text>
+<text x="112" y="78" text-anchor="middle" font-size="10" font-family="Figtree" fill="var(--color-accent-900)">S2</text>
+<text x="187" y="78" text-anchor="middle" font-size="10" font-family="Figtree" fill="var(--color-accent-900)">S3</text>
+<text x="262" y="78" text-anchor="middle" font-size="10" font-family="Figtree" fill="var(--color-neutral-100)">S4</text>
+</svg>
+</div>
+<div class="sec" style="gap:9px">
+<div class="seck">DE DÓNDE VIENE</div>
+<div style="display:flex;align-items:center;gap:8px;font-size:14px"><span style="width:110px">Mano de obra</span><div style="flex:1;height:10px;border-radius:999px;background:var(--color-neutral-200)"><div style="width:43%;height:10px;border-radius:999px;background:var(--color-accent-700)"></div></div><span style="font-weight:600;width:76px;text-align:right">$2.140,00</span></div>
+<div style="display:flex;align-items:center;gap:8px;font-size:14px"><span style="width:110px">Repuestos</span><div style="flex:1;height:10px;border-radius:999px;background:var(--color-neutral-200)"><div style="width:47%;height:10px;border-radius:999px;background:var(--color-accent-2-700)"></div></div><span style="font-weight:600;width:76px;text-align:right">$2.360,00</span></div>
+<div style="display:flex;align-items:center;gap:8px;font-size:14px"><span style="width:110px">Extras</span><div style="flex:1;height:10px;border-radius:999px;background:var(--color-neutral-200)"><div style="width:10%;height:10px;border-radius:999px;background:var(--color-neutral-500)"></div></div><span style="font-weight:600;width:76px;text-align:right">$480,00</span></div>
+</div>
+<div class="sec" style="gap:8px">
+<div class="seck">TOP REPUESTOS DEL MES</div>
+<div style="display:flex;font-size:14px"><span style="flex:1">1. Aceite 5W-30 sintético</span><span style="color:var(--color-neutral-700)">38 L</span></div>
+<div style="display:flex;font-size:14px"><span style="flex:1">2. Pastillas de freno Brembo</span><span style="color:var(--color-neutral-700)">6 juegos</span></div>
+<div style="display:flex;font-size:14px"><span style="flex:1">3. Filtro de aceite Nissan</span><span style="color:var(--color-neutral-700)">5 pzas</span></div>
+</div>
+</div>
+</div>
+</div>
+</div>
+
+<div class="scr" id="s17">
+<div class="slab"><a class="sid" href="#s17">17</a>Comisiones. Agrupadas por mecánico con selección directa; la barra de abajo acumula y paga en lote con su PDF, como hoy pero legible de pie.</div>
+<div class="ph">
+<div class="sb"><span>9:41</span><span>Comisiones</span></div>
+<div class="bd">
+<div class="hdr" style="padding-bottom:8px">
+<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--color-text)" stroke-width="2.75" stroke-linecap="round"><path d="m12 19-7-7 7-7M19 12H5"></path></svg>
+<h4 style="margin:0;font-size:20px">Comisiones</h4>
+</div>
+<div style="padding:0 20px 10px;flex:none;display:flex;gap:6px">
+<span class="tag fill" style="font-size:13px;padding:8px 15px">Pendientes 4</span>
+<span class="tag tag-neutral" style="font-size:13px;padding:8px 15px">Pagadas</span>
+</div>
+<div style="flex:1;overflow:hidden;padding:0 20px;display:flex;flex-direction:column;gap:11px">
+<div class="sec" style="gap:10px">
+<div style="display:flex;align-items:center;gap:10px">
+<div style="width:38px;height:38px;flex:none;border-radius:999px;display:grid;place-items:center;font:600 13px var(--font-body)" class="fill2">DM</div>
+<div style="flex:1">
+<div style="font-size:15px;font-weight:600">Daniel Morán</div>
+<div style="font-size:12.5px;color:var(--color-neutral-700)">3 comisiones · $164,00</div>
+</div>
+<span class="btn btn-ghost" style="font-size:13px;color:var(--color-accent-700)">Todas</span>
+</div>
+<div style="display:flex;align-items:center;gap:10px">
+<div style="width:26px;height:26px;flex:none;border-radius:999px;display:grid;place-items:center" class="fill">
+<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--color-neutral-100)" stroke-width="2.75" stroke-linecap="round"><path d="M20 6 9 17l-5-5"></path></svg>
+</div>
+<div style="flex:1;font-size:14px">Orden #1042 · Frenos · 20%</div>
+<span style="font-size:14px;font-weight:700">$48,00</span>
+</div>
+<div style="display:flex;align-items:center;gap:10px">
+<div style="width:26px;height:26px;flex:none;border-radius:999px;display:grid;place-items:center" class="fill">
+<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--color-neutral-100)" stroke-width="2.75" stroke-linecap="round"><path d="M20 6 9 17l-5-5"></path></svg>
+</div>
+<div style="flex:1;font-size:14px">Orden #1038 · Afinación · fija</div>
+<span style="font-size:14px;font-weight:700">$83,00</span>
+</div>
+<div style="display:flex;align-items:center;gap:10px;opacity:.6">
+<div style="width:26px;height:26px;flex:none;border-radius:999px;border:1.5px solid var(--color-divider)"></div>
+<div style="flex:1;font-size:14px">Orden #1035 · Suspensión · 20%</div>
+<span style="font-size:14px;font-weight:700">$33,00</span>
+</div>
+</div>
+<div class="sec" style="gap:10px">
+<div style="display:flex;align-items:center;gap:10px">
+<div style="width:38px;height:38px;flex:none;border-radius:999px;display:grid;place-items:center;font:600 13px var(--font-body);background:var(--color-accent-200);color:var(--color-accent-800)">RL</div>
+<div style="flex:1">
+<div style="font-size:15px;font-weight:600">Rosa Lucero</div>
+<div style="font-size:12.5px;color:var(--color-neutral-700)">1 comisión · $45,00</div>
+</div>
+</div>
+<div style="display:flex;align-items:center;gap:10px;opacity:.6">
+<div style="width:26px;height:26px;flex:none;border-radius:999px;border:1.5px solid var(--color-divider)"></div>
+<div style="flex:1;font-size:14px">Orden #1040 · Servicio 40 mil · 15%</div>
+<span style="font-size:14px;font-weight:700">$45,00</span>
+</div>
+</div>
+<div style="padding:0 6px;font-size:13px;color:var(--color-neutral-700)">Solo comisionan órdenes en Listo o Entregado.</div>
+</div>
+<div style="flex:none;padding:12px 20px 16px;display:flex;align-items:center;gap:12px;background:var(--color-surface);border-top:1px solid var(--color-divider)">
+<div style="flex:1">
+<div style="font-size:12.5px;color:var(--color-neutral-700)">2 seleccionadas</div>
+<div style="font-family:var(--font-heading);font-size:22px">$131,00</div>
+</div>
+<div class="pill fill" style="font-size:14.5px;min-height:48px">Pagar y generar PDF</div>
+</div>
+</div>
+</div>
+</div>
+
+</div>
+<p style="margin:24px 0 0;font:12.5px/1.6 var(--font-body);color:var(--color-neutral-700)">Sigue: “modo oscuro” · “documenta los tokens para pasarlos a Color.kt / Type.kt” · “pantalla de respaldos” · “vuélvelo navegable”</p>
+</section></x-dc>
+</body>
+</html>

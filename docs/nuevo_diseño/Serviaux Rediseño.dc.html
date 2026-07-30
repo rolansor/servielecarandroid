@@ -1,0 +1,929 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet data-dc-atomics><meta name="design_doc_mode" content="canvas"><link rel="stylesheet" href="_ds/organic-d9d06648-2ae9-484f-a7d7-03355e10f2fd/styles.css"><script src="_ds/organic-d9d06648-2ae9-484f-a7d7-03355e10f2fd/_ds_bundle.js"></script><style>
+body{margin:0;background:var(--color-neutral-200)}
+.dv-turn{padding:40px 44px 32px;border-bottom:1px solid var(--color-divider);scroll-margin-top:16px}
+.dv-thd{display:flex;align-items:baseline;gap:10px;margin:0 0 20px}
+.dv-tid{font:600 10px ui-monospace,Menlo,monospace;padding:3px 7px;background:var(--color-neutral-900);color:var(--color-neutral-100);border-radius:999px;text-decoration:none}
+.dv-tname{font:600 13px/1.2 var(--font-body);color:var(--color-text)}
+.dv-opts{display:flex;flex-wrap:wrap;gap:32px;align-items:flex-start}
+.dv-opt{flex:none;display:flex;flex-direction:column;gap:10px;scroll-margin-top:16px}
+.dv-oid{font:600 10.5px ui-monospace,Menlo,monospace;padding:3px 7px;background:var(--color-neutral-300);color:var(--color-neutral-900);border-radius:999px;text-decoration:none}
+.dv-olabel{display:flex;align-items:baseline;gap:8px;font:400 12px/1.35 var(--font-body);color:var(--color-neutral-700);max-width:390px}
+.dv-opt:target .dv-oid{background:var(--color-accent);color:var(--color-bg)}
+.dv-next{margin:24px 0 0;font:12.5px/1.6 var(--font-body);color:var(--color-neutral-700)}
+.ph{width:390px;height:812px;background:var(--color-bg);border-radius:40px;overflow:hidden;position:relative;box-shadow:var(--shadow-lg);display:flex;flex-direction:column}
+.sb{display:flex;justify-content:space-between;align-items:center;height:42px;padding:0 24px;font:600 12px var(--font-body);color:var(--color-neutral-700);flex:none}
+.bd{flex:1;overflow:hidden;display:flex;flex-direction:column}
+.bn{flex:none;display:flex;padding:8px 6px 18px;background:var(--color-surface);border-top:1px solid var(--color-divider)}
+.bni{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;font:600 10.5px var(--font-body);color:var(--color-neutral-600);min-height:44px;justify-content:center}
+.bnd{width:22px;height:22px;border-radius:999px;background:var(--color-neutral-300)}
+</style></helmet>
+
+<section class="dv-turn" id="brief">
+<div class="dv-thd"><a class="dv-tid" href="#brief">brief</a><span class="dv-tname">Supuestos y decisiones de diseño</span></div>
+<div style="display:flex;gap:24px;flex-wrap:wrap;max-width:1300px">
+<div class="card elev-sm" style="width:400px">
+<span class="card-kicker">Lo que asumo</span>
+<h4 style="margin:0">Teléfono vertical, identidad propia</h4>
+<p class="card-body" style="font-size:13.5px">Se apaga el color dinámico: la app tiene marca. Se declara <strong>teléfono en vertical</strong> como único formato. Cuerpo mínimo 14px, datos operativos 15–16px, objetivos táctiles ≥44px — se usa de pie, con guantes.</p>
+<p class="card-body" style="font-size:13.5px;margin:0">Taller de 1–2 mecánicos: los tres roles comparten el mismo teléfono, así que el tablero es la casa de todos y no hay dashboard de módulos.</p>
+</div>
+<div class="card elev-sm" style="width:400px">
+<span class="card-kicker">El problema #1</span>
+<h4 style="margin:0">El historial manda</h4>
+<p class="card-body" style="font-size:13.5px">Dijiste que lo más importante es el historial de vehículo y cliente. Así que la <strong>placa es la llave de todo</strong>: en el tablero y en la recepción, la placa trae consigo lo que ya se hizo, cuándo, y cuánto se cobró.</p>
+<p class="card-body" style="font-size:13.5px;margin:0">Un solo patrón de tarjeta de lista, un solo chip de estado. Nada de cuatro estilos compitiendo.</p>
+</div>
+<div class="card elev-sm" style="width:400px">
+<span class="card-kicker">Escala de estados</span>
+<h4 style="margin:0">7 estados, todos legibles</h4>
+<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px">
+<span class="tag tag-neutral">Recibido</span>
+<span class="tag" style="background:var(--color-accent-200);color:var(--color-accent-800)">En diagnóstico</span>
+<span class="tag" style="background:var(--color-accent-700);color:var(--color-neutral-100)">En proceso</span>
+<span class="tag" style="background:var(--color-accent-100);color:var(--color-accent-800);border:1px dashed var(--color-accent-600)">Espera repuesto</span>
+<span class="tag" style="background:var(--color-accent-2-700);color:var(--color-neutral-100)">Listo</span>
+<span class="tag tag-accent-2">Entregado</span>
+<span class="tag" style="background:var(--color-neutral-300);color:var(--color-neutral-800)">Cerrado</span>
+</div>
+<p class="card-body" style="font-size:13.5px;margin:0">Sin amarillo ilegible: lo activo va en terracota sólida, lo terminado en salvia, lo inerte en neutro. El único borde punteado del sistema significa “esperando algo de fuera”.</p>
+</div>
+</div>
+</section>
+
+<section class="dv-turn" id="t4" style="--color-bg:#f1eff7;--color-surface:#e4e2f0;--color-text:#1e1c26;--color-divider:rgba(30,28,38,.14);--color-accent:#5a5bd6;--color-accent-100:#eeeeff;--color-accent-200:#dcdcfb;--color-accent-300:#c3c3f5;--color-accent-400:#a0a1ec;--color-accent-500:#7c7ee0;--color-accent-600:#6062cc;--color-accent-700:#4a4bab;--color-accent-800:#363688;--color-accent-900:#262560;--color-accent-2-100:#e3f6f2;--color-accent-2-200:#cbeae4;--color-accent-2-300:#a9d8cf;--color-accent-2-400:#7fbeb3;--color-accent-2-500:#5da296;--color-accent-2-600:#47857a;--color-accent-2-700:#35655d;--color-accent-2-800:#244841;--color-accent-2-900:#17302b;--color-neutral-100:#f7f6fb;--color-neutral-200:#ecebf3;--color-neutral-300:#d9d7e4;--color-neutral-400:#bab7c8;--color-neutral-500:#9b98ab;--color-neutral-600:#7d7a8d;--color-neutral-700:#605d6f;--color-neutral-800:#43414f;--color-neutral-900:#2b2934">
+<div class="dv-thd"><a class="dv-tid" href="#t4">4</a><span class="dv-tname">Índigo aplicado a todo (<a class="dv-oid" href="#3c">3c</a>) — tablero + los tres pasos de recepción</span></div>
+<div class="dv-opts">
+
+<div class="dv-opt" id="4a">
+<div class="dv-olabel"><a class="dv-oid" href="#4a">4a</a>El tablero de carriles en índigo: índigo = lo que está pasando, verde-agua = lo terminado, punteado = esperando algo de fuera.</div>
+<div class="ph">
+<div class="sb"><span>9:41</span><span>Servielecar</span></div>
+<div class="bd">
+<div style="padding:4px 20px 10px;flex:none;display:flex;align-items:flex-end;gap:10px">
+<div>
+<h3 style="margin:0;font-size:26px">El taller hoy</h3>
+<div style="font-size:13.5px;color:var(--color-neutral-700)">miércoles 29 jul · 9 autos dentro</div>
+</div>
+<div style="margin-left:auto;width:40px;height:40px;border-radius:999px;background:var(--color-accent-2-700);color:var(--color-neutral-100);display:grid;place-items:center;font:600 13px var(--font-body)">JS</div>
+</div>
+<div style="flex:1;overflow:hidden;display:flex;gap:12px;padding:6px 0 0 20px">
+<div style="flex:none;width:252px;display:flex;flex-direction:column;gap:10px">
+<div style="display:flex;align-items:center;gap:8px">
+<span class="tag" style="background:var(--color-accent-700);color:var(--color-neutral-100)">En proceso</span>
+<span style="font-family:var(--font-heading);font-size:18px">3</span>
+</div>
+<div class="card elev-sm" style="padding:14px;gap:8px">
+<span style="font-family:var(--font-heading);font-size:20px">MZC-42-18</span>
+<div style="font-size:14px;font-weight:600">Nissan Versa 2019</div>
+<div style="font-size:13.5px;color:var(--color-neutral-700)">Frenos · Jorge S. · desde ayer</div>
+<div style="display:flex;align-items:center;gap:8px;margin-top:2px">
+<div style="display:flex;align-items:center;gap:7px;background:var(--color-accent-2-700);color:var(--color-neutral-100);border-radius:999px;padding:9px 14px;font:600 13px var(--font-body);min-height:40px">
+Pasar a Listo
+<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--color-neutral-100)" stroke-width="2.75" stroke-linecap="round"><path d="M5 12h14m-7-7 7 7-7 7"></path></svg>
+</div>
+<div style="margin-left:auto;width:40px;height:40px;border-radius:999px;border:1px solid var(--color-divider);display:grid;place-items:center">
+<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="var(--color-neutral-700)" stroke-width="2.75" stroke-linecap="round"><circle cx="12" cy="5" r="1"></circle><circle cx="12" cy="12" r="1"></circle><circle cx="12" cy="19" r="1"></circle></svg>
+</div>
+</div>
+</div>
+<div class="card elev-sm" style="padding:14px;gap:8px">
+<span style="font-family:var(--font-heading);font-size:20px">PJR-88-04</span>
+<div style="font-size:14px;font-weight:600">Chevrolet Aveo 2016</div>
+<div style="font-size:13.5px;color:var(--color-neutral-700)">Servicio 40 mil · María F. · hoy 8:05</div>
+<div style="display:flex;align-items:center;gap:8px;margin-top:2px">
+<div style="display:flex;align-items:center;gap:7px;background:var(--color-accent-2-700);color:var(--color-neutral-100);border-radius:999px;padding:9px 14px;font:600 13px var(--font-body);min-height:40px">
+Pasar a Listo
+<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--color-neutral-100)" stroke-width="2.75" stroke-linecap="round"><path d="M5 12h14m-7-7 7 7-7 7"></path></svg>
+</div>
+<div style="margin-left:auto;width:40px;height:40px;border-radius:999px;border:1px solid var(--color-divider);display:grid;place-items:center">
+<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="var(--color-neutral-700)" stroke-width="2.75" stroke-linecap="round"><circle cx="12" cy="5" r="1"></circle><circle cx="12" cy="12" r="1"></circle><circle cx="12" cy="19" r="1"></circle></svg>
+</div>
+</div>
+</div>
+</div>
+<div style="flex:none;width:252px;display:flex;flex-direction:column;gap:10px">
+<div style="display:flex;align-items:center;gap:8px">
+<span class="tag" style="background:var(--color-accent-100);color:var(--color-accent-800);border:1px dashed var(--color-accent-600)">Espera repuesto</span>
+<span style="font-family:var(--font-heading);font-size:18px">2</span>
+</div>
+<div class="card elev-sm" style="padding:14px;gap:8px">
+<span style="font-family:var(--font-heading);font-size:20px">TGN-15-77</span>
+<div style="font-size:14px;font-weight:600">VW Jetta 2014</div>
+<div style="font-size:13.5px;color:var(--color-neutral-700)">Bomba de gasolina · 4 días parado</div>
+<div style="display:flex;align-items:center;gap:8px;margin-top:2px">
+<div style="display:flex;align-items:center;gap:7px;background:var(--color-accent-700);color:var(--color-neutral-100);border-radius:999px;padding:9px 14px;font:600 13px var(--font-body);min-height:40px">Llegó el repuesto</div>
+</div>
+</div>
+</div>
+</div>
+<div style="flex:none;display:flex;align-items:center;gap:8px;padding:12px 20px 4px">
+<div style="display:flex;gap:5px">
+<div style="width:22px;height:5px;border-radius:999px;background:var(--color-accent-700)"></div>
+<div style="width:5px;height:5px;border-radius:999px;background:var(--color-neutral-400)"></div>
+<div style="width:5px;height:5px;border-radius:999px;background:var(--color-neutral-400)"></div>
+<div style="width:5px;height:5px;border-radius:999px;background:var(--color-neutral-400)"></div>
+<div style="width:5px;height:5px;border-radius:999px;background:var(--color-neutral-400)"></div>
+</div>
+<span style="margin-left:auto;font-size:12.5px;color:var(--color-neutral-700)">Recibido · Diagnóstico · Proceso · Espera · Listo</span>
+</div>
+</div>
+<div style="position:absolute;right:20px;bottom:96px;width:58px;height:58px;border-radius:999px;background:var(--color-accent-700);box-shadow:var(--shadow-md);display:grid;place-items:center">
+<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="var(--color-neutral-100)" stroke-width="2.75" stroke-linecap="round"><path d="M5 12h14M12 5v14"></path></svg>
+</div>
+<div class="bn">
+<div class="bni" style="color:var(--color-accent-700)"><div class="bnd" style="background:var(--color-accent-300)"></div>Taller</div>
+<div class="bni"><div class="bnd"></div>Órdenes</div>
+<div class="bni"><div class="bnd"></div>Turnos</div>
+<div class="bni"><div class="bnd"></div>Clientes</div>
+<div class="bni"><div class="bnd"></div>Autos</div>
+</div>
+</div>
+</div>
+
+<div class="dv-opt" id="4b">
+<div class="dv-olabel"><a class="dv-oid" href="#4b">4b</a>Paso 2 — por qué viene. La queja se dicta; el historial sigue presente como cinta para no repetir un trabajo en garantía.</div>
+<div class="ph">
+<div class="sb"><span>9:41</span><span>Paso 2 de 3</span></div>
+<div class="bd">
+<div style="padding:2px 20px 6px;flex:none;display:flex;align-items:center;gap:12px">
+<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--color-text)" stroke-width="2.75" stroke-linecap="round"><path d="m12 19-7-7 7-7M19 12H5"></path></svg>
+<div style="flex:1;display:flex;gap:5px">
+<div style="flex:1;height:5px;border-radius:999px;background:var(--color-accent-700)"></div>
+<div style="flex:1;height:5px;border-radius:999px;background:var(--color-accent-700)"></div>
+<div style="flex:1;height:5px;border-radius:999px;background:var(--color-neutral-300)"></div>
+</div>
+</div>
+<div style="flex:1;overflow:hidden;padding:8px 20px 0;display:flex;flex-direction:column;gap:14px">
+<div>
+<h3 style="margin:0;font-size:27px">¿Por qué viene?</h3>
+<div style="font-size:13.5px;color:var(--color-neutral-700)">MZC-42-18 · Nissan Versa 2019</div>
+</div>
+
+<div style="background:var(--color-surface);border-radius:32px;padding:18px 20px;display:flex;flex-direction:column;gap:10px">
+<div style="font-size:12px;color:var(--color-neutral-700)">QUEJA DEL CLIENTE</div>
+<div style="font-size:16px;line-height:1.4">Ruido al frenar y el volante vibra pasando de 80</div>
+<div style="display:flex;gap:8px;align-items:center">
+<div style="display:flex;align-items:center;gap:7px;background:var(--color-accent-700);color:var(--color-neutral-100);border-radius:999px;padding:9px 16px;font:600 13.5px var(--font-body);min-height:42px">
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--color-neutral-100)" stroke-width="2.75" stroke-linecap="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3zM19 10v2a7 7 0 0 1-14 0v-2M12 19v3"></path></svg>
+Dictar de nuevo
+</div>
+<span style="font-size:12.5px;color:var(--color-neutral-700)">o toca para editar</span>
+</div>
+</div>
+
+<div style="display:flex;gap:10px;align-items:flex-start;background:var(--color-accent-100);border:1px dashed var(--color-accent-600);border-radius:28px;padding:14px 16px">
+<svg width="19" height="19" style="flex:none;margin-top:1px" viewBox="0 0 24 24" fill="none" stroke="var(--color-accent-700)" stroke-width="2.75" stroke-linecap="round"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3 2"></path></svg>
+<div style="font-size:13.5px;color:var(--color-accent-800)"><strong>Ojo:</strong> las balatas se cambiaron hace 21 días ($2,980). Si es lo mismo, va como garantía.</div>
+</div>
+
+<div class="field">
+<label style="font-size:12px">TIPO DE ORDEN</label>
+<div style="display:flex;flex-wrap:wrap;gap:6px">
+<span class="tag" style="background:var(--color-accent-700);color:var(--color-neutral-100);font-size:13px;padding:8px 15px">Garantía</span>
+<span class="tag tag-neutral" style="font-size:13px;padding:8px 15px">Correctivo</span>
+<span class="tag tag-neutral" style="font-size:13px;padding:8px 15px">Preventivo</span>
+<span class="tag tag-neutral" style="font-size:13px;padding:8px 15px">Diagnóstico</span>
+</div>
+</div>
+
+<div style="display:flex;gap:10px">
+<div class="field" style="flex:1">
+<label style="font-size:12px">KILOMETRAJE</label>
+<div class="input" style="display:flex;align-items:center;min-height:44px;font-size:16px;font-weight:600">98,400 km</div>
+</div>
+<div class="field" style="flex:1">
+<label style="font-size:12px">CÓMO LLEGÓ</label>
+<div class="input" style="display:flex;align-items:center;min-height:44px;font-size:15px">Rodando</div>
+</div>
+</div>
+</div>
+<div style="flex:none;padding:12px 20px 16px">
+<div class="btn btn-primary btn-block" style="margin:0;min-height:50px;font-size:15.5px;background:var(--color-accent-700);color:var(--color-neutral-100)">Continuar a fotos</div>
+</div>
+</div>
+</div>
+</div>
+
+<div class="dv-opt" id="4c">
+<div class="dv-olabel"><a class="dv-oid" href="#4c">4c</a>Paso 3 — evidencia y cierre. Fotos, checklist de lo que trae el auto, mecánico, y el botón que abre la orden con todo lo capturado a la vista.</div>
+<div class="ph">
+<div class="sb"><span>9:41</span><span>Paso 3 de 3</span></div>
+<div class="bd">
+<div style="padding:2px 20px 6px;flex:none;display:flex;align-items:center;gap:12px">
+<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--color-text)" stroke-width="2.75" stroke-linecap="round"><path d="m12 19-7-7 7-7M19 12H5"></path></svg>
+<div style="flex:1;display:flex;gap:5px">
+<div style="flex:1;height:5px;border-radius:999px;background:var(--color-accent-700)"></div>
+<div style="flex:1;height:5px;border-radius:999px;background:var(--color-accent-700)"></div>
+<div style="flex:1;height:5px;border-radius:999px;background:var(--color-accent-700)"></div>
+</div>
+</div>
+<div style="flex:1;overflow:hidden;padding:8px 20px 0;display:flex;flex-direction:column;gap:14px">
+<h3 style="margin:0;font-size:27px">Cómo se lo recibimos</h3>
+
+<div style="background:var(--color-surface);border-radius:32px;padding:18px 20px;display:flex;flex-direction:column;gap:10px">
+<div style="display:flex;align-items:center"><div style="font-size:12px;color:var(--color-neutral-700)">FOTOS</div><span style="margin-left:auto;font-size:12.5px;color:var(--color-neutral-700)">3 / 6</span></div>
+<div style="display:flex;gap:8px">
+<div style="width:70px;height:70px;border-radius:20px;background:var(--color-neutral-300)"></div>
+<div style="width:70px;height:70px;border-radius:20px;background:var(--color-neutral-300)"></div>
+<div style="width:70px;height:70px;border-radius:20px;background:var(--color-neutral-300)"></div>
+<div style="width:70px;height:70px;border-radius:20px;border:1px dashed var(--color-accent-600);background:var(--color-accent-100);display:grid;place-items:center">
+<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--color-accent-700)" stroke-width="2.75" stroke-linecap="round"><path d="M5 12h14M12 5v14"></path></svg>
+</div>
+</div>
+</div>
+
+<div style="background:var(--color-surface);border-radius:32px;padding:18px 20px;display:flex;flex-direction:column;gap:10px">
+<div style="font-size:12px;color:var(--color-neutral-700)">TRAE CONSIGO</div>
+<div style="display:flex;flex-wrap:wrap;gap:7px">
+<span class="tag" style="background:var(--color-accent-2-700);color:var(--color-neutral-100);font-size:13px;padding:8px 15px">Llanta de refacción</span>
+<span class="tag" style="background:var(--color-accent-2-700);color:var(--color-neutral-100);font-size:13px;padding:8px 15px">Gato</span>
+<span class="tag tag-neutral" style="font-size:13px;padding:8px 15px">Tapetes</span>
+<span class="tag tag-neutral" style="font-size:13px;padding:8px 15px">Estéreo</span>
+<span class="tag tag-neutral" style="font-size:13px;padding:8px 15px">Herramienta</span>
+</div>
+</div>
+
+<div style="background:var(--color-surface);border-radius:32px;padding:18px 20px;display:flex;align-items:center;gap:12px">
+<div style="width:42px;height:42px;flex:none;border-radius:999px;background:var(--color-accent-2-700);color:var(--color-neutral-100);display:grid;place-items:center;font:600 14px var(--font-body)">DM</div>
+<div style="flex:1">
+<div style="font-size:12px;color:var(--color-neutral-700)">MECÁNICO</div>
+<div style="font-size:15.5px;font-weight:600">Daniel Morán</div>
+</div>
+<span class="btn btn-ghost" style="font-size:13.5px;color:var(--color-accent-700)">Cambiar</span>
+</div>
+</div>
+<div style="flex:none;padding:12px 20px 16px;display:flex;flex-direction:column;gap:8px">
+<div style="display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--color-neutral-700)">
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--color-accent-2-700)" stroke-width="2.75" stroke-linecap="round"><path d="M20 6 9 17l-5-5"></path></svg>
+Placa, queja, kilometraje y fotos capturados
+</div>
+<div class="btn btn-primary btn-block" style="margin:0;min-height:52px;font-size:16px;background:var(--color-accent-700);color:var(--color-neutral-100)">Abrir orden #1043</div>
+</div>
+</div>
+</div>
+</div>
+
+</div>
+<p class="dv-next">Sigue: “ahora el detalle de orden en índigo” · “la pantalla de historial completo del vehículo” · “modo oscuro” · “documenta los tokens índigo para el desarrollador”</p>
+</section>
+
+<section class="dv-turn" id="t3">
+<div class="dv-thd"><a class="dv-tid" href="#t3">3</a><span class="dv-tname">Carriles sin arrastrar (<a class="dv-oid" href="#1b">1b</a>) + prueba de tono azul/violeta</span></div>
+<div class="dv-opts">
+
+<div class="dv-opt" id="3a">
+<div class="dv-olabel"><a class="dv-oid" href="#3a">3a</a>Nunca se arrastra. Cada tarjeta trae el <strong>siguiente paso</strong> como botón: un toque y salta de carril sola. El carril se desliza para mirar, no para mover.</div>
+<div class="ph">
+<div class="sb"><span>9:41</span><span>Servielecar</span></div>
+<div class="bd">
+<div style="padding:4px 20px 10px;flex:none;display:flex;align-items:flex-end;gap:10px">
+<div>
+<h3 style="margin:0;font-size:26px">El taller hoy</h3>
+<div style="font-size:13.5px;color:var(--color-neutral-700)">miércoles 29 jul · 9 autos dentro</div>
+</div>
+<div style="margin-left:auto;width:40px;height:40px;border-radius:999px;background:var(--color-accent-2-700);color:var(--color-neutral-100);display:grid;place-items:center;font:600 13px var(--font-body)">JS</div>
+</div>
+<div style="flex:1;overflow:hidden;display:flex;gap:12px;padding:6px 0 0 20px">
+<div style="flex:none;width:252px;display:flex;flex-direction:column;gap:10px">
+<div style="display:flex;align-items:center;gap:8px">
+<span class="tag" style="background:var(--color-accent-700);color:var(--color-neutral-100)">En proceso</span>
+<span style="font-family:var(--font-heading);font-size:18px">3</span>
+</div>
+<div class="card elev-sm" style="padding:14px;gap:8px">
+<span style="font-family:var(--font-heading);font-size:20px">MZC-42-18</span>
+<div style="font-size:14px;font-weight:600">Nissan Versa 2019</div>
+<div style="font-size:13.5px;color:var(--color-neutral-700)">Frenos · Jorge S. · desde ayer</div>
+<div style="display:flex;align-items:center;gap:8px;margin-top:2px">
+<div style="display:flex;align-items:center;gap:7px;background:var(--color-accent-2-700);color:var(--color-neutral-100);border-radius:999px;padding:9px 14px;font:600 13px var(--font-body);min-height:40px">
+Pasar a Listo
+<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--color-neutral-100)" stroke-width="2.75" stroke-linecap="round"><path d="M5 12h14m-7-7 7 7-7 7"></path></svg>
+</div>
+<div style="margin-left:auto;width:40px;height:40px;border-radius:999px;border:1px solid var(--color-divider);display:grid;place-items:center">
+<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="var(--color-neutral-700)" stroke-width="2.75" stroke-linecap="round"><circle cx="12" cy="5" r="1"></circle><circle cx="12" cy="12" r="1"></circle><circle cx="12" cy="19" r="1"></circle></svg>
+</div>
+</div>
+</div>
+<div class="card elev-sm" style="padding:14px;gap:8px">
+<span style="font-family:var(--font-heading);font-size:20px">PJR-88-04</span>
+<div style="font-size:14px;font-weight:600">Chevrolet Aveo 2016</div>
+<div style="font-size:13.5px;color:var(--color-neutral-700)">Servicio 40 mil · María F. · hoy 8:05</div>
+<div style="display:flex;align-items:center;gap:8px;margin-top:2px">
+<div style="display:flex;align-items:center;gap:7px;background:var(--color-accent-2-700);color:var(--color-neutral-100);border-radius:999px;padding:9px 14px;font:600 13px var(--font-body);min-height:40px">
+Pasar a Listo
+<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--color-neutral-100)" stroke-width="2.75" stroke-linecap="round"><path d="M5 12h14m-7-7 7 7-7 7"></path></svg>
+</div>
+<div style="margin-left:auto;width:40px;height:40px;border-radius:999px;border:1px solid var(--color-divider);display:grid;place-items:center">
+<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="var(--color-neutral-700)" stroke-width="2.75" stroke-linecap="round"><circle cx="12" cy="5" r="1"></circle><circle cx="12" cy="12" r="1"></circle><circle cx="12" cy="19" r="1"></circle></svg>
+</div>
+</div>
+</div>
+</div>
+<div style="flex:none;width:252px;display:flex;flex-direction:column;gap:10px">
+<div style="display:flex;align-items:center;gap:8px">
+<span class="tag" style="background:var(--color-accent-100);color:var(--color-accent-800);border:1px dashed var(--color-accent-600)">Espera repuesto</span>
+<span style="font-family:var(--font-heading);font-size:18px">2</span>
+</div>
+<div class="card elev-sm" style="padding:14px;gap:8px">
+<span style="font-family:var(--font-heading);font-size:20px">TGN-15-77</span>
+<div style="font-size:14px;font-weight:600">VW Jetta 2014</div>
+<div style="font-size:13.5px;color:var(--color-neutral-700)">Bomba de gasolina · 4 días parado</div>
+<div style="display:flex;align-items:center;gap:8px;margin-top:2px">
+<div style="display:flex;align-items:center;gap:7px;background:var(--color-accent-700);color:var(--color-neutral-100);border-radius:999px;padding:9px 14px;font:600 13px var(--font-body);min-height:40px">
+Llegó el repuesto
+</div>
+</div>
+</div>
+</div>
+</div>
+<div style="flex:none;display:flex;align-items:center;gap:8px;padding:12px 20px 4px">
+<div style="display:flex;gap:5px">
+<div style="width:22px;height:5px;border-radius:999px;background:var(--color-accent-500)"></div>
+<div style="width:5px;height:5px;border-radius:999px;background:var(--color-neutral-400)"></div>
+<div style="width:5px;height:5px;border-radius:999px;background:var(--color-neutral-400)"></div>
+<div style="width:5px;height:5px;border-radius:999px;background:var(--color-neutral-400)"></div>
+<div style="width:5px;height:5px;border-radius:999px;background:var(--color-neutral-400)"></div>
+</div>
+<span style="margin-left:auto;font-size:12.5px;color:var(--color-neutral-700)">Recibido · Diagnóstico · Proceso · Espera · Listo</span>
+</div>
+</div>
+<div class="bn">
+<div class="bni" style="color:var(--color-accent-700)"><div class="bnd" style="background:var(--color-accent-300)"></div>Taller</div>
+<div class="bni"><div class="bnd"></div>Órdenes</div>
+<div class="bni"><div class="bnd"></div>Turnos</div>
+<div class="bni"><div class="bnd"></div>Clientes</div>
+<div class="bni"><div class="bnd"></div>Autos</div>
+</div>
+</div>
+</div>
+
+<div class="dv-opt" id="3b">
+<div class="dv-olabel"><a class="dv-oid" href="#3b">3b</a>Y si el salto es a otro carril lejano: el menú de la tarjeta abre esta hoja con los 7 estados. Cero arrastre de extremo a extremo. Aquí ya en tono <strong>índigo</strong>.</div>
+<div class="ph" style="--color-bg:#f1eff7;--color-surface:#e4e2f0;--color-text:#1e1c26;--color-divider:rgba(30,28,38,.14);--color-accent:#5a5bd6;--color-accent-100:#eeeeff;--color-accent-200:#dcdcfb;--color-accent-300:#c3c3f5;--color-accent-400:#a0a1ec;--color-accent-500:#7c7ee0;--color-accent-600:#6062cc;--color-accent-700:#4a4bab;--color-accent-800:#363688;--color-accent-900:#262560;--color-accent-2-100:#e3f6f2;--color-accent-2-200:#cbeae4;--color-accent-2-300:#a9d8cf;--color-accent-2-400:#7fbeb3;--color-accent-2-500:#5da296;--color-accent-2-600:#47857a;--color-accent-2-700:#35655d;--color-accent-2-800:#244841;--color-accent-2-900:#17302b;--color-neutral-100:#f7f6fb;--color-neutral-200:#ecebf3;--color-neutral-300:#d9d7e4;--color-neutral-400:#bab7c8;--color-neutral-500:#9b98ab;--color-neutral-600:#7d7a8d;--color-neutral-700:#605d6f;--color-neutral-800:#43414f;--color-neutral-900:#2b2934">
+<div class="sb"><span>9:41</span><span>Servielecar</span></div>
+<div class="bd" style="position:relative">
+<div style="padding:4px 20px 10px;flex:none;display:flex;align-items:flex-end;gap:10px;opacity:.45">
+<div>
+<h3 style="margin:0;font-size:26px">El taller hoy</h3>
+<div style="font-size:13.5px;color:var(--color-neutral-700)">miércoles 29 jul · 9 autos dentro</div>
+</div>
+</div>
+<div style="flex:1;overflow:hidden;display:flex;gap:12px;padding:6px 0 0 20px;opacity:.45">
+<div style="flex:none;width:252px;display:flex;flex-direction:column;gap:10px">
+<div style="display:flex;align-items:center;gap:8px">
+<span class="tag" style="background:var(--color-accent-700);color:var(--color-neutral-100)">En proceso</span>
+<span style="font-family:var(--font-heading);font-size:18px">3</span>
+</div>
+<div class="card elev-sm" style="padding:14px;gap:6px">
+<span style="font-family:var(--font-heading);font-size:20px">MZC-42-18</span>
+<div style="font-size:14px;font-weight:600">Nissan Versa 2019</div>
+<div style="font-size:13.5px;color:var(--color-neutral-700)">Frenos · Jorge S.</div>
+</div>
+<div class="card elev-sm" style="padding:14px;gap:6px">
+<span style="font-family:var(--font-heading);font-size:20px">PJR-88-04</span>
+<div style="font-size:14px;font-weight:600">Chevrolet Aveo 2016</div>
+</div>
+</div>
+</div>
+<div style="position:absolute;inset:0;background:rgba(43,41,52,.35)"></div>
+<div style="position:absolute;left:0;right:0;bottom:0;background:var(--color-bg);border-radius:36px 36px 0 0;padding:18px 20px 22px;display:flex;flex-direction:column;gap:12px;box-shadow:var(--shadow-lg)">
+<div style="width:44px;height:5px;border-radius:999px;background:var(--color-neutral-300);align-self:center"></div>
+<div>
+<div style="font-family:var(--font-heading);font-size:21px">MZC-42-18</div>
+<div style="font-size:13.5px;color:var(--color-neutral-700)">Nissan Versa 2019 · orden #1042</div>
+</div>
+<div style="display:flex;flex-direction:column;gap:7px">
+<div style="display:flex;align-items:center;gap:10px;padding:12px 16px;border-radius:999px;background:var(--color-accent-2-700);color:var(--color-neutral-100);min-height:48px">
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--color-neutral-100)" stroke-width="2.75" stroke-linecap="round"><path d="M20 6 9 17l-5-5"></path></svg>
+<span style="font-size:15px;font-weight:600">Listo</span>
+<span style="margin-left:auto;font-size:12.5px;opacity:.9">sugerido</span>
+</div>
+<div style="display:flex;align-items:center;gap:10px;padding:12px 16px;border-radius:999px;background:var(--color-surface);min-height:48px">
+<span style="font-size:15px">Entregado</span>
+<span style="margin-left:auto;font-size:12.5px;color:var(--color-neutral-700)">cobra primero $3,450</span>
+</div>
+<div style="display:flex;align-items:center;gap:10px;padding:12px 16px;border-radius:999px;background:var(--color-surface);min-height:48px">
+<span style="font-size:15px">Espera de repuesto</span>
+</div>
+<div style="display:flex;align-items:center;gap:10px;padding:12px 16px;border-radius:999px;background:var(--color-surface);min-height:48px">
+<span style="font-size:15px">En diagnóstico</span>
+<span style="margin-left:auto;font-size:12.5px;color:var(--color-neutral-700)">regresar</span>
+</div>
+</div>
+<div style="display:flex;gap:8px;padding-top:2px">
+<div class="btn btn-secondary" style="flex:1;min-height:46px;font-size:14.5px">Abrir orden</div>
+<div class="btn btn-secondary" style="flex:1;min-height:46px;font-size:14.5px">Historial</div>
+</div>
+</div>
+</div>
+<div class="bn">
+<div class="bni" style="color:var(--color-accent-700)"><div class="bnd" style="background:var(--color-accent-300)"></div>Taller</div>
+<div class="bni"><div class="bnd"></div>Órdenes</div>
+<div class="bni"><div class="bnd"></div>Turnos</div>
+<div class="bni"><div class="bnd"></div>Clientes</div>
+<div class="bni"><div class="bnd"></div>Autos</div>
+</div>
+</div>
+</div>
+
+<div class="dv-opt" id="3c">
+<div class="dv-olabel"><a class="dv-oid" href="#3c">3c</a>El mismo <a class="dv-oid" href="#2b">2b</a> en índigo, para juzgar el tono donde más pesa: fondo lila muy claro, índigo para lo activo, verde-agua para lo confirmado.</div>
+<div class="ph" style="--color-bg:#f1eff7;--color-surface:#e4e2f0;--color-text:#1e1c26;--color-divider:rgba(30,28,38,.14);--color-accent:#5a5bd6;--color-accent-100:#eeeeff;--color-accent-200:#dcdcfb;--color-accent-300:#c3c3f5;--color-accent-400:#a0a1ec;--color-accent-500:#7c7ee0;--color-accent-600:#6062cc;--color-accent-700:#4a4bab;--color-accent-800:#363688;--color-accent-900:#262560;--color-accent-2-100:#e3f6f2;--color-accent-2-200:#cbeae4;--color-accent-2-300:#a9d8cf;--color-accent-2-400:#7fbeb3;--color-accent-2-500:#5da296;--color-accent-2-600:#47857a;--color-accent-2-700:#35655d;--color-accent-2-800:#244841;--color-accent-2-900:#17302b;--color-neutral-100:#f7f6fb;--color-neutral-200:#ecebf3;--color-neutral-300:#d9d7e4;--color-neutral-400:#bab7c8;--color-neutral-500:#9b98ab;--color-neutral-600:#7d7a8d;--color-neutral-700:#605d6f;--color-neutral-800:#43414f;--color-neutral-900:#2b2934">
+<div class="sb"><span>9:41</span><span>Paso 1 de 3</span></div>
+<div class="bd">
+<div style="padding:2px 20px 6px;flex:none;display:flex;align-items:center;gap:12px">
+<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--color-text)" stroke-width="2.75" stroke-linecap="round"><path d="m12 19-7-7 7-7M19 12H5"></path></svg>
+<div style="flex:1;display:flex;gap:5px">
+<div style="flex:1;height:5px;border-radius:999px;background:var(--color-accent-500)"></div>
+<div style="flex:1;height:5px;border-radius:999px;background:var(--color-neutral-300)"></div>
+<div style="flex:1;height:5px;border-radius:999px;background:var(--color-neutral-300)"></div>
+</div>
+</div>
+<div style="flex:1;overflow:hidden;padding:8px 20px 0;display:flex;flex-direction:column;gap:14px">
+<h3 style="margin:0;font-size:27px;max-width:280px">¿Qué placa entró?</h3>
+<div style="display:flex;align-items:center;gap:10px;background:var(--color-surface);border:2px solid var(--color-accent);border-radius:999px;padding:14px 20px">
+<span style="font-family:var(--font-heading);font-size:24px;letter-spacing:.06em">MZC-42-18</span>
+<div style="width:2px;height:24px;background:var(--color-accent);margin-left:2px"></div>
+</div>
+<div class="card elev-md" style="padding:18px;gap:12px;background:var(--color-accent-2-100)">
+<div style="display:flex;align-items:center;gap:8px">
+<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="var(--color-accent-2-700)" stroke-width="2.75" stroke-linecap="round"><path d="M20 6 9 17l-5-5"></path></svg>
+<span style="font-family:var(--font-heading);font-size:17px">Ya lo conocemos</span>
+</div>
+<div>
+<div style="font-size:16px;font-weight:700">Nissan Versa 2019 · gris</div>
+<div style="font-size:14px;color:var(--color-neutral-700)">Jorge Salgado · 55 1842 9077 · desde 2023</div>
+</div>
+<div style="display:flex;gap:8px">
+<div style="flex:1;background:var(--color-bg);border-radius:20px;padding:10px 12px">
+<div style="font-family:var(--font-heading);font-size:20px">3</div>
+<div style="font-size:11.5px;color:var(--color-neutral-700)">servicios previos</div>
+</div>
+<div style="flex:1;background:var(--color-bg);border-radius:20px;padding:10px 12px">
+<div style="font-family:var(--font-heading);font-size:20px">21 d</div>
+<div style="font-size:11.5px;color:var(--color-neutral-700)">desde el último</div>
+</div>
+</div>
+<div style="display:flex;flex-direction:column;gap:7px">
+<div style="font-size:13.5px;color:var(--color-neutral-800)"><strong>8 jul</strong> · Balatas delanteras · $2,980 <span class="tag" style="background:var(--color-accent-300);color:var(--color-accent-900);font-size:10px;padding:2px 8px">en garantía</span></div>
+<div style="font-size:13.5px;color:var(--color-neutral-700)"><strong>14 mar</strong> · Afinación mayor · $4,150</div>
+<div style="font-size:13.5px;color:var(--color-neutral-700)"><strong>2 nov 2025</strong> · Cambio de aceite · $890</div>
+</div>
+<div style="font-size:13px;color:var(--color-accent-800);font-weight:600">Aceite recomendado: 5W-30 sintético · 4.5 L</div>
+</div>
+</div>
+<div style="flex:none;padding:12px 20px 16px;display:flex;gap:10px">
+<div class="btn btn-secondary" style="min-height:48px;font-size:15px;flex:1">No es este auto</div>
+<div class="btn btn-primary" style="min-height:48px;font-size:15px;flex:1.3">Continuar</div>
+</div>
+</div>
+</div>
+</div>
+
+</div>
+<p class="dv-next">Sigue: “quédate con el índigo en todo” · “el índigo pero más morado / más oscuro” · “ahora los pasos 2 y 3 de la recepción” · “detalle de orden en índigo”</p>
+</section>
+
+<section class="dv-turn" id="t1">
+<div class="dv-thd"><a class="dv-tid" href="#t1">1</a><span class="dv-tname">Tablero de órdenes activas — tres flujos</span></div>
+<div class="dv-opts">
+
+<div class="dv-opt" id="1a">
+<div class="dv-olabel"><a class="dv-oid" href="#1a">1a</a>Por la libre, ordenado. Una sola lista agrupada por estado, filtros como chips arriba. Lo más cercano a lo que ya conocen.</div>
+<div class="ph">
+<div class="sb"><span>9:41</span><span>Servielecar</span></div>
+<div class="bd">
+<div style="padding:4px 20px 12px;flex:none">
+<h3 style="margin:0 0 2px;font-size:26px">Órdenes activas</h3>
+<div style="font-size:13.5px;color:var(--color-neutral-700);margin-bottom:12px">9 abiertas · 2 listas para entregar</div>
+<div style="display:flex;align-items:center;gap:8px;background:var(--color-surface);border:1px solid var(--color-divider);border-radius:999px;padding:9px 14px;margin-bottom:10px">
+<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="var(--color-neutral-600)" stroke-width="2.75" stroke-linecap="round"><circle cx="11" cy="11" r="8"></circle><path d="m21 21-4.35-4.35"></path></svg>
+<span style="font-size:14px;color:var(--color-neutral-600)">Placa, cliente o número de orden</span>
+</div>
+<div style="display:flex;gap:6px;overflow:hidden">
+<span class="tag" style="background:var(--color-accent-700);color:var(--color-neutral-100);font-size:12px;padding:6px 13px">Todas 9</span>
+<span class="tag tag-neutral" style="font-size:12px;padding:6px 13px">En proceso 3</span>
+<span class="tag tag-neutral" style="font-size:12px;padding:6px 13px">Espera 2</span>
+<span class="tag tag-neutral" style="font-size:12px;padding:6px 13px">Listas 2</span>
+<span class="tag tag-neutral" style="font-size:12px;padding:6px 13px">Entregadas</span>
+</div>
+</div>
+<div style="flex:1;overflow:hidden;padding:0 20px">
+<h6 style="margin:6px 0 8px;font-size:11px;color:var(--color-neutral-700)">En proceso · 3</h6>
+<div style="display:flex;flex-direction:column;gap:10px">
+
+<div class="card elev-sm" style="gap:8px;padding:14px 16px">
+<div style="display:flex;align-items:center;gap:10px">
+<span style="font-family:var(--font-heading);font-size:21px;letter-spacing:.02em">MZC-42-18</span>
+<span class="tag" style="background:var(--color-accent-700);color:var(--color-neutral-100);margin-left:auto">En proceso</span>
+</div>
+<div style="font-size:14.5px;font-weight:600">Nissan Versa 2019 · Jorge Salgado</div>
+<div style="font-size:14px;color:var(--color-neutral-700);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Ruido al frenar y volante vibra en alta</div>
+<div style="display:flex;align-items:center;gap:8px;padding-top:2px">
+<span class="tag tag-accent-2" style="font-size:11px">4ª visita</span>
+<span style="font-size:13px;color:var(--color-neutral-700)">Saldo</span>
+<span style="font-size:14.5px;font-weight:700;color:var(--color-accent-800)">$3,450.00</span>
+<svg style="margin-left:auto" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--color-neutral-500)" stroke-width="2.75" stroke-linecap="round"><path d="m9 18 6-6-6-6"></path></svg>
+</div>
+</div>
+
+<div class="card elev-sm" style="gap:8px;padding:14px 16px">
+<div style="display:flex;align-items:center;gap:10px">
+<span style="font-family:var(--font-heading);font-size:21px;letter-spacing:.02em">PJR-88-04</span>
+<span class="tag" style="background:var(--color-accent-700);color:var(--color-neutral-100);margin-left:auto">En proceso</span>
+</div>
+<div style="font-size:14.5px;font-weight:600">Chevrolet Aveo 2016 · María Fernanda Ríos</div>
+<div style="font-size:14px;color:var(--color-neutral-700);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Servicio de 40,000 km + cambio de balatas</div>
+<div style="display:flex;align-items:center;gap:8px;padding-top:2px">
+<span class="tag tag-neutral" style="font-size:11px">1ª visita</span>
+<span style="font-size:13px;color:var(--color-neutral-700)">Abonado</span>
+<span style="font-size:14.5px;font-weight:700;color:var(--color-accent-700)">$1,200.00</span>
+<svg style="margin-left:auto" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--color-neutral-500)" stroke-width="2.75" stroke-linecap="round"><path d="m9 18 6-6-6-6"></path></svg>
+</div>
+</div>
+
+<h6 style="margin:10px 0 2px;font-size:11px;color:var(--color-neutral-700)">Espera de repuesto · 2</h6>
+<div class="card elev-sm" style="gap:8px;padding:14px 16px">
+<div style="display:flex;align-items:center;gap:10px">
+<span style="font-family:var(--font-heading);font-size:21px;letter-spacing:.02em">TGN-15-77</span>
+<span class="tag" style="background:var(--color-accent-100);color:var(--color-accent-800);border:1px dashed var(--color-accent-600);margin-left:auto">Espera repuesto</span>
+</div>
+<div style="font-size:14.5px;font-weight:600">VW Jetta 2014 · Alonso Beltrán</div>
+<div style="font-size:14px;color:var(--color-neutral-700)">Bomba de gasolina pedida el lunes</div>
+</div>
+</div>
+</div>
+</div>
+<div style="position:absolute;right:20px;bottom:96px;width:58px;height:58px;border-radius:999px;background:var(--color-accent-700);box-shadow:var(--shadow-md);display:grid;place-items:center">
+<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="var(--color-neutral-100)" stroke-width="2.75" stroke-linecap="round"><path d="M5 12h14M12 5v14"></path></svg>
+</div>
+<div class="bn">
+<div class="bni" style="color:var(--color-accent-700)"><div class="bnd" style="background:var(--color-accent-300)"></div>Inicio</div>
+<div class="bni"><div class="bnd"></div>Órdenes</div>
+<div class="bni"><div class="bnd"></div>Turnos</div>
+<div class="bni"><div class="bnd"></div>Clientes</div>
+<div class="bni"><div class="bnd"></div>Autos</div>
+</div>
+</div>
+</div>
+
+<div class="dv-opt" id="1b">
+<div class="dv-olabel"><a class="dv-oid" href="#1b">1b</a>Carriles del taller. El estado es una columna que se desliza: se ve el flujo completo del día y qué se atoró. Mover una tarjeta = cambiar estado.</div>
+<div class="ph">
+<div class="sb"><span>9:41</span><span>Servielecar</span></div>
+<div class="bd">
+<div style="padding:4px 20px 10px;flex:none;display:flex;align-items:flex-end;gap:10px">
+<div>
+<h3 style="margin:0;font-size:26px">El taller hoy</h3>
+<div style="font-size:13.5px;color:var(--color-neutral-700)">miércoles 29 jul · 9 autos dentro</div>
+</div>
+<div style="margin-left:auto;width:40px;height:40px;border-radius:999px;background:var(--color-accent-2-700);color:var(--color-neutral-100);display:grid;place-items:center;font:600 13px var(--font-body)">JS</div>
+</div>
+<div style="flex:1;overflow:hidden;display:flex;gap:12px;padding:6px 0 0 20px">
+
+<div style="flex:none;width:250px;display:flex;flex-direction:column;gap:10px">
+<div style="display:flex;align-items:center;gap:8px">
+<span class="tag" style="background:var(--color-accent-700);color:var(--color-neutral-100)">En proceso</span>
+<span style="font-family:var(--font-heading);font-size:18px">3</span>
+</div>
+<div class="card elev-sm" style="padding:14px;gap:6px">
+<span style="font-family:var(--font-heading);font-size:20px">MZC-42-18</span>
+<div style="font-size:14px;font-weight:600">Nissan Versa 2019</div>
+<div style="font-size:13.5px;color:var(--color-neutral-700)">Frenos · Jorge S.</div>
+<div style="display:flex;align-items:center;gap:6px;margin-top:4px">
+<div style="width:26px;height:26px;border-radius:999px;background:var(--color-accent-2-300);display:grid;place-items:center;font:600 10px var(--font-body);color:var(--color-accent-2-800)">DM</div>
+<span style="font-size:12.5px;color:var(--color-neutral-700)">desde ayer 15:20</span>
+</div>
+</div>
+<div class="card elev-sm" style="padding:14px;gap:6px">
+<span style="font-family:var(--font-heading);font-size:20px">PJR-88-04</span>
+<div style="font-size:14px;font-weight:600">Chevrolet Aveo 2016</div>
+<div style="font-size:13.5px;color:var(--color-neutral-700)">Servicio 40 mil · María F.</div>
+<div style="display:flex;align-items:center;gap:6px;margin-top:4px">
+<div style="width:26px;height:26px;border-radius:999px;background:var(--color-accent-2-300);display:grid;place-items:center;font:600 10px var(--font-body);color:var(--color-accent-2-800)">RL</div>
+<span style="font-size:12.5px;color:var(--color-neutral-700)">hoy 8:05</span>
+</div>
+</div>
+<div class="card elev-sm" style="padding:14px;gap:6px">
+<span style="font-family:var(--font-heading);font-size:20px">HGV-70-21</span>
+<div style="font-size:14px;font-weight:600">Ford Ranger 2020</div>
+<div style="font-size:13.5px;color:var(--color-neutral-700)">Clutch · Rosa Elena V.</div>
+</div>
+</div>
+
+<div style="flex:none;width:250px;display:flex;flex-direction:column;gap:10px">
+<div style="display:flex;align-items:center;gap:8px">
+<span class="tag" style="background:var(--color-accent-100);color:var(--color-accent-800);border:1px dashed var(--color-accent-600)">Espera repuesto</span>
+<span style="font-family:var(--font-heading);font-size:18px">2</span>
+</div>
+<div class="card elev-sm" style="padding:14px;gap:6px">
+<span style="font-family:var(--font-heading);font-size:20px">TGN-15-77</span>
+<div style="font-size:14px;font-weight:600">VW Jetta 2014</div>
+<div style="font-size:13.5px;color:var(--color-neutral-700)">Bomba de gasolina</div>
+<div style="display:flex;align-items:center;gap:6px;margin-top:4px">
+<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--color-accent-700)" stroke-width="2.75" stroke-linecap="round"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3 2"></path></svg>
+<span style="font-size:12.5px;font-weight:600;color:var(--color-accent-800)">4 días parado</span>
+</div>
+</div>
+</div>
+</div>
+<div style="flex:none;display:flex;justify-content:center;gap:5px;padding:12px 0 4px">
+<div style="width:22px;height:5px;border-radius:999px;background:var(--color-accent-500)"></div>
+<div style="width:5px;height:5px;border-radius:999px;background:var(--color-neutral-400)"></div>
+<div style="width:5px;height:5px;border-radius:999px;background:var(--color-neutral-400)"></div>
+<div style="width:5px;height:5px;border-radius:999px;background:var(--color-neutral-400)"></div>
+<div style="width:5px;height:5px;border-radius:999px;background:var(--color-neutral-400)"></div>
+</div>
+</div>
+<div class="bn">
+<div class="bni" style="color:var(--color-accent-700)"><div class="bnd" style="background:var(--color-accent-300)"></div>Taller</div>
+<div class="bni"><div class="bnd"></div>Órdenes</div>
+<div class="bni"><div class="bnd"></div>Turnos</div>
+<div class="bni"><div class="bnd"></div>Clientes</div>
+<div class="bni"><div class="bnd"></div>Autos</div>
+</div>
+</div>
+</div>
+
+<div class="dv-opt" id="1c">
+<div class="dv-olabel"><a class="dv-oid" href="#1c">1c</a>El vehículo primero. No lista órdenes, lista autos con su memoria: cuántas visitas, qué se le hizo, si volvió demasiado pronto. Apuesta directa al historial.</div>
+<div class="ph">
+<div class="sb"><span>9:41</span><span>Servielecar</span></div>
+<div class="bd">
+<div style="padding:4px 20px 12px;flex:none">
+<h3 style="margin:0 0 2px;font-size:26px">En el taller</h3>
+<div style="font-size:13.5px;color:var(--color-neutral-700);margin-bottom:12px">9 autos · toca uno para ver todo su historial</div>
+<div style="display:flex;align-items:center;gap:8px;background:var(--color-surface);border:1px solid var(--color-divider);border-radius:999px;padding:9px 14px">
+<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="var(--color-neutral-600)" stroke-width="2.75" stroke-linecap="round"><circle cx="11" cy="11" r="8"></circle><path d="m21 21-4.35-4.35"></path></svg>
+<span style="font-size:14px;color:var(--color-neutral-600)">Buscar cualquier placa del taller</span>
+</div>
+</div>
+<div style="flex:1;overflow:hidden;padding:0 20px;display:flex;flex-direction:column;gap:12px">
+
+<div style="display:flex;gap:12px;align-items:flex-start;padding:14px;border-radius:28px;background:var(--color-accent-100);border:1px dashed var(--color-accent-600)">
+<div style="width:34px;height:34px;flex:none;border-radius:999px;background:var(--color-accent-500);display:grid;place-items:center;color:var(--color-bg);font:700 17px var(--font-body)">!</div>
+<div>
+<div style="font-family:var(--font-heading);font-size:16px;margin-bottom:2px">Volvió muy pronto</div>
+<div style="font-size:13.5px;color:var(--color-accent-800)">MZC-42-18 regresó a 21 días del cambio de balatas. Revisa la garantía antes de cobrar.</div>
+</div>
+</div>
+
+<div class="card elev-sm" style="padding:16px;gap:10px">
+<div style="display:flex;gap:12px;align-items:center">
+<div style="width:52px;height:52px;flex:none;border-radius:999px;background:var(--color-accent-2-200);display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1">
+<span style="font-family:var(--font-heading);font-size:18px;color:var(--color-accent-2-800)">4</span>
+<span style="font-size:8.5px;letter-spacing:.06em;color:var(--color-accent-2-800)">VISITAS</span>
+</div>
+<div style="flex:1;min-width:0">
+<div style="font-family:var(--font-heading);font-size:21px;letter-spacing:.02em">MZC-42-18</div>
+<div style="font-size:14px;font-weight:600">Nissan Versa 2019 · 98,400 km</div>
+<div style="font-size:13.5px;color:var(--color-neutral-700)">Jorge Salgado · 55 1842 9077</div>
+</div>
+</div>
+<div style="display:flex;flex-direction:column;gap:7px;padding-left:8px;border-left:2px solid var(--color-accent-2-300);margin-left:16px">
+<div style="font-size:13.5px"><strong>Hoy</strong> · Ruido al frenar <span class="tag" style="background:var(--color-accent-700);color:var(--color-neutral-100);font-size:10px;padding:2px 8px;margin-left:4px">En proceso</span></div>
+<div style="font-size:13.5px;color:var(--color-neutral-700)">8 jul · Balatas delanteras · $2,980</div>
+<div style="font-size:13.5px;color:var(--color-neutral-700)">14 mar · Afinación mayor · $4,150</div>
+</div>
+<div style="display:flex;align-items:center;gap:8px;padding-top:2px">
+<span style="font-size:13px;color:var(--color-neutral-700)">Saldo abierto</span>
+<span style="font-size:14.5px;font-weight:700;color:var(--color-accent-800)">$3,450.00</span>
+<svg style="margin-left:auto" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--color-neutral-500)" stroke-width="2.75" stroke-linecap="round"><path d="m9 18 6-6-6-6"></path></svg>
+</div>
+</div>
+
+<div class="card elev-sm" style="padding:16px;gap:10px">
+<div style="display:flex;gap:12px;align-items:center">
+<div style="width:52px;height:52px;flex:none;border-radius:999px;background:var(--color-neutral-200);display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1">
+<span style="font-family:var(--font-heading);font-size:18px;color:var(--color-neutral-800)">1</span>
+<span style="font-size:8.5px;letter-spacing:.06em;color:var(--color-neutral-800)">VISITA</span>
+</div>
+<div style="flex:1;min-width:0">
+<div style="font-family:var(--font-heading);font-size:21px;letter-spacing:.02em">PJR-88-04</div>
+<div style="font-size:14px;font-weight:600">Chevrolet Aveo 2016 · 41,900 km</div>
+<div style="font-size:13.5px;color:var(--color-neutral-700)">María Fernanda Ríos · cliente nueva</div>
+</div>
+</div>
+<div style="font-size:13.5px;color:var(--color-neutral-700)">Primera vez aquí. Servicio de 40,000 km en curso.</div>
+</div>
+</div>
+</div>
+<div style="position:absolute;right:20px;bottom:96px;width:58px;height:58px;border-radius:999px;background:var(--color-accent-700);box-shadow:var(--shadow-md);display:grid;place-items:center">
+<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="var(--color-neutral-100)" stroke-width="2.75" stroke-linecap="round"><path d="M5 12h14M12 5v14"></path></svg>
+</div>
+<div class="bn">
+<div class="bni" style="color:var(--color-accent-700)"><div class="bnd" style="background:var(--color-accent-300)"></div>Autos</div>
+<div class="bni"><div class="bnd"></div>Órdenes</div>
+<div class="bni"><div class="bnd"></div>Turnos</div>
+<div class="bni"><div class="bnd"></div>Clientes</div>
+<div class="bni"><div class="bnd"></div>Cobros</div>
+</div>
+</div>
+</div>
+
+</div>
+<p class="dv-next">Sigue: “desarrolla <a class="dv-oid" href="#1c">1c</a> con el detalle del vehículo” · “mezcla el tablero de <a class="dv-oid" href="#1a">1a</a> con la alerta de <a class="dv-oid" href="#1c">1c</a>” · “ahora el detalle de orden”</p>
+</section>
+
+<section class="dv-turn" id="t2">
+<div class="dv-thd"><a class="dv-tid" href="#t2">2</a><span class="dv-tname">Nueva orden / recepción — tres flujos</span></div>
+<div class="dv-opts">
+
+<div class="dv-opt" id="2a">
+<div class="dv-olabel"><a class="dv-oid" href="#2a">2a</a>Formulario largo, por bloques. Un solo scroll con secciones que se colapsan al completarse y una barra fija que dice qué falta. Lo predecible.</div>
+<div class="ph">
+<div class="sb"><span>9:41</span><span>Nueva orden</span></div>
+<div class="bd">
+<div style="padding:2px 20px 10px;flex:none;display:flex;align-items:center;gap:12px">
+<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--color-text)" stroke-width="2.75" stroke-linecap="round"><path d="m12 19-7-7 7-7M19 12H5"></path></svg>
+<h3 style="margin:0;font-size:24px">Recepción</h3>
+</div>
+<div style="flex:1;overflow:hidden;padding:0 20px;display:flex;flex-direction:column;gap:12px">
+
+<div style="display:flex;align-items:center;gap:10px;padding:13px 16px;border-radius:28px;background:var(--color-accent-2-100)">
+<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--color-accent-2-700)" stroke-width="2.75" stroke-linecap="round"><path d="M20 6 9 17l-5-5"></path></svg>
+<div style="flex:1">
+<div style="font-size:14.5px;font-weight:600">Vehículo y cliente</div>
+<div style="font-size:13px;color:var(--color-neutral-700)">MZC-42-18 · Nissan Versa · Jorge Salgado</div>
+</div>
+<span class="btn btn-ghost" style="font-size:13px">Cambiar</span>
+</div>
+
+<div class="card elev-sm" style="padding:16px;gap:12px">
+<div style="display:flex;align-items:center;gap:8px">
+<div style="width:22px;height:22px;border-radius:999px;background:var(--color-accent-700);color:var(--color-neutral-100);display:grid;place-items:center;font:700 12px var(--font-body)">2</div>
+<div style="font-family:var(--font-heading);font-size:17px">Por qué viene</div>
+</div>
+<div class="field">
+<label>Queja del cliente *</label>
+<textarea class="input" style="border-radius:20px;min-height:76px;font-size:15px">Ruido al frenar y el volante vibra pasando de 80</textarea>
+</div>
+<div class="field">
+<label>Tipo de orden</label>
+<div style="display:flex;flex-wrap:wrap;gap:6px">
+<span class="tag" style="background:var(--color-accent-700);color:var(--color-neutral-100);font-size:12.5px;padding:6px 13px">Correctivo</span>
+<span class="tag tag-neutral" style="font-size:12.5px;padding:6px 13px">Preventivo</span>
+<span class="tag tag-neutral" style="font-size:12.5px;padding:6px 13px">Diagnóstico</span>
+<span class="tag tag-neutral" style="font-size:12.5px;padding:6px 13px">Garantía</span>
+</div>
+</div>
+<div style="display:flex;gap:10px">
+<div class="field" style="flex:1">
+<label>Kilometraje</label>
+<div class="input" style="display:flex;align-items:center;font-size:15px">98,400 km</div>
+</div>
+<div class="field" style="flex:1">
+<label>Combustible</label>
+<div class="input" style="display:flex;align-items:center;font-size:15px">½</div>
+</div>
+</div>
+</div>
+
+<div style="display:flex;align-items:center;gap:10px;padding:13px 16px;border-radius:28px;background:var(--color-surface);opacity:.75">
+<div style="width:22px;height:22px;border-radius:999px;background:var(--color-neutral-300);color:var(--color-neutral-800);display:grid;place-items:center;font:700 12px var(--font-body)">3</div>
+<div style="flex:1;font-size:14.5px;font-weight:600">Cómo llegó y checklist</div>
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--color-neutral-600)" stroke-width="2.75" stroke-linecap="round"><path d="m9 18 6-6-6-6"></path></svg>
+</div>
+<div style="display:flex;align-items:center;gap:10px;padding:13px 16px;border-radius:28px;background:var(--color-surface);opacity:.75">
+<div style="width:22px;height:22px;border-radius:999px;background:var(--color-neutral-300);color:var(--color-neutral-800);display:grid;place-items:center;font:700 12px var(--font-body)">4</div>
+<div style="flex:1;font-size:14.5px;font-weight:600">Fotos del estado</div>
+<span style="font-size:13px;color:var(--color-neutral-700)">0 / 6</span>
+</div>
+</div>
+<div style="flex:none;padding:12px 20px;background:var(--color-bg);box-shadow:0 -6px 18px color-mix(in srgb,#2e2b25 8%,transparent)">
+<div style="font-size:12.5px;color:var(--color-neutral-700);margin-bottom:8px">Falta el estado de llegada para poder guardar</div>
+<div class="btn btn-primary btn-block" style="margin:0;min-height:48px;font-size:15px">Abrir orden</div>
+</div>
+</div>
+</div>
+</div>
+
+<div class="dv-opt" id="2b">
+<div class="dv-olabel"><a class="dv-oid" href="#2b">2b</a>La placa primero. Se teclea la placa y la app contesta con toda la memoria del auto antes de pedir un solo dato más. Tres pasos, cada uno una pantalla.</div>
+<div class="ph">
+<div class="sb"><span>9:41</span><span>Paso 1 de 3</span></div>
+<div class="bd">
+<div style="padding:2px 20px 6px;flex:none;display:flex;align-items:center;gap:12px">
+<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--color-text)" stroke-width="2.75" stroke-linecap="round"><path d="m12 19-7-7 7-7M19 12H5"></path></svg>
+<div style="flex:1;display:flex;gap:5px">
+<div style="flex:1;height:5px;border-radius:999px;background:var(--color-accent-500)"></div>
+<div style="flex:1;height:5px;border-radius:999px;background:var(--color-neutral-300)"></div>
+<div style="flex:1;height:5px;border-radius:999px;background:var(--color-neutral-300)"></div>
+</div>
+</div>
+<div style="flex:1;overflow:hidden;padding:8px 20px 0;display:flex;flex-direction:column;gap:14px">
+<h3 style="margin:0;font-size:27px;max-width:280px">¿Qué placa entró?</h3>
+<div style="display:flex;align-items:center;gap:10px;background:var(--color-surface);border:2px solid var(--color-accent);border-radius:999px;padding:14px 20px">
+<span style="font-family:var(--font-heading);font-size:24px;letter-spacing:.06em">MZC-42-18</span>
+<div style="width:2px;height:24px;background:var(--color-accent);margin-left:2px"></div>
+</div>
+
+<div class="card elev-md" style="padding:18px;gap:12px;background:var(--color-accent-2-100)">
+<div style="display:flex;align-items:center;gap:8px">
+<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="var(--color-accent-2-700)" stroke-width="2.75" stroke-linecap="round"><path d="M20 6 9 17l-5-5"></path></svg>
+<span style="font-family:var(--font-heading);font-size:17px">Ya lo conocemos</span>
+</div>
+<div>
+<div style="font-size:16px;font-weight:700">Nissan Versa 2019 · gris</div>
+<div style="font-size:14px;color:var(--color-neutral-700)">Jorge Salgado · 55 1842 9077 · desde 2023</div>
+</div>
+<div style="display:flex;gap:8px">
+<div style="flex:1;background:var(--color-bg);border-radius:20px;padding:10px 12px">
+<div style="font-family:var(--font-heading);font-size:20px">3</div>
+<div style="font-size:11.5px;color:var(--color-neutral-700)">servicios previos</div>
+</div>
+<div style="flex:1;background:var(--color-bg);border-radius:20px;padding:10px 12px">
+<div style="font-family:var(--font-heading);font-size:20px">21 d</div>
+<div style="font-size:11.5px;color:var(--color-neutral-700)">desde el último</div>
+</div>
+</div>
+<div style="display:flex;flex-direction:column;gap:7px">
+<div style="font-size:13.5px;color:var(--color-neutral-800)"><strong>8 jul</strong> · Balatas delanteras · $2,980 <span class="tag" style="background:var(--color-accent-300);color:var(--color-accent-900);font-size:10px;padding:2px 8px">en garantía</span></div>
+<div style="font-size:13.5px;color:var(--color-neutral-700)"><strong>14 mar</strong> · Afinación mayor · $4,150</div>
+<div style="font-size:13.5px;color:var(--color-neutral-700)"><strong>2 nov 2025</strong> · Cambio de aceite · $890</div>
+</div>
+<div style="font-size:13px;color:var(--color-accent-800);font-weight:600">Aceite recomendado: 5W-30 sintético · 4.5 L</div>
+</div>
+</div>
+<div style="flex:none;padding:12px 20px 16px;display:flex;gap:10px">
+<div class="btn btn-secondary" style="min-height:48px;font-size:15px;flex:1">No es este auto</div>
+<div class="btn btn-primary" style="min-height:48px;font-size:15px;flex:1.3">Continuar</div>
+</div>
+</div>
+</div>
+</div>
+
+<div class="dv-opt" id="2c">
+<div class="dv-olabel"><a class="dv-oid" href="#2c">2c</a>Recepción en 30 segundos. Solo placa, queja y fotos; todo lo demás queda como pendiente visible que se llena cuando haya calma. Para el taller informal de verdad.</div>
+<div class="ph">
+<div class="sb"><span>9:41</span><span>Entrada rápida</span></div>
+<div class="bd">
+<div style="padding:2px 20px 10px;flex:none;display:flex;align-items:center;gap:12px">
+<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--color-text)" stroke-width="2.75" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"></path></svg>
+<h3 style="margin:0;font-size:24px">Entró un auto</h3>
+</div>
+<div style="flex:1;overflow:hidden;padding:0 20px;display:flex;flex-direction:column;gap:14px">
+
+<div style="background:var(--color-surface);border-radius:32px;padding:18px 20px;display:flex;flex-direction:column;gap:6px">
+<div style="font-size:12px;color:var(--color-neutral-700)">PLACA</div>
+<div style="display:flex;align-items:baseline;gap:10px">
+<span style="font-family:var(--font-heading);font-size:32px;letter-spacing:.04em">TGN-15-77</span>
+<span class="tag tag-accent-2" style="margin-left:auto">2 visitas</span>
+</div>
+<div style="font-size:14.5px;font-weight:600">VW Jetta 2014 · Alonso Beltrán</div>
+</div>
+
+<div style="background:var(--color-surface);border-radius:32px;padding:18px 20px;display:flex;flex-direction:column;gap:10px">
+<div style="font-size:12px;color:var(--color-neutral-700)">QUÉ TRAE</div>
+<div style="font-size:16px;line-height:1.4">Se calienta y bota agua por abajo</div>
+<div style="display:flex;gap:8px;align-items:center">
+<div style="display:flex;align-items:center;gap:7px;background:var(--color-accent-700);color:var(--color-neutral-100);border-radius:999px;padding:9px 16px;font:600 13.5px var(--font-body)">
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--color-neutral-100)" stroke-width="2.75" stroke-linecap="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3zM19 10v2a7 7 0 0 1-14 0v-2M12 19v3"></path></svg>
+Dictar
+</div>
+<span style="font-size:12.5px;color:var(--color-neutral-700)">o escribe con el teclado</span>
+</div>
+</div>
+
+<div style="background:var(--color-surface);border-radius:32px;padding:18px 20px;display:flex;flex-direction:column;gap:10px">
+<div style="display:flex;align-items:center"><div style="font-size:12px;color:var(--color-neutral-700)">CÓMO SE VE</div><span style="margin-left:auto;font-size:12.5px;color:var(--color-neutral-700)">2 / 6</span></div>
+<div style="display:flex;gap:8px">
+<div style="width:74px;height:74px;border-radius:20px;background:var(--color-neutral-300)"></div>
+<div style="width:74px;height:74px;border-radius:20px;background:var(--color-neutral-300)"></div>
+<div style="width:74px;height:74px;border-radius:20px;border:1px dashed var(--color-accent-600);background:var(--color-accent-100);display:grid;place-items:center">
+<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--color-accent-700)" stroke-width="2.75" stroke-linecap="round"><path d="M5 12h14M12 5v14"></path></svg>
+</div>
+</div>
+</div>
+
+<div style="display:flex;flex-direction:column;gap:8px;padding:0 4px">
+<div style="font-size:12.5px;color:var(--color-neutral-700)">Se guardará como pendiente:</div>
+<div style="display:flex;flex-wrap:wrap;gap:6px">
+<span class="tag" style="background:var(--color-accent-100);color:var(--color-accent-800);border:1px dashed var(--color-accent-600)">Kilometraje</span>
+<span class="tag" style="background:var(--color-accent-100);color:var(--color-accent-800);border:1px dashed var(--color-accent-600)">Checklist</span>
+<span class="tag" style="background:var(--color-accent-100);color:var(--color-accent-800);border:1px dashed var(--color-accent-600)">Mecánico</span>
+</div>
+</div>
+</div>
+<div style="flex:none;padding:12px 20px 16px">
+<div class="btn btn-primary btn-block" style="margin:0;min-height:52px;font-size:16px">Recibir auto</div>
+</div>
+</div>
+</div>
+</div>
+
+</div>
+<p class="dv-next">Sigue: “<a class="dv-oid" href="#2b">2b</a> pero en una sola pantalla” · “muéstrame los pasos 2 y 3 de <a class="dv-oid" href="#2b">2b</a>” · “agrega la pantalla de detalle de orden” · “versión en modo oscuro”</p>
+</section>
+
+</x-dc>
+</body>
+</html>
