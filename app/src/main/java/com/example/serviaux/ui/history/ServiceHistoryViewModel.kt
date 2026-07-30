@@ -54,7 +54,8 @@ class ServiceHistoryViewModel(application: Application) : AndroidViewModel(appli
             return
         }
         customersJob = viewModelScope.launch {
-            customerRepo.search("%$query%").collect { customers ->
+            // El DAO ya envuelve el término con comodines: pasarlos aquí los duplicaba.
+            customerRepo.search(query).collect { customers ->
                 _uiState.update { it.copy(customers = customers) }
             }
         }
@@ -92,72 +93,50 @@ class ServiceHistoryViewModel(application: Application) : AndroidViewModel(appli
         applyFilters()
     }
 
+    /**
+     * Carga el historial completo del cliente.
+     *
+     * Las órdenes se siguen observando (el historial se refresca si cambian), pero los detalles
+     * —servicios, repuestos y nombres de repuestos— se leen con consultas puntuales y agrupadas.
+     *
+     * Antes se lanzaban dos colectores infinitos **por cada orden** dentro del colector de
+     * órdenes: un cliente con 40 órdenes dejaba 80 colectores vivos que nunca se cancelaban, y
+     * cada emisión añadía otros 80. Además mutaban mapas compartidos desde varias corrutinas,
+     * con riesgo de ConcurrentModificationException.
+     */
     private fun loadOrdersForCustomer(customerId: Long) {
         ordersJob?.cancel()
         ordersJob = viewModelScope.launch {
             workOrderRepo.getByCustomer(customerId).collect { orders ->
                 val sortedOrders = orders.sortedByDescending { it.entryDate }
 
-                // Collect available years
                 val years = sortedOrders.map { order ->
                     Calendar.getInstance().apply { timeInMillis = order.entryDate }.get(Calendar.YEAR)
                 }.distinct().sorted().reversed()
 
-                // Load vehicles
-                val vehicleIds = sortedOrders.map { it.vehicleId }.distinct()
-                val vehicleMap = mutableMapOf<Long, Vehicle>()
-                vehicleIds.forEach { vid ->
-                    vehicleRepo.getByIdDirect(vid)?.let { vehicleMap[vid] = it }
+                val vehicleMap = sortedOrders.map { it.vehicleId }.distinct()
+                    .mapNotNull { vid -> vehicleRepo.getByIdDirect(vid)?.let { vid to it } }
+                    .toMap()
+
+                // Una consulta para todos los servicios y otra para todos los repuestos del
+                // cliente, en lugar de dos por orden.
+                val serviceMap = workOrderRepo.getServiceLinesByCustomer(customerId)
+                    .groupBy { it.workOrderId }
+                val orderParts = workOrderRepo.getWorkOrderPartsByCustomer(customerId)
+                val partMap = orderParts.groupBy { it.workOrderId }
+                val partNameMap = partRepo.getNamesByIds(orderParts.map { it.partId })
+
+                _uiState.update {
+                    it.copy(
+                        orders = sortedOrders,
+                        vehicleMap = vehicleMap,
+                        serviceMap = serviceMap,
+                        partMap = partMap,
+                        partNameMap = partNameMap,
+                        availableYears = years,
+                        isLoading = false
+                    )
                 }
-
-                // Load services and parts for each order
-                val serviceMap = mutableMapOf<Long, List<ServiceLine>>()
-                val partMap = mutableMapOf<Long, List<WorkOrderPart>>()
-                val partNameMap = mutableMapOf<Long, String>()
-
-                sortedOrders.forEach { order ->
-                    val services = mutableListOf<ServiceLine>()
-                    val parts = mutableListOf<WorkOrderPart>()
-
-                    // Collect services (using direct suspend calls via first())
-                    launch {
-                        workOrderRepo.getServiceLines(order.id).collect { lines ->
-                            services.clear()
-                            services.addAll(lines)
-                            serviceMap[order.id] = services.toList()
-                            _uiState.update { it.copy(serviceMap = serviceMap.toMap()) }
-                        }
-                    }
-
-                    launch {
-                        workOrderRepo.getWorkOrderParts(order.id).collect { woParts ->
-                            parts.clear()
-                            parts.addAll(woParts)
-                            partMap[order.id] = parts.toList()
-
-                            // Load part names
-                            woParts.forEach { wop ->
-                                if (!partNameMap.containsKey(wop.partId)) {
-                                    partRepo.getByIdDirect(wop.partId)?.let { part ->
-                                        partNameMap[wop.partId] = part.name
-                                    }
-                                }
-                            }
-
-                            _uiState.update { it.copy(
-                                partMap = partMap.toMap(),
-                                partNameMap = partNameMap.toMap()
-                            ) }
-                        }
-                    }
-                }
-
-                _uiState.update { it.copy(
-                    orders = sortedOrders,
-                    vehicleMap = vehicleMap,
-                    availableYears = years,
-                    isLoading = false
-                ) }
                 applyFilters()
             }
         }

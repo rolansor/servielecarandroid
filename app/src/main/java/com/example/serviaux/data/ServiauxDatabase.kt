@@ -17,6 +17,7 @@ import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
+import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 import com.example.serviaux.data.dao.*
 import com.example.serviaux.data.entity.*
@@ -49,7 +50,8 @@ import java.io.InputStreamReader
         WorkOrderExtra::class
     ],
     version = 2,
-    exportSchema = false
+    // El esquema se exporta a app/schemas para poder escribir y verificar migraciones.
+    exportSchema = true
 )
 @TypeConverters(Converters::class)
 abstract class ServiauxDatabase : RoomDatabase() {
@@ -127,13 +129,39 @@ abstract class ServiauxDatabase : RoomDatabase() {
             }
         }
 
+        /**
+         * Migración 1 → 2: agrega `totalExtras` a las órdenes y reemplaza el estado retirado
+         * CANCELADO por CERRADO.
+         *
+         * Escrita a posteriori: la versión 2 se publicó con borrado destructivo, así que solo
+         * aplica a instalaciones que se hayan quedado en la versión 1.
+         */
+        private val MIGRATION_1_2 = object : Migration(1, 2) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE work_orders ADD COLUMN totalExtras REAL NOT NULL DEFAULT 0")
+                db.execSQL("UPDATE work_orders SET status = 'CERRADO' WHERE status = 'CANCELADO'")
+                db.execSQL("UPDATE work_order_status_log SET oldStatus = 'CERRADO' WHERE oldStatus = 'CANCELADO'")
+                db.execSQL("UPDATE work_order_status_log SET newStatus = 'CERRADO' WHERE newStatus = 'CANCELADO'")
+            }
+        }
+
+        /**
+         * Construye la base de datos.
+         *
+         * **Sin `fallbackToDestructiveMigration` a propósito.** Ese fallback borraba todas las
+         * órdenes, clientes y vehículos del taller en cuanto cambiaba el esquema. Ahora, si falta
+         * una ruta de migración, la app falla al abrir: es un error evidente que se detecta al
+         * primer arranque de prueba, en vez de una pérdida de datos silenciosa en producción.
+         *
+         * Al cambiar cualquier entidad hay que subir `version` y añadir aquí su `Migration`.
+         */
         private fun buildDatabase(context: Context): ServiauxDatabase {
             return Room.databaseBuilder(
                 context.applicationContext,
                 ServiauxDatabase::class.java,
                 "serviaux"
             )
-                .fallbackToDestructiveMigration(dropAllTables = true)
+                .addMigrations(MIGRATION_1_2)
                 .addCallback(SeedCallback(context.applicationContext))
                 .build()
         }
@@ -146,9 +174,9 @@ abstract class ServiauxDatabase : RoomDatabase() {
         }
 
         /**
-         * Cuando se sube la versión del schema, Room dropea y recrea las tablas con
-         * fallbackToDestructiveMigration; onCreate NO vuelve a dispararse, así que
-         * hay que volver a sembrar aquí para no quedarnos sin admin ni catálogos.
+         * Red de seguridad: ya no se usa borrado destructivo (ver [buildDatabase]), pero si
+         * alguna vez se reactivara, Room recrearía las tablas sin disparar `onCreate` y la base
+         * quedaría sin usuario admin ni catálogos. Sembrar aquí lo evita.
          */
         override fun onDestructiveMigration(db: SupportSQLiteDatabase) {
             super.onDestructiveMigration(db)

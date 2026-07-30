@@ -15,7 +15,15 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavHostController
+import androidx.navigation.compose.currentBackStackEntryAsState
+import com.example.serviaux.ServiauxApp
+import com.example.serviaux.data.entity.UserRole
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -47,6 +55,35 @@ import com.example.serviaux.data.entity.OrderStatus
 @Composable
 fun ServiauxNavGraph(navController: NavHostController) {
     val animDuration = 300
+
+    // Guardia de sesión y de rol para todo el grafo.
+    //
+    // La sesión vive solo en memoria (SessionManager), mientras que Navigation restaura el back
+    // stack tras una muerte de proceso: sin esto, Android podía reabrir la app directamente en
+    // "Usuarios" o "Respaldos" sin ningún login. Y el filtro por rol solo existía ocultando los
+    // accesos del Dashboard, no en las rutas.
+    val context = LocalContext.current
+    val session = remember { (context.applicationContext as ServiauxApp).container.sessionManager }
+    val currentUser by session.currentUser.collectAsStateWithLifecycle()
+    val currentRoute = navController.currentBackStackEntryAsState().value?.destination?.route
+
+    LaunchedEffect(currentUser, currentRoute) {
+        if (currentRoute == null) return@LaunchedEffect
+        when {
+            // Sin sesión, la única pantalla permitida es el login.
+            currentUser == null && currentRoute != Routes.LOGIN -> {
+                navController.navigate(Routes.LOGIN) { popUpTo(0) { inclusive = true } }
+            }
+            // Con sesión no administradora, las pantallas de administración quedan fuera.
+            currentUser?.role != UserRole.ADMIN && currentRoute in Routes.ADMIN_ROUTES -> {
+                navController.navigate(Routes.DASHBOARD) {
+                    popUpTo(Routes.DASHBOARD) { inclusive = false }
+                    launchSingleTop = true
+                }
+            }
+        }
+    }
+
     NavHost(
         navController = navController,
         startDestination = Routes.LOGIN,

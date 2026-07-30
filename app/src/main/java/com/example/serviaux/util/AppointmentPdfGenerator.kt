@@ -69,6 +69,8 @@ object AppointmentPdfGenerator {
         vehicleDescriptions: Map<Long, String>
     ): File {
         val doc = PdfDocument()
+        // try/finally para cerrar el documento aunque falle al dibujar o al escribir el archivo.
+        try {
         var pageNum = 1
         var page = doc.startPage(PdfDocument.PageInfo.Builder(PAGE_WIDTH, PAGE_HEIGHT, pageNum).create())
         var c = page.canvas
@@ -297,9 +299,11 @@ object AppointmentPdfGenerator {
         if (!dir.exists()) dir.mkdirs()
         val file = File(dir, "Turnos_${fileDateFmt.format(Date())}.pdf")
         FileOutputStream(file).use { doc.writeTo(it) }
-        doc.close()
 
         return file
+        } finally {
+            doc.close()
+        }
     }
 
     /**
@@ -312,6 +316,7 @@ object AppointmentPdfGenerator {
         vehicleDescription: String
     ): File {
         val doc = PdfDocument()
+        try {
         val page = doc.startPage(PdfDocument.PageInfo.Builder(PAGE_WIDTH, PAGE_HEIGHT, 1).create())
         val c = page.canvas
         var y = MT
@@ -436,9 +441,11 @@ object AppointmentPdfGenerator {
         if (!dir.exists()) dir.mkdirs()
         val file = File(dir, "Turno_${appointment.id}.pdf")
         FileOutputStream(file).use { doc.writeTo(it) }
-        doc.close()
 
         return file
+        } finally {
+            doc.close()
+        }
     }
 
     private fun truncateText(text: String, paint: Paint, maxWidth: Float): String {

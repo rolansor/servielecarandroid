@@ -42,6 +42,22 @@ object Routes {
     const val SERVICE_HISTORY = "service_history?customerId={customerId}"
     const val SERVICE_HISTORY_BASE = "service_history"
 
+    /**
+     * Rutas que solo puede ver un administrador.
+     *
+     * Hasta ahora el filtro por rol existía únicamente ocultando los accesos en el Dashboard,
+     * de modo que cualquier otra vía de entrada —restauración del back stack tras muerte del
+     * proceso, un deep link futuro— las dejaba abiertas. Se comprueban en el grafo.
+     */
+    val ADMIN_ROUTES = setOf(
+        USER_LIST,
+        USER_FORM,
+        REPORTS,
+        COMMISSIONS,
+        CATALOG_SETTINGS,
+        BACKUP
+    )
+
     fun serviceHistory(customerId: Long? = null) =
         if (customerId != null) "service_history?customerId=$customerId" else "service_history"
     fun appointmentForm(id: Long? = null) = if (id != null) "appointments/form?appointmentId=$id" else "appointments/form"

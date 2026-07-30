@@ -3,6 +3,7 @@ package com.example.serviaux
 import android.os.Bundle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
@@ -62,7 +63,15 @@ class MainActivity : FragmentActivity() {
                         }
                     }
                 ) { innerPadding ->
-                    Surface(modifier = Modifier.padding(innerPadding)) {
+                    // `padding` reserva el espacio de la barra inferior, y `consumeWindowInsets`
+                    // marca esos insets como ya aplicados: sin esto, cada pantalla tiene su
+                    // propio Scaffold que volvía a añadir el hueco de la barra de estado y el
+                    // margen superior salía duplicado.
+                    Surface(
+                        modifier = Modifier
+                            .padding(innerPadding)
+                            .consumeWindowInsets(innerPadding)
+                    ) {
                         ServiauxNavGraph(navController = navController)
                     }
                 }

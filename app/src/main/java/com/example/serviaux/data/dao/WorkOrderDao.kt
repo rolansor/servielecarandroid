@@ -61,6 +61,43 @@ interface WorkOrderDao {
     @Query("SELECT COALESCE(SUM(total), 0.0) FROM work_orders WHERE createdAt BETWEEN :from AND :to")
     fun getTotalByDateRange(from: Long, to: Long): Flow<Double>
 
+    // ── Escrituras parciales ────────────────────────────────────────────
+    // @Update escribe la fila completa a partir de una entidad en memoria, de modo que
+    // un snapshot desactualizado revierte los cambios que otra corrutina acaba de hacer
+    // (fotos que desaparecen, kilometraje que se borra). Estas consultas tocan solo las
+    // columnas de la sección que se está editando.
+
+    /** Persiste únicamente los campos editables de "Datos del Proceso". */
+    @Query("""
+        UPDATE work_orders SET
+            entryMileage = :entryMileage,
+            fuelLevel = :fuelLevel,
+            deliveryNote = :deliveryNote,
+            invoiceNumber = :invoiceNumber,
+            notes = :notes,
+            updatedBy = :updatedBy,
+            updatedAt = :updatedAt
+        WHERE id = :id
+    """)
+    suspend fun updateProcessFields(
+        id: Long,
+        entryMileage: Int?,
+        fuelLevel: String?,
+        deliveryNote: String?,
+        invoiceNumber: String?,
+        notes: String?,
+        updatedBy: Long,
+        updatedAt: Long
+    )
+
+    /** Persiste únicamente las rutas de fotos de la orden. */
+    @Query("UPDATE work_orders SET photoPaths = :photoPaths, updatedAt = :updatedAt WHERE id = :id")
+    suspend fun updatePhotoPaths(id: Long, photoPaths: String?, updatedAt: Long)
+
+    /** Persiste únicamente las rutas de archivos adjuntos de la orden. */
+    @Query("UPDATE work_orders SET filePaths = :filePaths, updatedAt = :updatedAt WHERE id = :id")
+    suspend fun updateFilePaths(id: Long, filePaths: String?, updatedAt: Long)
+
     @Query("SELECT * FROM work_orders")
     suspend fun getAllDirect(): List<WorkOrder>
 

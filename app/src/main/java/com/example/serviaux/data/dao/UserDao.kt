@@ -29,6 +29,20 @@ interface UserDao {
     @Query("SELECT * FROM users WHERE username = :username AND active = 1 LIMIT 1")
     suspend fun getByUsername(username: String): User?
 
+    /**
+     * Busca por nombre de usuario **incluyendo cuentas desactivadas**.
+     *
+     * Es la consulta correcta para validar unicidad: [getByUsername] filtra por activo, así que
+     * un nombre ocupado por una cuenta desactivada pasaba la validación y luego chocaba con el
+     * índice único de la tabla.
+     */
+    @Query("SELECT * FROM users WHERE username = :username LIMIT 1")
+    suspend fun findByUsernameIncludingInactive(username: String): User?
+
+    /** Cuántos administradores activos quedan. Protege contra dejar el sistema sin acceso. */
+    @Query("SELECT COUNT(*) FROM users WHERE role = 'ADMIN' AND active = 1")
+    suspend fun countActiveAdmins(): Int
+
     /** Obtiene todos los usuarios ordenados por nombre (reactivo). */
     @Query("SELECT * FROM users ORDER BY name")
     fun getAll(): Flow<List<User>>

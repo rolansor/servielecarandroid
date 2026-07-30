@@ -36,6 +36,21 @@ interface WorkOrderPartDao {
     @Query("SELECT * FROM work_order_parts WHERE workOrderId = :workOrderId")
     suspend fun getByWorkOrderDirect(workOrderId: Long): List<WorkOrderPart>
 
+    /** Lectura puntual de una línea; necesaria para calcular el delta de stock al editarla. */
+    @Query("SELECT * FROM work_order_parts WHERE id = :id")
+    suspend fun getByIdDirect(id: Long): WorkOrderPart?
+
+    /**
+     * Todos los repuestos usados en las órdenes de un cliente, en una sola consulta.
+     * Alimenta el historial de servicios.
+     */
+    @Query("""
+        SELECT wop.* FROM work_order_parts wop
+        INNER JOIN work_orders wo ON wop.workOrderId = wo.id
+        WHERE wo.customerId = :customerId
+    """)
+    suspend fun getByCustomerDirect(customerId: Long): List<WorkOrderPart>
+
     @Query("SELECT * FROM work_order_parts")
     suspend fun getAllDirect(): List<WorkOrderPart>
 

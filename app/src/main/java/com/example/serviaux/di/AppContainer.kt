@@ -28,8 +28,9 @@ class AppContainer(context: Context) {
     val customerRepository = CustomerRepository(database.customerDao())
     val vehicleRepository = VehicleRepository(database.vehicleDao())
     val partRepository = PartRepository(database.partDao())
-    val catalogRepository = CatalogRepository(database.catalogDao())
+    val catalogRepository = CatalogRepository(database.catalogDao(), database)
     val workOrderRepository = WorkOrderRepository(
+        database = database,
         workOrderDao = database.workOrderDao(),
         serviceLineDao = database.serviceLineDao(),
         workOrderPartDao = database.workOrderPartDao(),
@@ -37,7 +38,8 @@ class AppContainer(context: Context) {
         workOrderStatusLogDao = database.workOrderStatusLogDao(),
         partDao = database.partDao(),
         workOrderMechanicDao = database.workOrderMechanicDao(),
-        workOrderExtraDao = database.workOrderExtraDao()
+        workOrderExtraDao = database.workOrderExtraDao(),
+        appointmentDao = database.appointmentDao()
     )
     val appointmentRepository = AppointmentRepository(database.appointmentDao())
     val commissionRepository = CommissionRepository(database.workOrderMechanicDao(), database.userDao())

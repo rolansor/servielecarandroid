@@ -31,6 +31,15 @@ interface WorkOrderMechanicDao {
     @Query("UPDATE work_order_mechanics SET commissionPaid = 0, paidAt = NULL WHERE id = :id")
     suspend fun markAsUnpaid(id: Long)
 
+    /**
+     * Actualiza solo el monto de comisión. Se usa al recalcular por cambios en la mano de obra;
+     * como escritura parcial, no puede pisar `commissionPaid` ni `paidAt`.
+     *
+     * La entidad no tiene columna `updatedAt`, así que no hay marca de tiempo que refrescar.
+     */
+    @Query("UPDATE work_order_mechanics SET commissionAmount = :amount WHERE id = :id")
+    suspend fun updateCommissionAmount(id: Long, amount: Double)
+
     @Query("SELECT * FROM work_order_mechanics")
     suspend fun getAllDirect(): List<WorkOrderMechanic>
 
@@ -47,7 +56,7 @@ interface WorkOrderMechanicDao {
         INNER JOIN vehicles v ON wo.vehicleId = v.id
         WHERE wm.commissionPaid = 0
             AND wm.commissionType != 'NINGUNA'
-            AND wo.status IN ('LISTO', 'ENTREGADO')
+            AND wo.status IN ('LISTO', 'ENTREGADO', 'CERRADO')
         ORDER BY wm.mechanicId, wm.createdAt DESC
     """)
     suspend fun getUnpaidCommissions(): List<PendingCommissionRow>

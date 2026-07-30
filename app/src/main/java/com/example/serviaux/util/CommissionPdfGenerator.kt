@@ -72,6 +72,8 @@ object CommissionPdfGenerator {
         mechanicNames: Map<Long, String>
     ): File {
         val doc = PdfDocument()
+        // try/finally para cerrar el documento aunque falle al dibujar o al escribir el archivo.
+        try {
         var pageNum = 1
         var page = doc.startPage(PdfDocument.PageInfo.Builder(PAGE_WIDTH, PAGE_HEIGHT, pageNum).create())
         var c = page.canvas
@@ -240,11 +242,15 @@ object CommissionPdfGenerator {
         // ── Save file ──
         val dir = File(context.filesDir, "reports")
         if (!dir.exists()) dir.mkdirs()
-        val file = File(dir, "Comisiones_${fileDateFmt.format(Date())}.pdf")
+        // Incluye segundos: dos lotes pagados en el mismo minuto sobreescribían el comprobante
+        // anterior, que es el respaldo de un pago ya realizado.
+        val file = File(dir, "Comisiones_${fileDateFmt.format(Date())}_${System.currentTimeMillis() % 100000}.pdf")
         FileOutputStream(file).use { doc.writeTo(it) }
-        doc.close()
 
         return file
+        } finally {
+            doc.close()
+        }
     }
 
     // ── Funciones auxiliares ──────────────────────────────────────────

@@ -108,6 +108,10 @@ object PdfReportGenerator {
      */
     fun generateWorkOrderPdf(context: Context, data: WorkOrderReportData): File {
         val doc = PdfDocument()
+        // El cuerpo va en try/finally para cerrar el documento pase lo que pase: si fallaba al
+        // dibujar o al escribir el archivo, el PdfDocument quedaba abierto con su página y la
+        // memoria nativa reservada se acumulaba en cada intento.
+        try {
         var pageNum = 1
         var page = doc.startPage(PdfDocument.PageInfo.Builder(PAGE_WIDTH, PAGE_HEIGHT, pageNum).create())
         var c = page.canvas
@@ -674,12 +678,17 @@ object PdfReportGenerator {
         // ── Save file ──
         val dir = File(context.filesDir, "reports")
         if (!dir.exists()) dir.mkdirs()
-        val plateSuffix = if (data.vehiclePlate.isNotBlank()) "_${data.vehiclePlate.replace(" ", "_")}" else ""
+        // La placa es texto libre: cualquier carácter que no sea seguro en un nombre de archivo
+        // se sustituye. Un "/" convertía la ruta en inexistente y lanzaba FileNotFoundException.
+        val safePlate = data.vehiclePlate.trim().replace(Regex("[^A-Za-z0-9._-]"), "_")
+        val plateSuffix = if (safePlate.isNotBlank()) "_$safePlate" else ""
         val file = File(dir, "OT_${data.order.id}${plateSuffix}.pdf")
         FileOutputStream(file).use { doc.writeTo(it) }
-        doc.close()
 
         return file
+        } finally {
+            doc.close()
+        }
     }
 
     // ── Funciones auxiliares ──────────────────────────────────────────

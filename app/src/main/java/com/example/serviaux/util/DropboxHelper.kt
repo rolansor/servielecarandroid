@@ -98,16 +98,21 @@ object DropboxHelper {
     }
 
     /**
-     * Sube un archivo ZIP a /Serviaux/{dispositivo}/serviaux_backup_YYYY-MM-dd.zip.
-     * Si ya existe un respaldo del mismo día, se sobrescribe (WriteMode.OVERWRITE).
+     * Sube un archivo ZIP a /Serviaux/{dispositivo}/.
+     *
+     * @param remoteFileName Nombre con el que se guarda en Dropbox. Por omisión
+     *   `serviaux_backup_YYYY-MM-dd.zip`, que se sobrescribe si ya existe uno del mismo día.
+     *   Un respaldo incremental **debe** pasar un nombre único (con hora), porque cada archivo
+     *   contiene fotos distintas y sobrescribirlo perdería las del anterior.
      * @return Result con la ruta remota del archivo subido.
      */
-    fun uploadFile(context: Context, file: File): Result<String> {
+    fun uploadFile(context: Context, file: File, remoteFileName: String? = null): Result<String> {
         return try {
             val client = getClient(context)
                 ?: return Result.failure(Exception("No vinculado a Dropbox"))
             val dateStr = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date())
-            val remotePath = "$remoteFolder/serviaux_backup_$dateStr.zip"
+            val fileName = remoteFileName ?: "serviaux_backup_$dateStr.zip"
+            val remotePath = "$remoteFolder/$fileName"
             FileInputStream(file).use { inputStream ->
                 client.files()
                     .uploadBuilder(remotePath)

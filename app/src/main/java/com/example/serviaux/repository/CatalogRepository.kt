@@ -7,6 +7,8 @@
  */
 package com.example.serviaux.repository
 
+import androidx.room.withTransaction
+import com.example.serviaux.data.ServiauxDatabase
 import com.example.serviaux.data.dao.CatalogDao
 import com.example.serviaux.data.entity.CatalogBrand
 import com.example.serviaux.data.entity.CatalogModel
@@ -26,7 +28,10 @@ import org.json.JSONArray
  * Repositorio unificado de catálogos.
  * Cada sección corresponde a un tipo de catálogo con operaciones CRUD completas.
  */
-class CatalogRepository(private val dao: CatalogDao) {
+class CatalogRepository(
+    private val dao: CatalogDao,
+    private val database: ServiauxDatabase
+) {
     // ── Marcas de vehículos ────────────────────────────────────────────
     fun getAllBrands(): Flow<List<CatalogBrand>> = dao.getAllBrands()
     suspend fun getAllBrandsDirect(): List<CatalogBrand> = dao.getAllBrandsDirect()
@@ -165,102 +170,108 @@ class CatalogRepository(private val dao: CatalogDao) {
         return json.toString(2)
     }
 
-    /** Importa catálogos desde JSON, reemplazando todos los datos existentes. */
+    /**
+     * Catálogos ya interpretados desde un JSON, listos para escribir en la base.
+     * Se construye completo en memoria antes de tocar nada.
+     */
+    private data class ParsedCatalogs(
+        val brands: List<Pair<String, List<String>>>,
+        val colors: List<String>,
+        val partBrands: List<String>,
+        val services: List<CatalogService>,
+        val vehicleTypes: List<String>,
+        val accessories: List<String>,
+        val oilTypes: List<String>,
+        val complaints: List<Pair<String, List<String>>>
+    )
+
+    /**
+     * Importa catálogos desde JSON, reemplazando todos los datos existentes.
+     *
+     * El JSON se interpreta **por completo antes** de borrar nada y la escritura va en una
+     * transacción. Antes, un solo campo mal formado a mitad del archivo dejaba el taller sin
+     * marcas, modelos, colores ni motivos, porque el borrado ya se había ejecutado.
+     *
+     * @throws org.json.JSONException si el archivo no tiene la estructura esperada; en ese caso
+     *   la base queda intacta.
+     */
     suspend fun importFromJson(jsonString: String) {
-        val json = JSONObject(jsonString)
+        val parsed = parseCatalogs(JSONObject(jsonString))
+        database.withTransaction {
+            dao.deleteAllDiagnoses()
+            dao.deleteAllComplaints()
+            dao.deleteAllModels()
+            dao.deleteAllBrands()
+            dao.deleteAllColors()
+            dao.deleteAllPartBrands()
+            dao.deleteAllServices()
+            dao.deleteAllVehicleTypes()
+            dao.deleteAllAccessories()
+            dao.deleteAllOilTypes()
 
-        // Clear existing
-        dao.deleteAllDiagnoses()
-        dao.deleteAllComplaints()
-        dao.deleteAllModels()
-        dao.deleteAllBrands()
-        dao.deleteAllColors()
-        dao.deleteAllPartBrands()
-        dao.deleteAllServices()
-        dao.deleteAllVehicleTypes()
-        dao.deleteAllAccessories()
-        dao.deleteAllOilTypes()
-
-        // Import brands and models
-        if (json.has("marcas")) {
-            val brandsJson = json.getJSONObject("marcas")
-            for (brandName in brandsJson.keys()) {
+            parsed.brands.forEach { (brandName, models) ->
                 val brandId = dao.insertBrand(CatalogBrand(name = brandName))
-                val modelsArray = brandsJson.getJSONArray(brandName)
-                for (i in 0 until modelsArray.length()) {
-                    dao.insertModel(CatalogModel(brandId = brandId, name = modelsArray.getString(i)))
-                }
+                models.forEach { dao.insertModel(CatalogModel(brandId = brandId, name = it)) }
+            }
+            parsed.colors.forEach { dao.insertColor(CatalogColor(name = it)) }
+            parsed.partBrands.forEach { dao.insertPartBrand(CatalogPartBrand(name = it)) }
+            parsed.services.forEach { dao.insertService(it) }
+            parsed.vehicleTypes.forEach { dao.insertVehicleType(CatalogVehicleType(name = it)) }
+            parsed.accessories.forEach { dao.insertAccessory(CatalogAccessory(name = it)) }
+            parsed.oilTypes.forEach { dao.insertOilType(CatalogOilType(name = it)) }
+            parsed.complaints.forEach { (complaintName, diagnoses) ->
+                val complaintId = dao.insertComplaint(CatalogComplaint(name = complaintName))
+                diagnoses.forEach { dao.insertDiagnosis(CatalogDiagnosis(complaintId = complaintId, name = it)) }
             }
         }
+    }
 
-        // Import colors
-        if (json.has("colores")) {
-            val colorsArray = json.getJSONArray("colores")
-            for (i in 0 until colorsArray.length()) {
-                dao.insertColor(CatalogColor(name = colorsArray.getString(i)))
-            }
+    /** Interpreta el JSON de catálogos. Lanza excepción si la estructura es inválida. */
+    private fun parseCatalogs(json: JSONObject): ParsedCatalogs {
+        fun stringList(key: String): List<String> {
+            if (!json.has(key)) return emptyList()
+            val arr = json.getJSONArray(key)
+            return (0 until arr.length()).map { arr.getString(it) }
         }
 
-        // Import part brands
-        if (json.has("marcas_repuestos")) {
-            val partBrandsArray = json.getJSONArray("marcas_repuestos")
-            for (i in 0 until partBrandsArray.length()) {
-                dao.insertPartBrand(CatalogPartBrand(name = partBrandsArray.getString(i)))
-            }
+        fun nestedList(key: String): List<Pair<String, List<String>>> {
+            if (!json.has(key)) return emptyList()
+            val obj = json.getJSONObject(key)
+            return obj.keys().asSequence().map { parentName ->
+                val arr = obj.getJSONArray(parentName)
+                parentName to (0 until arr.length()).map { arr.getString(it) }
+            }.toList()
         }
 
-        // Import services
+        val services = mutableListOf<CatalogService>()
         if (json.has("servicios")) {
             val servicesJson = json.getJSONObject("servicios")
             for (category in servicesJson.keys()) {
                 val arr = servicesJson.getJSONArray(category)
                 for (i in 0 until arr.length()) {
                     val obj = arr.getJSONObject(i)
-                    val vType = if (obj.has("tipo_vehiculo") && !obj.isNull("tipo_vehiculo")) obj.getString("tipo_vehiculo") else null
-                    dao.insertService(CatalogService(
-                        category = category,
-                        name = obj.getString("nombre"),
-                        defaultPrice = obj.optDouble("precio", 10.0),
-                        vehicleType = vType
-                    ))
+                    services.add(
+                        CatalogService(
+                            category = category,
+                            name = obj.getString("nombre"),
+                            defaultPrice = obj.optDouble("precio", 10.0),
+                            vehicleType = if (obj.has("tipo_vehiculo") && !obj.isNull("tipo_vehiculo"))
+                                obj.getString("tipo_vehiculo") else null
+                        )
+                    )
                 }
             }
         }
 
-        // Import vehicle types
-        if (json.has("tipos_vehiculo")) {
-            val arr = json.getJSONArray("tipos_vehiculo")
-            for (i in 0 until arr.length()) {
-                dao.insertVehicleType(CatalogVehicleType(name = arr.getString(i)))
-            }
-        }
-
-        // Import accessories
-        if (json.has("accesorios")) {
-            val arr = json.getJSONArray("accesorios")
-            for (i in 0 until arr.length()) {
-                dao.insertAccessory(CatalogAccessory(name = arr.getString(i)))
-            }
-        }
-
-        // Import oil types
-        if (json.has("tipos_aceite")) {
-            val arr = json.getJSONArray("tipos_aceite")
-            for (i in 0 until arr.length()) {
-                dao.insertOilType(CatalogOilType(name = arr.getString(i)))
-            }
-        }
-
-        // Import complaints with diagnoses
-        if (json.has("motivos")) {
-            val complaintsJson = json.getJSONObject("motivos")
-            for (complaintName in complaintsJson.keys()) {
-                val complaintId = dao.insertComplaint(CatalogComplaint(name = complaintName))
-                val diagnosesArray = complaintsJson.getJSONArray(complaintName)
-                for (i in 0 until diagnosesArray.length()) {
-                    dao.insertDiagnosis(CatalogDiagnosis(complaintId = complaintId, name = diagnosesArray.getString(i)))
-                }
-            }
-        }
+        return ParsedCatalogs(
+            brands = nestedList("marcas"),
+            colors = stringList("colores"),
+            partBrands = stringList("marcas_repuestos"),
+            services = services,
+            vehicleTypes = stringList("tipos_vehiculo"),
+            accessories = stringList("accesorios"),
+            oilTypes = stringList("tipos_aceite"),
+            complaints = nestedList("motivos")
+        )
     }
 }

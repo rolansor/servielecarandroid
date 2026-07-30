@@ -14,6 +14,7 @@ import com.example.serviaux.ServiauxApp
 import com.example.serviaux.data.entity.CommissionType
 import com.example.serviaux.data.entity.User
 import com.example.serviaux.data.entity.UserRole
+import com.example.serviaux.util.AppPreferences
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -41,7 +42,9 @@ data class UserUiState(
     val formUsernameError: String? = null,
     val formPasswordError: String? = null,
     val newPasswordError: String? = null,
-    val isListLoaded: Boolean = false
+    val isListLoaded: Boolean = false,
+    /** Mecánico que se asigna automáticamente a las órdenes nuevas; null si no hay ninguno. */
+    val defaultMechanicId: Long? = null
 )
 
 class UserViewModel(application: Application) : AndroidViewModel(application) {
@@ -58,6 +61,18 @@ class UserViewModel(application: Application) : AndroidViewModel(application) {
                 _uiState.update { it.copy(users = list, isListLoaded = true) }
             }
         }
+        _uiState.update { it.copy(defaultMechanicId = AppPreferences.defaultMechanicId(app)) }
+    }
+
+    /**
+     * Marca o desmarca un mecánico como predeterminado para las órdenes nuevas.
+     * Volver a tocar el mismo mecánico lo desmarca; solo puede haber uno.
+     */
+    fun toggleDefaultMechanic(userId: Long) {
+        val current = _uiState.value.defaultMechanicId
+        val newValue = if (current == userId) null else userId
+        AppPreferences.setDefaultMechanicId(app, newValue)
+        _uiState.update { it.copy(defaultMechanicId = newValue) }
     }
 
     fun onFormNameChange(value: String) {
@@ -242,12 +257,21 @@ class UserViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    /**
+     * Precarga el formulario con los datos del usuario, **una sola vez**.
+     *
+     * Antes observaba el Flow de Room: al restablecer la contraseña (que actualiza la fila) el
+     * Flow reemitía y el formulario recuperaba los valores viejos, perdiendo lo editado.
+     */
     fun loadAndPrepareEdit(userId: Long) {
         viewModelScope.launch {
-            authRepo.getUserById(userId).collect { user ->
-                user?.let { prepareEdit(it) }
-            }
+            authRepo.getUserByIdDirect(userId)?.let { prepareEdit(it) }
         }
+    }
+
+    /** Limpia el aviso de guardado para que la navegación no se repita al recomponer. */
+    fun clearSaved() {
+        _uiState.update { it.copy(savedSuccessfully = false) }
     }
 
     fun prepareNew() {

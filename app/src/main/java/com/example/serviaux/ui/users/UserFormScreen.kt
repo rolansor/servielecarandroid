@@ -77,6 +77,7 @@ fun UserFormScreen(
 
     LaunchedEffect(uiState.savedSuccessfully) {
         if (uiState.savedSuccessfully) {
+            viewModel.clearSaved()
             onSaved()
         }
     }

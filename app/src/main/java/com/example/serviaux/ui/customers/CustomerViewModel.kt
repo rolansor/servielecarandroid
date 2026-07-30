@@ -298,6 +298,22 @@ class CustomerViewModel(application: Application) : AndroidViewModel(application
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }
             try {
+                // El documento se comprueba en el guardado: la verificación por foco es
+                // asíncrona y validateForm() la sobreescribía. Además `customers` no tiene
+                // índice único, así que sin esto el duplicado se creaba en silencio.
+                val idNumber = state.formIdNumber.trim()
+                if (idNumber.isNotBlank()) {
+                    val duplicate = customerRepo.findByDocument(state.formDocType, idNumber)
+                    if (duplicate != null && duplicate.id != state.editingCustomerId) {
+                        _uiState.update {
+                            it.copy(
+                                isLoading = false,
+                                formIdNumberError = "Ya existe un cliente con este documento"
+                            )
+                        }
+                        return@launch
+                    }
+                }
                 if (state.isEditing && state.editingCustomerId != null) {
                     val existing = customerRepo.getByIdDirect(state.editingCustomerId)
                     if (existing != null) {
@@ -331,6 +347,11 @@ class CustomerViewModel(application: Application) : AndroidViewModel(application
                 _uiState.update { it.copy(isLoading = false, error = e.message ?: "Error al guardar") }
             }
         }
+    }
+
+    /** Limpia el aviso de guardado para que la navegación no se repita al recomponer. */
+    fun clearSaved() {
+        _uiState.update { it.copy(savedSuccessfully = false) }
     }
 
     fun loadAndPrepareEdit(customerId: Long) {

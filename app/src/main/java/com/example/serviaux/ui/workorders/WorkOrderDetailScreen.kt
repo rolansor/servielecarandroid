@@ -28,6 +28,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.foundation.layout.Box
@@ -148,6 +149,8 @@ fun WorkOrderDetailScreen(
     var deleteConfirmationText by remember { mutableStateOf("") }
     var viewingPhotoPath by remember { mutableStateOf<String?>(null) }
     var viewingPhotoIndex by remember { mutableIntStateOf(-1) }
+    /** Texto con el que se prellena el alta rápida de repuesto; null si no está abierta. */
+    var newPartPrefillName by remember { mutableStateOf<String?>(null) }
 
     // Camera & Gallery for order photos
     val detailContext = LocalContext.current
@@ -280,6 +283,7 @@ fun WorkOrderDetailScreen(
             onPriceChange = { viewModel.onPartPriceChange(it) },
             onDiscountToggle = { viewModel.onPartDiscountToggle(it) },
             onDiscountChange = { viewModel.onPartDiscountChange(it) },
+            onRequestCreatePart = { prefill -> newPartPrefillName = prefill },
             onSave = {
                 if (isEditingPart) {
                     viewModel.updatePart()
@@ -298,30 +302,46 @@ fun WorkOrderDetailScreen(
         )
     }
 
+    // Alta rápida de repuesto, encima del diálogo de la orden.
+    newPartPrefillName?.let { prefill ->
+        NewPartDialog(
+            initialName = prefill,
+            onCreate = { name, code, brand, price, stock ->
+                viewModel.createPartFromOrder(name, code, brand, price, stock)
+                newPartPrefillName = null
+            },
+            onDismiss = { newPartPrefillName = null }
+        )
+    }
+
     // Payment dialog
     if (showPaymentDialog) {
         val totalPaid = uiState.payments.sumOf { it.amount }
         val totalDiscounts = uiState.payments.sumOf { it.discount }
-        val remainingBalance = (order?.total ?: 0.0) - totalPaid - totalDiscounts
+        // Al corregir un pago, lo que ya aportaba vuelve a estar disponible: si no, editar un
+        // pago que dejó la orden saldada sería imposible (el balance pendiente sería 0).
+        val editingPayment = uiState.editingPaymentId?.let { id -> uiState.payments.find { it.id == id } }
+        val remainingBalance = (order?.total ?: 0.0) - totalPaid - totalDiscounts +
+            (editingPayment?.let { it.amount + it.discount } ?: 0.0)
         PaymentDialog(
             amount = uiState.paymentFormAmount,
             discount = uiState.paymentFormDiscount,
             method = uiState.paymentFormMethod,
             notes = uiState.paymentFormNotes,
             remainingBalance = remainingBalance,
+            isEditing = editingPayment != null,
             onAmountChange = { viewModel.onPaymentAmountChange(it) },
             onDiscountChange = { viewModel.onPaymentDiscountChange(it) },
             onMethodChange = { viewModel.onPaymentMethodChange(it) },
             onNotesChange = { viewModel.onPaymentNotesChange(it) },
             onSave = {
-                val parsedAmount = uiState.paymentFormAmount.toDoubleOrNull() ?: 0.0
-                val parsedDiscount = uiState.paymentFormDiscount.toDoubleOrNull() ?: 0.0
-                if ((parsedAmount + parsedDiscount) > 0 && (parsedAmount + parsedDiscount) <= remainingBalance + 0.01) {
-                    viewModel.addPayment()
-                    showPaymentDialog = false
-                }
+                if (editingPayment != null) viewModel.updatePayment() else viewModel.addPayment()
+                showPaymentDialog = false
             },
-            onDismiss = { showPaymentDialog = false }
+            onDismiss = {
+                viewModel.cancelEditPayment()
+                showPaymentDialog = false
+            }
         )
     }
 
@@ -529,15 +549,19 @@ fun WorkOrderDetailScreen(
                     ) {
                         Icon(Icons.Default.Edit, contentDescription = "Editar orden")
                     }
-                    IconButton(
-                        onClick = { showDeleteOrderDialog = true },
-                        enabled = !isLocked
-                    ) {
-                        Icon(
-                            Icons.Default.Delete,
-                            contentDescription = "Eliminar orden",
-                            tint = if (isLocked) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f) else MaterialTheme.colorScheme.error
-                        )
+                    // Eliminar una orden es irreversible (borra servicios, repuestos, pagos,
+                    // comisiones y fotos): solo administradores.
+                    if (isAdmin) {
+                        IconButton(
+                            onClick = { showDeleteOrderDialog = true },
+                            enabled = !isLocked
+                        ) {
+                            Icon(
+                                Icons.Default.Delete,
+                                contentDescription = "Eliminar orden",
+                                tint = if (isLocked) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f) else MaterialTheme.colorScheme.error
+                            )
+                        }
                     }
                     if (uiState.pdfGenerating) {
                         CircularProgressIndicator(
@@ -1426,7 +1450,12 @@ fun WorkOrderDetailScreen(
                             ) {
                                 SectionTitle("Pagos", modifier = Modifier.weight(1f))
                                 IconButton(
-                                    onClick = { showPaymentDialog = true }
+                                    onClick = {
+                                        // Limpia cualquier edición previa: este botón registra un pago nuevo.
+                                        viewModel.cancelEditPayment()
+                                        showPaymentDialog = true
+                                    },
+                                    enabled = !isLocked
                                 ) {
                                     Icon(Icons.Default.Add, contentDescription = "Agregar pago")
                                 }
@@ -1489,17 +1518,39 @@ fun WorkOrderDetailScreen(
                                     )
                                 }
                             }
-                            Text(
-                                text = dateFormat.format(Date(payment.date)),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                            payment.notes?.let { note ->
-                                Text(
-                                    text = note,
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = dateFormat.format(Date(payment.date)),
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                    payment.notes?.let { note ->
+                                        Text(
+                                            text = note,
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                }
+                                // Corregir un cobro mal registrado sin tener que borrarlo y volver a crearlo.
+                                IconButton(
+                                    onClick = {
+                                        viewModel.startEditPayment(payment)
+                                        showPaymentDialog = true
+                                    },
+                                    enabled = !isLocked,
+                                    modifier = Modifier.size(32.dp)
+                                ) {
+                                    Icon(
+                                        Icons.Default.Edit,
+                                        contentDescription = "Editar pago",
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                }
                             }
                         }
                     }
@@ -1869,6 +1920,7 @@ private fun PartDialog(
     onPriceChange: (String) -> Unit,
     onDiscountToggle: (Boolean) -> Unit = {},
     onDiscountChange: (String) -> Unit = {},
+    onRequestCreatePart: (prefillName: String) -> Unit = {},
     onSave: () -> Unit,
     onDismiss: () -> Unit
 ) {
@@ -1876,6 +1928,13 @@ private fun PartDialog(
     var searchQuery by remember { mutableStateOf(
         if (isEditing && selectedPart != null) "${selectedPart.code ?: ""} - ${selectedPart.name}" else ""
     ) }
+
+    // Cuando la selección cambia desde fuera del diálogo —por ejemplo al crear un repuesto
+    // nuevo— el campo de búsqueda se sincroniza con la pieza seleccionada.
+    LaunchedEffect(selectedPartId) {
+        val part = availableParts.find { it.id == selectedPartId }
+        if (part != null) searchQuery = "${part.code ?: ""} - ${part.name}"
+    }
     var suggestionsExpanded by remember { mutableStateOf(false) }
     var partError by remember { mutableStateOf<String?>(null) }
     var quantityError by remember { mutableStateOf<String?>(null) }
@@ -1977,6 +2036,23 @@ private fun PartDialog(
                         color = MaterialTheme.colorScheme.primary
                     )
                 }
+                // Si la pieza no está en el catálogo, se puede dar de alta sin salir de la orden.
+                if (!isEditing && selectedPart == null) {
+                    TextButton(
+                        onClick = { onRequestCreatePart(searchQuery.trim()) },
+                        contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp)
+                    ) {
+                        Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = if (searchQuery.length >= 3)
+                                "Crear repuesto \"${searchQuery.trim().take(20)}\""
+                            else
+                                "Crear repuesto nuevo",
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
+                }
                 Spacer(modifier = Modifier.height(8.dp))
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -1994,19 +2070,15 @@ private fun PartDialog(
                         supportingText = quantityError?.let { error -> { Text(error, color = MaterialTheme.colorScheme.error) } },
                         modifier = Modifier.weight(1f)
                     )
+                    // El campo ya no se vacía al recibir el foco: tocarlo para verificar el
+                    // importe borraba el precio y, al guardar, la edición se perdía.
                     OutlinedTextField(
                         value = price,
                         onValueChange = { onPriceChange(it) },
                         label = { Text("Precio Unit. *") },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                         prefix = { Text("$") },
-                        modifier = Modifier
-                            .weight(1f)
-                            .onFocusChanged { focusState ->
-                                if (focusState.isFocused && price.isNotEmpty()) {
-                                    onPriceChange("")
-                                }
-                            }
+                        modifier = Modifier.weight(1f)
                     )
                 }
                 Spacer(modifier = Modifier.height(4.dp))
@@ -2042,11 +2114,145 @@ private fun PartDialog(
                     quantityError = "Cantidad debe ser al menos 1"
                     hasError = true
                 }
+                // El precio también se valida aquí: sin esto el diálogo se cerraba y el
+                // guardado fallaba después, perdiendo lo editado.
+                val parsedPrice = price.replace(',', '.').toDoubleOrNull()
+                if (parsedPrice == null || parsedPrice < 0.0) {
+                    partError = "Ingrese un precio unitario valido"
+                    hasError = true
+                }
                 if (!hasError) {
                     onSave()
                 }
             }) {
                 Text(if (isEditing) "Guardar" else "Agregar")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancelar")
+            }
+        }
+    )
+}
+
+/**
+ * Alta rápida de un repuesto desde el diálogo de la orden.
+ *
+ * Pide lo mínimo para poder facturarlo; el resto de la ficha (descripción, costo real) se
+ * completa después en el módulo de Repuestos.
+ */
+@Composable
+private fun NewPartDialog(
+    initialName: String,
+    onCreate: (name: String, code: String, brand: String, price: String, stock: String) -> Unit,
+    onDismiss: () -> Unit
+) {
+    var name by remember { mutableStateOf(initialName.uppercase()) }
+    var code by remember { mutableStateOf("") }
+    var brand by remember { mutableStateOf("") }
+    var price by remember { mutableStateOf("") }
+    var stock by remember { mutableStateOf("0") }
+    var nameError by remember { mutableStateOf<String?>(null) }
+    var priceError by remember { mutableStateOf<String?>(null) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Nuevo Repuesto") },
+        text = {
+            Column {
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = {
+                        name = it.uppercase()
+                        nameError = null
+                    },
+                    label = { Text("Nombre *") },
+                    singleLine = true,
+                    isError = nameError != null,
+                    supportingText = nameError?.let { error -> { Text(error, color = MaterialTheme.colorScheme.error) } },
+                    keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Characters),
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    OutlinedTextField(
+                        value = code,
+                        onValueChange = { code = it.uppercase() },
+                        label = { Text("Código") },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Characters),
+                        modifier = Modifier.weight(1f)
+                    )
+                    OutlinedTextField(
+                        value = brand,
+                        onValueChange = { brand = it.uppercase() },
+                        label = { Text("Marca") },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Characters),
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    OutlinedTextField(
+                        value = price,
+                        onValueChange = {
+                            price = it
+                            priceError = null
+                        },
+                        label = { Text("Precio venta *") },
+                        prefix = { Text("$") },
+                        singleLine = true,
+                        isError = priceError != null,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                        modifier = Modifier.weight(1f)
+                    )
+                    OutlinedTextField(
+                        value = stock,
+                        onValueChange = { stock = it.filter { c -> c.isDigit() }.take(5) },
+                        label = { Text("Stock inicial") },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+                if (priceError != null) {
+                    Text(
+                        text = priceError!!,
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = "Se guarda en el catálogo de repuestos y queda seleccionado en la orden.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = {
+                var hasError = false
+                if (name.isBlank()) {
+                    nameError = "El nombre es obligatorio"
+                    hasError = true
+                }
+                val parsedPrice = price.replace(',', '.').toDoubleOrNull()
+                if (parsedPrice == null || parsedPrice < 0.0) {
+                    priceError = "Ingrese un precio válido"
+                    hasError = true
+                }
+                if (!hasError) onCreate(name, code, brand, price, stock)
+            }) {
+                Text("Crear y seleccionar")
             }
         },
         dismissButton = {
@@ -2209,6 +2415,7 @@ private fun PaymentDialog(
     method: PaymentMethod,
     notes: String,
     remainingBalance: Double,
+    isEditing: Boolean,
     onAmountChange: (String) -> Unit,
     onDiscountChange: (String) -> Unit,
     onMethodChange: (PaymentMethod) -> Unit,
@@ -2221,7 +2428,7 @@ private fun PaymentDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Registrar Pago") },
+        title = { Text(if (isEditing) "Editar Pago" else "Registrar Pago") },
         text = {
             Column {
                 OutlinedTextField(
@@ -2307,7 +2514,7 @@ private fun PaymentDialog(
                     onSave()
                 }
             }) {
-                Text("Registrar")
+                Text(if (isEditing) "Guardar" else "Registrar")
             }
         },
         dismissButton = {

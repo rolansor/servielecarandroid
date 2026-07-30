@@ -11,7 +11,9 @@ android {
     defaultConfig {
         applicationId = "com.example.serviaux"
         minSdk = 26
-        targetSdk = 35
+        // Alineado con compileSdk: quedarse atrás renuncia a los endurecimientos de la
+        // plataforma. Android 16 fuerza edge-to-edge, que la app ya usa.
+        targetSdk = 36
         versionCode = 1
         versionName = "1.0"
 
@@ -20,11 +22,18 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            // R8 ofusca y elimina el código no usado. Reduce mucho el APK (se empaqueta
+            // material-icons-extended completo) y dificulta la ingeniería inversa.
+            // Las reglas de lo que no se puede tocar están en proguard-rules.pro.
+            isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            // PENDIENTE: definir signingConfig con el keystore del taller. Sin esto el APK de
+            // release sale sin firmar y Android Studio lo firma con la clave de depuración,
+            // que no sirve para distribuir ni permite actualizar una instalación existente.
         }
     }
     compileOptions {
@@ -34,6 +43,12 @@ android {
     buildFeatures {
         compose = true
     }
+}
+
+// El esquema de Room se versiona en app/schemas: es lo que permite escribir migraciones
+// correctas (y verificarlas) en lugar de recurrir a un borrado destructivo de la base.
+ksp {
+    arg("room.schemaLocation", "$projectDir/schemas")
 }
 
 dependencies {

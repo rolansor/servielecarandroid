@@ -74,6 +74,9 @@ fun PartFormScreen(
 
     LaunchedEffect(uiState.savedSuccessfully) {
         if (uiState.savedSuccessfully) {
+            // Se limpia el flag antes de navegar: si no, una rotación tras guardar volvería a
+            // disparar este efecto y retrocedería dos pantallas.
+            viewModel.clearSaved()
             onSaved()
         }
     }

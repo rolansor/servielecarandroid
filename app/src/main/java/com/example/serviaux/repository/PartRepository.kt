@@ -20,6 +20,15 @@ class PartRepository(private val dao: PartDao) {
     fun search(query: String): Flow<List<Part>> = dao.searchIncludingInactive(query)
     suspend fun getByIdDirect(id: Long): Part? = dao.getByIdDirect(id)
 
+    /** Nombres de varios repuestos de una vez, para evitar una consulta por cada uno. */
+    suspend fun getNamesByIds(ids: List<Long>): Map<Long, String> {
+        if (ids.isEmpty()) return emptyMap()
+        // SQLite admite hasta 999 parámetros por sentencia.
+        return ids.distinct().chunked(900)
+            .flatMap { dao.getNamesByIds(it) }
+            .associate { it.id to it.name }
+    }
+
     suspend fun insert(part: Part): Long = dao.insert(part)
     suspend fun update(part: Part) = dao.update(part.copy(updatedAt = System.currentTimeMillis()))
 }

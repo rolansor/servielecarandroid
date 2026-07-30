@@ -29,6 +29,17 @@ interface ServiceLineDao {
     @Query("SELECT COALESCE(SUM(laborCost - discount), 0.0) FROM service_lines WHERE workOrderId = :workOrderId")
     suspend fun getTotalLabor(workOrderId: Long): Double
 
+    /**
+     * Todas las líneas de servicio de las órdenes de un cliente, en una sola consulta.
+     * Alimenta el historial de servicios, que antes abría un colector por orden.
+     */
+    @Query("""
+        SELECT sl.* FROM service_lines sl
+        INNER JOIN work_orders wo ON sl.workOrderId = wo.id
+        WHERE wo.customerId = :customerId
+    """)
+    suspend fun getByCustomerDirect(customerId: Long): List<ServiceLine>
+
     @Query("SELECT * FROM service_lines")
     suspend fun getAllDirect(): List<ServiceLine>
 

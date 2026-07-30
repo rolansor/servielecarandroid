@@ -40,6 +40,15 @@ interface AppointmentDao {
     @Query("SELECT COUNT(*) FROM appointments WHERE status = :status")
     fun countByStatus(status: AppointmentStatus): Flow<Int>
 
+    /**
+     * Quita la referencia a una orden eliminada y devuelve el turno a CONFIRMADO.
+     *
+     * `workOrderId` es una referencia blanda (sin clave foránea): sin esto, al borrar la orden
+     * el turno seguiría marcado como CONVERTIDO apuntando a una orden que ya no existe.
+     */
+    @Query("UPDATE appointments SET workOrderId = NULL, status = 'CONFIRMADO', updatedAt = :updatedAt WHERE workOrderId = :workOrderId")
+    suspend fun clearWorkOrderReference(workOrderId: Long, updatedAt: Long = System.currentTimeMillis())
+
     @Query("DELETE FROM appointments")
     suspend fun deleteAll()
 

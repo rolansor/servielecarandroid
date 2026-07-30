@@ -14,6 +14,7 @@ package com.example.serviaux.repository
 
 import android.content.Context
 import android.net.Uri
+import androidx.room.withTransaction
 import com.example.serviaux.data.ServiauxDatabase
 import com.example.serviaux.data.entity.*
 import org.json.JSONArray
@@ -44,6 +45,72 @@ enum class BackupCategory(val label: String) {
 }
 
 /**
+ * Qué incluye un archivo de respaldo.
+ *
+ * Las fotos son casi todo el peso del respaldo, así que separarlas de los datos permite
+ * respaldar la información seguido (pesa poco) y las imágenes con otra cadencia.
+ */
+enum class BackupContent(val label: String, val description: String) {
+    /** Solo los datos: pesa muy poco, ideal para respaldar a diario. */
+    DATA_ONLY(
+        "Solo datos",
+        "Clientes, vehículos, órdenes y catálogos. Sin fotos: el archivo pesa muy poco."
+    ),
+
+    /** Solo las fotos, todas. Sirve como respaldo base de las imágenes. */
+    MEDIA_ONLY(
+        "Solo fotos",
+        "Todas las fotos de vehículos y órdenes, sin datos. Es el respaldo base de imágenes."
+    ),
+
+    /** Datos completos y solo las fotos nuevas desde el último respaldo. */
+    ALL_INCREMENTAL(
+        "Todo (fotos nuevas)",
+        "Datos completos más las fotos agregadas desde el último respaldo. Requiere conservar los respaldos anteriores."
+    );
+
+    /** True si este modo incluye archivos de datos. */
+    val includesData: Boolean get() = this != MEDIA_ONLY
+
+    /** True si este modo incluye fotos. */
+    val includesPhotos: Boolean get() = this != DATA_ONLY
+}
+
+/**
+ * Situación de las fotos frente al respaldo incremental.
+ *
+ * @property totalPhotos Fotos referenciadas por vehículos y órdenes que existen en el disco.
+ * @property pendingPhotos Cuántas de ellas todavía no entraron en ningún respaldo.
+ * @property pendingBytes Peso de esas fotos pendientes.
+ * @property lastBackupAt Momento del último respaldo que incluyó fotos (0 si nunca).
+ */
+data class PhotoBackupStatus(
+    val totalPhotos: Int = 0,
+    val pendingPhotos: Int = 0,
+    val pendingBytes: Long = 0,
+    val lastBackupAt: Long = 0
+)
+
+/**
+ * Resumen de lo que contiene un archivo de respaldo, para decidir qué restaurar.
+ *
+ * @property categories Categorías de datos presentes, con su número de registros.
+ * @property photoCount Fotos que trae el archivo.
+ * @property content Modo con el que se generó (los respaldos antiguos se leen como completos).
+ * @property incremental True si solo trae las fotos nuevas de ese momento.
+ * @property exportDate Fecha de generación del respaldo.
+ * @property valid False si el archivo no es un respaldo de Serviaux legible.
+ */
+data class BackupInspection(
+    val categories: Map<BackupCategory, Int> = emptyMap(),
+    val photoCount: Int = 0,
+    val content: BackupContent = BackupContent.ALL_INCREMENTAL,
+    val incremental: Boolean = false,
+    val exportDate: Long = 0,
+    val valid: Boolean = false
+)
+
+/**
  * Repositorio de respaldos ZIP con exportación/importación de datos.
  *
  * Accede directamente a los DAOs de [ServiauxDatabase] para serializar/deserializar
@@ -56,6 +123,10 @@ class BackupRepository(private val database: ServiauxDatabase) {
         private const val BACKUPS_DIR = "backups"
         private const val MANIFEST_FILE = "manifest.json"
         private const val DB_VERSION = 4
+
+        /** Preferencias donde se recuerda hasta dónde llegó el último respaldo de fotos. */
+        private const val BACKUP_PREFS = "serviaux_backup"
+        private const val KEY_LAST_PHOTO_BACKUP = "last_photo_backup_at"
 
         private val CATEGORY_TABLES = mapOf(
             BackupCategory.USERS to listOf("users"),
@@ -74,20 +145,96 @@ class BackupRepository(private val database: ServiauxDatabase) {
         val counts: Map<String, Int> = emptyMap()
     )
 
-    suspend fun exportToZip(context: Context, categories: Set<BackupCategory> = BackupCategory.entries.toSet()): BackupResult {
+    // ── Marcador de respaldo incremental de fotos ─────────────────────────
+
+    /** Momento hasta el que las fotos ya quedaron respaldadas (0 si nunca se respaldaron). */
+    fun lastPhotoBackupAt(context: Context): Long =
+        context.getSharedPreferences(BACKUP_PREFS, Context.MODE_PRIVATE)
+            .getLong(KEY_LAST_PHOTO_BACKUP, 0L)
+
+    private fun setLastPhotoBackupAt(context: Context, value: Long) {
+        context.getSharedPreferences(BACKUP_PREFS, Context.MODE_PRIVATE)
+            .edit().putLong(KEY_LAST_PHOTO_BACKUP, value).apply()
+    }
+
+    /**
+     * Olvida el marcador incremental: el próximo respaldo con fotos volverá a incluirlas todas.
+     * Se usa cuando se pierden los respaldos anteriores y hay que reconstruir la base.
+     */
+    fun resetPhotoBackupMarker(context: Context) = setLastPhotoBackupAt(context, 0L)
+
+    /** Cuántas fotos referenciadas hay en total y cuántas son nuevas desde el último respaldo. */
+    suspend fun photoBackupStatus(context: Context): PhotoBackupStatus {
+        val since = lastPhotoBackupAt(context)
+        val referenced = referencedPhotoFiles(
+            context,
+            database.vehicleDao().getAllDirect().mapNotNull { it.photoPaths },
+            database.workOrderDao().getAllDirect().mapNotNull { it.photoPaths }
+        )
+        val pending = referenced.filter { it.lastModified() > since }
+        return PhotoBackupStatus(
+            totalPhotos = referenced.size,
+            pendingPhotos = pending.size,
+            pendingBytes = pending.sumOf { it.length() },
+            lastBackupAt = since
+        )
+    }
+
+    /**
+     * Archivos de foto realmente existentes a los que apuntan las filas indicadas.
+     * Se deduplican por ruta: una misma foto puede estar referenciada más de una vez.
+     */
+    private fun referencedPhotoFiles(
+        context: Context,
+        vararg pathColumns: List<String>
+    ): List<File> {
+        val photosDir = File(context.filesDir, PHOTOS_DIR)
+        if (!photosDir.exists()) return emptyList()
+        val paths = linkedSetOf<String>()
+        pathColumns.forEach { column ->
+            column.forEach { csv ->
+                csv.split(",").map { it.trim() }.filter { it.isNotBlank() }.forEach { paths.add(it) }
+            }
+        }
+        return paths.map { File(it) }.filter { it.exists() }
+    }
+
+    /**
+     * Exporta un respaldo ZIP.
+     *
+     * @param content Qué incluir: solo datos, solo fotos, o todo con las fotos nuevas
+     *   desde el último respaldo (ver [BackupContent]).
+     */
+    suspend fun exportToZip(
+        context: Context,
+        categories: Set<BackupCategory> = BackupCategory.entries.toSet(),
+        content: BackupContent = BackupContent.ALL_INCREMENTAL
+    ): BackupResult {
         return try {
             val backupDir = File(context.cacheDir, BACKUPS_DIR).apply { mkdirs() }
             val timestamp = SimpleDateFormat("yyyyMMdd_HHmm", Locale.US).format(Date())
-            val zipFile = File(backupDir, "respaldo_serviaux_$timestamp.zip")
+            val prefix = when (content) {
+                BackupContent.DATA_ONLY -> "datos"
+                BackupContent.MEDIA_ONLY -> "fotos"
+                BackupContent.ALL_INCREMENTAL -> "respaldo"
+            }
+            val zipFile = File(backupDir, "${prefix}_serviaux_$timestamp.zip")
 
-            val includedTables = categories.flatMap { CATEGORY_TABLES[it] ?: emptyList() }.toSet()
+            // En "solo fotos" no se escriben archivos de datos, pero sí se leen vehículos y
+            // órdenes para saber a qué fotos apuntan.
+            val includedTables = if (content == BackupContent.MEDIA_ONLY) emptySet()
+                else categories.flatMap { CATEGORY_TABLES[it] ?: emptyList() }.toSet()
 
             // Fetch data only for selected categories
             val users = if ("users" in includedTables) database.userDao().getAllDirect() else emptyList()
             val customers = if ("customers" in includedTables) database.customerDao().getAllDirect() else emptyList()
-            val vehicles = if ("vehicles" in includedTables) database.vehicleDao().getAllDirect() else emptyList()
+            // Vehículos y órdenes se leen también cuando solo se exportan fotos, porque son las
+            // filas que dicen a qué archivos de imagen apunta la app.
+            val vehicles = if ("vehicles" in includedTables || content == BackupContent.MEDIA_ONLY)
+                database.vehicleDao().getAllDirect() else emptyList()
             val parts = if ("parts" in includedTables) database.partDao().getAllDirect() else emptyList()
-            val workOrders = if ("work_orders" in includedTables) database.workOrderDao().getAllDirect() else emptyList()
+            val workOrders = if ("work_orders" in includedTables || content == BackupContent.MEDIA_ONLY)
+                database.workOrderDao().getAllDirect() else emptyList()
             val serviceLines = if ("service_lines" in includedTables) database.serviceLineDao().getAllDirect() else emptyList()
             val workOrderParts = if ("work_order_parts" in includedTables) database.workOrderPartDao().getAllDirect() else emptyList()
             val workOrderPayments = if ("work_order_payments" in includedTables) database.workOrderPaymentDao().getAllDirect() else emptyList()
@@ -130,17 +277,39 @@ class BackupRepository(private val database: ServiauxDatabase) {
             if ("catalog_diagnoses" in includedTables) counts["catalog_diagnoses"] = catalogDiagnoses.size
             if ("catalog_oil_types" in includedTables) counts["catalog_oil_types"] = catalogOilTypes.size
 
+            // Fotos a incluir según el modo elegido.
+            val photosSince = if (content == BackupContent.ALL_INCREMENTAL) lastPhotoBackupAt(context) else 0L
+            val exportStartedAt = System.currentTimeMillis()
+            val allReferencedPhotos = if (content.includesPhotos) {
+                referencedPhotoFiles(
+                    context,
+                    vehicles.mapNotNull { it.photoPaths },
+                    workOrders.mapNotNull { it.photoPaths }
+                )
+            } else emptyList()
+            val photosToInclude = if (photosSince > 0L)
+                allReferencedPhotos.filter { it.lastModified() > photosSince }
+            else allReferencedPhotos
+            val photosSkipped = allReferencedPhotos.size - photosToInclude.size
+
             ZipOutputStream(BufferedOutputStream(FileOutputStream(zipFile))).use { zip ->
                 // Manifest with categories
                 val categoriesArray = JSONArray()
-                categories.forEach { categoriesArray.put(it.name) }
+                if (content.includesData) categories.forEach { categoriesArray.put(it.name) }
                 val manifest = JSONObject().apply {
                     put("app", "serviaux")
                     put("dbVersion", DB_VERSION)
-                    put("exportDate", System.currentTimeMillis())
+                    put("exportDate", exportStartedAt)
                     put("exportDateFormatted", SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US).format(Date()))
                     put("counts", JSONObject(counts.toMap()))
                     put("categories", categoriesArray)
+                    // Metadatos del nuevo formato; los respaldos antiguos no los traen y se
+                    // interpretan como "todo completo" al restaurar.
+                    put("content", content.name)
+                    put("photoMode", if (photosSince > 0L) "incremental" else if (content.includesPhotos) "full" else "none")
+                    put("photosSince", photosSince)
+                    put("photoCount", photosToInclude.size)
+                    put("photosSkipped", photosSkipped)
                 }
                 writeZipEntry(zip, MANIFEST_FILE, manifest.toString(2))
 
@@ -168,34 +337,34 @@ class BackupRepository(private val database: ServiauxDatabase) {
                 if ("catalog_diagnoses" in includedTables) writeZipEntry(zip, "data/catalog_diagnoses.json", catalogDiagnosesToJson(catalogDiagnoses))
                 if ("catalog_oil_types" in includedTables) writeZipEntry(zip, "data/catalog_oil_types.json", catalogOilTypesToJson(catalogOilTypes))
 
-                // Photos (only if vehicles or work orders are included)
-                val photosDir = File(context.filesDir, PHOTOS_DIR)
-                if (photosDir.exists()) {
-                    val allPhotoPaths = mutableSetOf<String>()
-                    if ("vehicles" in includedTables) {
-                        vehicles.forEach { v ->
-                            v.photoPaths?.split(",")?.filter { it.isNotBlank() }?.forEach { allPhotoPaths.add(it) }
-                        }
-                    }
-                    if ("work_orders" in includedTables) {
-                        workOrders.forEach { wo ->
-                            wo.photoPaths?.split(",")?.filter { it.isNotBlank() }?.forEach { allPhotoPaths.add(it) }
-                        }
-                    }
-                    for (path in allPhotoPaths) {
-                        val file = File(path)
-                        if (file.exists()) {
-                            zip.putNextEntry(ZipEntry("photos/${file.name}"))
-                            file.inputStream().use { it.copyTo(zip) }
-                            zip.closeEntry()
-                        }
-                    }
+                // Fotos
+                for (file in photosToInclude) {
+                    zip.putNextEntry(ZipEntry("photos/${file.name}"))
+                    file.inputStream().use { it.copyTo(zip) }
+                    zip.closeEntry()
                 }
+            }
+
+            // El marcador solo avanza si el respaldo incluyó fotos: así un respaldo "solo datos"
+            // no deja fotos fuera del próximo incremental.
+            if (content.includesPhotos) setLastPhotoBackupAt(context, exportStartedAt)
+
+            val sizeMb = zipFile.length().toDouble() / (1024 * 1024)
+            val sizeText = String.format(Locale.US, "%.1f MB", sizeMb)
+            val message = when (content) {
+                BackupContent.DATA_ONLY -> "Respaldo de datos exportado ($sizeText)"
+                BackupContent.MEDIA_ONLY -> "Respaldo de fotos exportado: ${photosToInclude.size} fotos ($sizeText)"
+                BackupContent.ALL_INCREMENTAL ->
+                    if (photosSkipped > 0)
+                        "Respaldo exportado ($sizeText): ${photosToInclude.size} fotos nuevas, " +
+                            "$photosSkipped ya respaldadas antes"
+                    else
+                        "Respaldo exportado ($sizeText): ${photosToInclude.size} fotos"
             }
 
             BackupResult(
                 file = zipFile,
-                message = "Respaldo exportado exitosamente",
+                message = message,
                 success = true,
                 counts = counts
             )
@@ -351,42 +520,62 @@ class BackupRepository(private val database: ServiauxDatabase) {
         }.distinct().sorted().reversed()
     }
 
-    suspend fun getBackupContents(context: Context, zipUri: Uri): Map<BackupCategory, Int> {
+    /**
+     * Lee el contenido de un archivo de respaldo sin restaurar nada.
+     *
+     * Solo necesita el manifiesto y los nombres de las entradas, así que no descomprime las
+     * fotos: un respaldo de fotos puede pesar cientos de MB.
+     */
+    suspend fun inspectBackup(context: Context, zipUri: Uri): BackupInspection {
         return try {
-            val contentResolver = context.contentResolver
-            val inputStream = contentResolver.openInputStream(zipUri)
-                ?: return emptyMap()
+            val inputStream = context.contentResolver.openInputStream(zipUri)
+                ?: return BackupInspection()
 
-            val entries = mutableMapOf<String, ByteArray>()
+            var manifestJson: String? = null
+            val entryNames = mutableSetOf<String>()
             ZipInputStream(inputStream).use { zip ->
                 var entry = zip.nextEntry
                 while (entry != null) {
                     if (!entry.isDirectory) {
-                        entries[entry.name] = zip.readBytes()
+                        entryNames.add(entry.name)
+                        if (entry.name == MANIFEST_FILE) manifestJson = String(zip.readBytes())
                     }
                     entry = zip.nextEntry
                 }
             }
 
-            val manifestBytes = entries[MANIFEST_FILE] ?: return emptyMap()
-            val manifest = JSONObject(String(manifestBytes))
-            if (manifest.optString("app", "") != "serviaux") return emptyMap()
+            val manifest = JSONObject(manifestJson ?: return BackupInspection())
+            if (manifest.optString("app", "") != "serviaux") return BackupInspection()
 
             val counts = manifest.optJSONObject("counts") ?: JSONObject()
-            val result = mutableMapOf<BackupCategory, Int>()
-
+            val categories = mutableMapOf<BackupCategory, Int>()
             for (category in BackupCategory.entries) {
                 val tables = CATEGORY_TABLES[category] ?: continue
-                val totalRecords = tables.sumOf { counts.optInt(it, 0) }
-                // Check if the backup has data files for this category
-                val hasData = tables.any { entries.containsKey("data/$it.json") }
-                if (hasData) {
-                    result[category] = totalRecords
+                if (tables.any { "data/$it.json" in entryNames }) {
+                    categories[category] = tables.sumOf { counts.optInt(it, 0) }
                 }
             }
-            result
+
+            val photoCount = entryNames.count { it.startsWith("photos/") }
+            // Los respaldos generados antes de esta versión no declaran "content": se deducen.
+            val declaredContent = manifest.optString("content", "")
+            val content = BackupContent.entries.find { it.name == declaredContent }
+                ?: when {
+                    categories.isEmpty() && photoCount > 0 -> BackupContent.MEDIA_ONLY
+                    photoCount == 0 -> BackupContent.DATA_ONLY
+                    else -> BackupContent.ALL_INCREMENTAL
+                }
+
+            BackupInspection(
+                categories = categories,
+                photoCount = photoCount,
+                content = content,
+                incremental = manifest.optString("photoMode", "") == "incremental",
+                exportDate = manifest.optLong("exportDate", 0L),
+                valid = true
+            )
         } catch (_: Exception) {
-            emptyMap()
+            BackupInspection()
         }
     }
 
@@ -433,6 +622,31 @@ class BackupRepository(private val database: ServiauxDatabase) {
             val statusLogDao = database.workOrderStatusLogDao()
             val workOrderMechanicDao = database.workOrderMechanicDao()
 
+            // Si se restauran usuarios, el respaldo debe traer al menos un administrador activo:
+            // restaurar un juego de usuarios sin admin deja el sistema sin forma de entrar a
+            // gestionar nada, y no hay pantalla para recuperarlo.
+            if (BackupCategory.USERS in categories) {
+                entries["data/users.json"]?.let { bytes ->
+                    val restoredUsers = jsonToUsers(String(bytes))
+                    if (restoredUsers.none { it.role == UserRole.ADMIN && it.active }) {
+                        return BackupResult(
+                            message = "El respaldo no incluye ningún administrador activo: " +
+                                "restaurar los usuarios dejaría el sistema sin acceso. " +
+                                "Desmarque la categoría Usuarios para continuar.",
+                            success = false
+                        )
+                    }
+                }
+            }
+
+            val counts = mutableMapOf<String, Int>()
+            var restoredPhotos = 0
+
+            // Todo el reemplazo va en una sola transacción. Antes, cualquier fallo posterior al
+            // borrado —una clave foránea que no cuadra, un enum renombrado— dejaba el taller sin
+            // datos y sin nada restaurado. Además hace la restauración mucho más rápida: sin
+            // transacción, cada uno de los miles de inserts hacía su propio commit a disco.
+            database.withTransaction {
             // Delete data for selected categories (in reverse FK order)
             if (BackupCategory.WORK_ORDERS in categories) {
                 workOrderMechanicDao.deleteAll()
@@ -465,8 +679,6 @@ class BackupRepository(private val database: ServiauxDatabase) {
                 catalogDao.deleteAllModels()
                 catalogDao.deleteAllBrands()
             }
-
-            val counts = mutableMapOf<String, Int>()
 
             // Import in FK order, only for selected categories
 
@@ -637,46 +849,65 @@ class BackupRepository(private val database: ServiauxDatabase) {
                 }
             }
 
-            // Restore photos (if vehicles or work orders are in scope)
-            if (BackupCategory.CLIENTS_VEHICLES in categories || BackupCategory.WORK_ORDERS in categories) {
+            // Restauración de fotos: se hace siempre que el archivo traiga imágenes, incluso si
+            // es un respaldo "solo fotos" (sin categorías de datos seleccionadas). Las fotos ya
+            // presentes en el dispositivo no se borran, así se pueden restaurar en cadena un
+            // respaldo base y luego los incrementales.
+            if (entries.keys.any { it.startsWith("photos/") }) {
                 val photosDir = File(context.filesDir, PHOTOS_DIR).apply { mkdirs() }
                 var photoCount = 0
+                val photosDirCanonical = photosDir.canonicalPath
                 entries.filter { it.key.startsWith("photos/") }.forEach { (name, bytes) ->
-                    val fileName = name.removePrefix("photos/")
-                    if (fileName.isNotBlank()) {
-                        val destFile = File(photosDir, fileName)
-                        destFile.writeBytes(bytes)
-                        photoCount++
-                    }
+                    // Se descarta cualquier componente de ruta que traiga el nombre de la entrada:
+                    // impide escapes tipo "photos/../../databases/serviaux" (Zip Slip), que
+                    // permitirian sobrescribir la base de datos o las preferencias de la app.
+                    val fileName = File(name.removePrefix("photos/").replace('\\', '/')).name
+                    if (fileName.isBlank() || fileName == "." || fileName == "..") return@forEach
+                    val destFile = File(photosDir, fileName)
+                    if (!destFile.canonicalPath.startsWith(photosDirCanonical + File.separator)) return@forEach
+                    destFile.writeBytes(bytes)
+                    photoCount++
                 }
 
                 if (photoCount > 0) {
+                    // Las rutas guardadas son absolutas y pertenecen al dispositivo que generó el
+                    // respaldo: se reapuntan al directorio de fotos de este dispositivo. Se hace
+                    // para todas las filas, porque en un respaldo de solo fotos los datos ya
+                    // estaban aquí y también necesitan apuntar a los archivos recién traídos.
                     val photoDirPath = photosDir.absolutePath
-                    if (BackupCategory.CLIENTS_VEHICLES in categories) {
-                        val importedVehicles = vehicleDao.getAllDirect()
-                        importedVehicles.filter { !it.photoPaths.isNullOrBlank() }.forEach { vehicle ->
-                            val updatedPaths = vehicle.photoPaths!!.split(",").map { path ->
-                                val fn = File(path).name
-                                "$photoDirPath/$fn"
-                            }.joinToString(",")
-                            vehicleDao.update(vehicle.copy(photoPaths = updatedPaths))
+                    vehicleDao.getAllDirect()
+                        .filter { !it.photoPaths.isNullOrBlank() }
+                        .forEach { vehicle ->
+                            val updatedPaths = vehicle.photoPaths!!.split(",")
+                                .filter { it.isNotBlank() }
+                                .joinToString(",") { "$photoDirPath/${File(it).name}" }
+                            if (updatedPaths != vehicle.photoPaths) {
+                                vehicleDao.update(vehicle.copy(photoPaths = updatedPaths))
+                            }
                         }
-                    }
-                    if (BackupCategory.WORK_ORDERS in categories) {
-                        val importedOrders = workOrderDao.getAllDirect()
-                        importedOrders.filter { !it.photoPaths.isNullOrBlank() }.forEach { order ->
-                            val updatedPaths = order.photoPaths!!.split(",").map { path ->
-                                val fn = File(path).name
-                                "$photoDirPath/$fn"
-                            }.joinToString(",")
-                            workOrderDao.update(order.copy(photoPaths = updatedPaths))
+                    workOrderDao.getAllDirect()
+                        .filter { !it.photoPaths.isNullOrBlank() }
+                        .forEach { order ->
+                            val updatedPaths = order.photoPaths!!.split(",")
+                                .filter { it.isNotBlank() }
+                                .joinToString(",") { "$photoDirPath/${File(it).name}" }
+                            if (updatedPaths != order.photoPaths) {
+                                workOrderDao.updatePhotoPaths(order.id, updatedPaths, System.currentTimeMillis())
+                            }
                         }
-                    }
                 }
+                restoredPhotos = photoCount
+            }
+            } // fin de la transacción
+
+            val restoredMessage = when {
+                counts.isEmpty() && restoredPhotos > 0 -> "$restoredPhotos fotos restauradas"
+                restoredPhotos > 0 -> "Respaldo restaurado: datos y $restoredPhotos fotos"
+                else -> "Respaldo restaurado exitosamente"
             }
 
             BackupResult(
-                message = "Respaldo restaurado exitosamente",
+                message = restoredMessage,
                 success = true,
                 counts = counts
             )
@@ -966,7 +1197,7 @@ class BackupRepository(private val database: ServiauxDatabase) {
                 vehicleId = o.getLong("vehicleId"),
                 scheduledDate = o.getLong("scheduledDate"),
                 notes = if (o.isNull("notes")) null else o.getString("notes"),
-                status = AppointmentStatus.valueOf(o.getString("status")),
+                status = parseAppointmentStatus(o.getString("status")),
                 workOrderId = if (o.isNull("workOrderId")) null else o.getLong("workOrderId"),
                 createdBy = o.getLong("createdBy"),
                 createdAt = o.getLong("createdAt"),
@@ -1100,7 +1331,7 @@ class BackupRepository(private val database: ServiauxDatabase) {
                 id = o.getLong("id"),
                 name = o.getString("name"),
                 username = o.getString("username"),
-                role = UserRole.valueOf(o.getString("role")),
+                role = parseUserRole(o.getString("role")),
                 passwordHash = o.getString("passwordHash"),
                 commissionType = o.optString("commissionType", "NINGUNA"),
                 commissionValue = o.optDouble("commissionValue", 0.0),
@@ -1193,6 +1424,23 @@ class BackupRepository(private val database: ServiauxDatabase) {
         else -> try { OrderStatus.valueOf(name) } catch (_: Exception) { OrderStatus.RECIBIDO }
     }
 
+    // Los enums restantes usaban `valueOf` directo: un valor renombrado en el futuro —como ya
+    // pasó con CANCELADO— lanzaba la excepción a mitad de la restauración, con las tablas ya
+    // vaciadas. Ahora un valor desconocido cae en un valor seguro y la restauración continúa.
+
+    private fun parseAppointmentStatus(name: String): AppointmentStatus =
+        AppointmentStatus.entries.find { it.name == name } ?: AppointmentStatus.PENDIENTE
+
+    /** Ante un rol desconocido se asume el de menor privilegio, nunca ADMIN. */
+    private fun parseUserRole(name: String): UserRole =
+        UserRole.entries.find { it.name == name } ?: UserRole.MECANICO
+
+    private fun parsePriority(name: String): Priority =
+        Priority.entries.find { it.name == name } ?: Priority.MEDIA
+
+    private fun parsePaymentMethod(name: String): PaymentMethod =
+        PaymentMethod.entries.find { it.name == name } ?: PaymentMethod.OTRO
+
     private fun jsonToWorkOrders(json: String): List<WorkOrder> {
         val arr = JSONArray(json)
         return (0 until arr.length()).map { i ->
@@ -1204,7 +1452,7 @@ class BackupRepository(private val database: ServiauxDatabase) {
                 entryDate = o.optLong("entryDate", System.currentTimeMillis()),
                 admissionDate = if (o.has("admissionDate") && !o.isNull("admissionDate")) o.getLong("admissionDate") else null,
                 status = parseOrderStatus(o.getString("status")),
-                priority = Priority.valueOf(o.getString("priority")),
+                priority = parsePriority(o.getString("priority")),
                 orderType = try { OrderType.valueOf(o.getString("orderType")) } catch (_: Exception) { OrderType.SERVICIO_NUEVO },
                 customerComplaint = o.getString("customerComplaint"),
                 initialDiagnosis = o.optStringOrNull("initialDiagnosis"),
@@ -1274,7 +1522,7 @@ class BackupRepository(private val database: ServiauxDatabase) {
                 workOrderId = o.getLong("workOrderId"),
                 amount = o.getDouble("amount"),
                 discount = o.optDouble("discount", 0.0),
-                method = PaymentMethod.valueOf(o.getString("method")),
+                method = parsePaymentMethod(o.getString("method")),
                 date = o.optLong("date", System.currentTimeMillis()),
                 notes = o.optStringOrNull("notes"),
                 createdAt = o.optLong("createdAt", System.currentTimeMillis()),

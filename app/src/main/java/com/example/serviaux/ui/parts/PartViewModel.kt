@@ -295,12 +295,21 @@ class PartViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    /**
+     * Precarga el formulario con los datos del repuesto, **una sola vez**.
+     *
+     * Antes observaba el Flow de Room: cada emisión reescribía todos los campos, así que
+     * cualquier escritura sobre esa fila mientras se editaba descartaba lo tecleado.
+     */
     fun loadAndPrepareEdit(partId: Long) {
         viewModelScope.launch {
-            partRepo.getById(partId).collect { part ->
-                part?.let { prepareEdit(it) }
-            }
+            partRepo.getByIdDirect(partId)?.let { prepareEdit(it) }
         }
+    }
+
+    /** Limpia el aviso de guardado para que la navegación no se repita al recomponer. */
+    fun clearSaved() {
+        _uiState.update { it.copy(savedSuccessfully = false) }
     }
 
     fun prepareNew() {

@@ -27,6 +27,10 @@ interface WorkOrderPaymentDao {
     @Insert
     suspend fun insert(payment: WorkOrderPayment): Long
 
+    /** Corrige un pago ya registrado (monto, descuento, método o notas). */
+    @Update
+    suspend fun update(payment: WorkOrderPayment)
+
     @Delete
     suspend fun delete(payment: WorkOrderPayment)
 

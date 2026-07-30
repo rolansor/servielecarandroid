@@ -32,7 +32,9 @@ data class LoginUiState(
     val isLoading: Boolean = false,
     val isLoggedIn: Boolean = false,
     val isCheckingSession: Boolean = true,
-    val needsBiometric: Boolean = false
+    val needsBiometric: Boolean = false,
+    /** True si existe una sesión guardada que se puede desbloquear con biometría. */
+    val hasSavedSession: Boolean = false
 )
 
 /** ViewModel de la pantalla de login con soporte biométrico. */
@@ -53,7 +55,7 @@ class LoginViewModel(application: Application) : AndroidViewModel(application) {
         if (session.hasSavedSession) {
             // Has saved session → need biometric to unlock
             _uiState.update {
-                it.copy(isCheckingSession = false, needsBiometric = true)
+                it.copy(isCheckingSession = false, needsBiometric = true, hasSavedSession = true)
             }
         } else {
             // No saved session → show login form

@@ -563,6 +563,20 @@ class VehicleViewModel(
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }
             try {
+                // La placa se comprueba aquí, en el guardado. La verificación al perder el foco
+                // es asíncrona y validateForm() la sobreescribía, así que un duplicado llegaba
+                // al insert y reventaba con el error crudo del índice único de SQLite.
+                val plate = state.formPlate.trim().uppercase()
+                val duplicate = vehicleRepo.findByPlate(plate)
+                if (duplicate != null && duplicate.id != state.editingVehicleId) {
+                    _uiState.update {
+                        it.copy(
+                            isLoading = false,
+                            formPlateError = "Ya existe un vehículo con esta placa"
+                        )
+                    }
+                    return@launch
+                }
                 if (state.isEditing && state.editingVehicleId != null) {
                     val existing = vehicleRepo.getByIdDirect(state.editingVehicleId)
                     if (existing != null) {
@@ -729,6 +743,8 @@ class VehicleViewModel(
                     )
                 }
             }
+            // La cámara escribe a resolución completa: se comprime en segundo plano.
+            viewModelScope.launch { PhotoUtils.compressPhotoInPlace(file) }
         } else {
             file?.delete()
             _uiState.update { it.copy(pendingPhotoUri = null) }
@@ -741,16 +757,26 @@ class VehicleViewModel(
     fun addPhotoFromGallery(uri: Uri, target: String = "vehicle") {
         val context = getApplication<Application>()
         val prefix = if (target == "registration") "MAT" else "VEH"
-        val file = PhotoUtils.copyUriToInternalStorage(context, uri, prefix)
-        if (file != null) {
-            _uiState.update {
-                if (target == "registration") {
-                    it.copy(formRegistrationPhotoPaths = it.formRegistrationPhotoPaths + file.absolutePath)
-                } else {
-                    it.copy(formPhotoPaths = it.formPhotoPaths + file.absolutePath)
+        // El selector es múltiple: el tope se aplica aquí, no solo ocultando el botón.
+        val currentCount = if (target == "registration")
+            _uiState.value.formRegistrationPhotoPaths.size else _uiState.value.formPhotoPaths.size
+        if (currentCount >= PhotoUtils.MAX_PHOTOS) {
+            _uiState.update { it.copy(error = "Máximo ${PhotoUtils.MAX_PHOTOS} fotos") }
+            return
+        }
+        // Copiar y comprimir puede tardar segundos (la URI puede ser remota): fuera del hilo de UI.
+        viewModelScope.launch {
+            val file = PhotoUtils.copyUriToInternalStorage(context, uri, prefix)
+            if (file != null) {
+                _uiState.update {
+                    if (target == "registration") {
+                        it.copy(formRegistrationPhotoPaths = it.formRegistrationPhotoPaths + file.absolutePath)
+                    } else {
+                        it.copy(formPhotoPaths = it.formPhotoPaths + file.absolutePath)
+                    }
                 }
+                saveFormState()
             }
-            saveFormState()
         }
     }
 
@@ -774,6 +800,7 @@ class VehicleViewModel(
                     it.copy(formPhotoPaths = paths, pendingPhotoUri = null)
                 }
             }
+            viewModelScope.launch { PhotoUtils.compressPhotoInPlace(file) }
         } else {
             file?.delete()
             _uiState.update { it.copy(pendingPhotoUri = null) }
@@ -786,26 +813,28 @@ class VehicleViewModel(
     fun replacePhotoFromGallery(uri: Uri, target: String, index: Int) {
         val context = getApplication<Application>()
         val prefix = if (target == "registration") "MAT" else "VEH"
-        val file = PhotoUtils.copyUriToInternalStorage(context, uri, prefix)
-        if (file != null) {
-            _uiState.update {
-                if (target == "registration") {
-                    val paths = it.formRegistrationPhotoPaths.toMutableList()
-                    if (index in paths.indices) {
-                        PhotoUtils.deletePhoto(paths[index])
-                        paths[index] = file.absolutePath
+        viewModelScope.launch {
+            val file = PhotoUtils.copyUriToInternalStorage(context, uri, prefix)
+            if (file != null) {
+                _uiState.update {
+                    if (target == "registration") {
+                        val paths = it.formRegistrationPhotoPaths.toMutableList()
+                        if (index in paths.indices) {
+                            PhotoUtils.deletePhoto(paths[index])
+                            paths[index] = file.absolutePath
+                        }
+                        it.copy(formRegistrationPhotoPaths = paths)
+                    } else {
+                        val paths = it.formPhotoPaths.toMutableList()
+                        if (index in paths.indices) {
+                            PhotoUtils.deletePhoto(paths[index])
+                            paths[index] = file.absolutePath
+                        }
+                        it.copy(formPhotoPaths = paths)
                     }
-                    it.copy(formRegistrationPhotoPaths = paths)
-                } else {
-                    val paths = it.formPhotoPaths.toMutableList()
-                    if (index in paths.indices) {
-                        PhotoUtils.deletePhoto(paths[index])
-                        paths[index] = file.absolutePath
-                    }
-                    it.copy(formPhotoPaths = paths)
                 }
+                saveFormState()
             }
-            saveFormState()
         }
     }
 
@@ -841,5 +870,10 @@ class VehicleViewModel(
 
     fun clearError() {
         _uiState.update { it.copy(error = null) }
+    }
+
+    /** Limpia el aviso de guardado para que la navegación no se repita al recomponer. */
+    fun clearSaved() {
+        _uiState.update { it.copy(savedSuccessfully = false) }
     }
 }

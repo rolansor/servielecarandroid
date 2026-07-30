@@ -63,7 +63,8 @@ fun LoginScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     var passwordVisible by remember { mutableStateOf(false) }
-    val context = LocalContext.current
+    // La Activity host es FragmentActivity (requisito de BiometricPrompt).
+    val activity = LocalContext.current as FragmentActivity
 
     LaunchedEffect(uiState.isLoggedIn) {
         if (uiState.isLoggedIn) {
@@ -75,7 +76,7 @@ fun LoginScreen(
     LaunchedEffect(uiState.needsBiometric) {
         if (uiState.needsBiometric) {
             showBiometricPrompt(
-                activity = context as FragmentActivity,
+                activity = activity,
                 onSuccess = { viewModel.onBiometricSuccess() },
                 onFailed = { viewModel.onBiometricFailed() }
             )
@@ -175,13 +176,14 @@ fun LoginScreen(
         }
 
         // Show biometric retry button if device supports it and there's a saved session
-        if (isBiometricAvailable(context as FragmentActivity)) {
+        val biometricAvailable = remember { isBiometricAvailable(activity) }
+        if (uiState.hasSavedSession && biometricAvailable) {
             Spacer(modifier = Modifier.height(12.dp))
 
             OutlinedButton(
                 onClick = {
                     showBiometricPrompt(
-                        activity = context,
+                        activity = activity,
                         onSuccess = { viewModel.onBiometricSuccess() },
                         onFailed = { /* stay on login form */ }
                     )
@@ -229,8 +231,9 @@ private fun showBiometricPrompt(
     )
 
     if (canAuthenticate != BiometricManager.BIOMETRIC_SUCCESS) {
-        // Biometric not available, skip directly to restore
-        onSuccess()
+        // Sin biométrico disponible no se puede confirmar la identidad:
+        // se cae al formulario de usuario/contraseña, nunca a restaurar la sesión.
+        onFailed()
         return
     }
 

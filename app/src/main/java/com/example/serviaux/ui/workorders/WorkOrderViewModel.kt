@@ -25,6 +25,7 @@ import androidx.lifecycle.viewmodel.viewModelFactory
 import com.example.serviaux.ServiauxApp
 import com.example.serviaux.data.dao.WorkOrderPaymentSummary
 import com.example.serviaux.data.entity.*
+import com.example.serviaux.util.AppPreferences
 import com.example.serviaux.util.PdfReportGenerator
 import com.example.serviaux.util.PhotoUtils
 import com.example.serviaux.util.WorkOrderReportData
@@ -114,6 +115,8 @@ data class WorkOrderUiState(
     val paymentFormDiscount: String = "",
     val paymentFormMethod: PaymentMethod = PaymentMethod.EFECTIVO,
     val paymentFormNotes: String = "",
+    /** Pago que se está corrigiendo; null si se está registrando uno nuevo. */
+    val editingPaymentId: Long? = null,
     val createdOrderId: Long? = null,
     // Form validation errors
     val formCustomerError: String? = null,
@@ -189,6 +192,12 @@ class WorkOrderViewModel(
     private var vehiclesJob: Job? = null
     private var pendingPhotoFile: File? = savedStateHandle.get<String>("pendingPhotoFile")?.let { File(it) }
     private var detailPendingPhotoFile: File? = savedStateHandle.get<String>("detailPendingPhotoFile")?.let { File(it) }
+
+    /**
+     * Id de la orden cuyos campos de "Datos del Proceso" ya se cargaron desde la BD.
+     * Evita que las re-emisiones del Flow sobreescriban lo que el usuario está escribiendo.
+     */
+    private var detailFieldsLoadedForOrder: Long? = null
 
     init {
         _uiState.update { it.copy(isAdmin = session.isAdmin()) }
@@ -420,20 +429,55 @@ class WorkOrderViewModel(
     }
 
     fun loadOrderDetail(orderId: Long) {
+        detailFieldsLoadedForOrder = null
         viewModelScope.launch {
             workOrderRepo.getById(orderId).collect { order ->
-                _uiState.update {
-                    it.copy(
+                // El Flow re-emite cada vez que la fila cambia (recálculo de totales, cambio de
+                // estado, fotos, el propio autoguardado). Los campos de "Datos del Proceso" solo
+                // se rellenan desde la BD la primera vez que se carga la orden: si se
+                // reescribieran en cada emisión, lo que el usuario está tecleando (típicamente el
+                // kilometraje, aún sin guardar) se borraría delante de él, y el guardado por
+                // pérdida de foco terminaría persistiendo el campo vacío.
+                val isFirstLoad = detailFieldsLoadedForOrder != orderId
+                _uiState.update { state ->
+                    // Se adopta el valor de la BD salvo que el campo tenga una edición pendiente
+                    // (el texto local difiere de lo que la BD tenía antes de esta emisión).
+                    fun resolve(local: String, previous: String, incoming: String): String =
+                        if (isFirstLoad || local == previous) incoming else local
+
+                    val previous = state.selectedOrder
+                    state.copy(
                         selectedOrder = order,
                         detailPhotoPaths = PhotoUtils.parsePaths(order?.photoPaths),
                         detailFilePaths = PhotoUtils.parsePaths(order?.filePaths),
-                        detailEntryMileage = order?.entryMileage?.toString() ?: "",
-                        detailFuelLevel = order?.fuelLevel ?: "1/2",
-                        detailDeliveryNote = order?.deliveryNote ?: "",
-                        detailInvoiceNumber = order?.invoiceNumber ?: "",
-                        detailNotes = order?.notes ?: ""
+                        detailEntryMileage = resolve(
+                            state.detailEntryMileage,
+                            previous?.entryMileage?.toString() ?: "",
+                            order?.entryMileage?.toString() ?: ""
+                        ),
+                        detailFuelLevel = resolve(
+                            state.detailFuelLevel,
+                            previous?.fuelLevel ?: "1/2",
+                            order?.fuelLevel ?: "1/2"
+                        ),
+                        detailDeliveryNote = resolve(
+                            state.detailDeliveryNote,
+                            previous?.deliveryNote ?: "",
+                            order?.deliveryNote ?: ""
+                        ),
+                        detailInvoiceNumber = resolve(
+                            state.detailInvoiceNumber,
+                            previous?.invoiceNumber ?: "",
+                            order?.invoiceNumber ?: ""
+                        ),
+                        detailNotes = resolve(
+                            state.detailNotes,
+                            previous?.notes ?: "",
+                            order?.notes ?: ""
+                        )
                     )
                 }
+                if (order != null) detailFieldsLoadedForOrder = orderId
                 order?.let { o ->
                     val vehicle = vehicleRepo.getByIdDirect(o.vehicleId)
                     val customer = customerRepo.getByIdDirect(o.customerId)
@@ -647,6 +691,7 @@ class WorkOrderViewModel(
                     updatedBy = userId
                 )
                 val orderId = workOrderRepo.insert(order)
+                assignDefaultMechanic(orderId)
                 // Mark appointment as converted if applicable
                 state.formAppointmentId?.let { appointmentId ->
                     appointmentRepo.markConverted(appointmentId, orderId)
@@ -691,6 +736,40 @@ class WorkOrderViewModel(
             } catch (e: Exception) {
                 _uiState.update { it.copy(error = e.message ?: "Error al asignar mecanico") }
             }
+        }
+    }
+
+    /**
+     * Asigna a la orden recién creada el mecánico configurado por defecto, con su tipo y valor
+     * de comisión. Es editable después en el detalle.
+     *
+     * Si no hay mecánico por defecto, si ya no existe o si está desactivado, la orden se queda
+     * sin mecánico y no se interrumpe la creación: la validación de LISTO/ENTREGADO obligará a
+     * asignar uno más adelante.
+     */
+    private suspend fun assignDefaultMechanic(orderId: Long) {
+        val mechanicId = AppPreferences.defaultMechanicId(getApplication()) ?: return
+        try {
+            val mechanic = authRepo.getUserByIdDirect(mechanicId) ?: return
+            if (!mechanic.active || mechanic.role != UserRole.MECANICO) return
+            // Una orden nueva no tiene mano de obra todavía, así que una comisión porcentual
+            // arranca en 0 y se recalcula al agregar servicios.
+            val commissionAmount = when (mechanic.commissionType) {
+                CommissionType.FIJA.name -> mechanic.commissionValue
+                else -> 0.0
+            }
+            workOrderRepo.addMechanicToOrder(
+                WorkOrderMechanic(
+                    workOrderId = orderId,
+                    mechanicId = mechanicId,
+                    commissionType = mechanic.commissionType,
+                    commissionValue = mechanic.commissionValue,
+                    commissionAmount = commissionAmount
+                )
+            )
+            workOrderRepo.assignMechanic(orderId, mechanicId, session.currentUserId)
+        } catch (_: Exception) {
+            // No se bloquea la creación de la orden por no poder preasignar el mecánico.
         }
     }
 
@@ -744,22 +823,9 @@ class WorkOrderViewModel(
         }
     }
 
-    fun recalculateCommissions() {
-        val state = _uiState.value
-        val totalLabor = state.selectedOrder?.totalLabor ?: return
-        viewModelScope.launch {
-            state.orderMechanics.forEach { m ->
-                val newAmount = when (m.commissionType) {
-                    "PORCENTAJE" -> totalLabor * (m.commissionValue / 100.0)
-                    "FIJA" -> m.commissionValue
-                    else -> 0.0
-                }
-                if (newAmount != m.commissionAmount) {
-                    workOrderRepo.updateOrderMechanic(m.copy(commissionAmount = newAmount))
-                }
-            }
-        }
-    }
+    // El recálculo de comisiones vive en WorkOrderRepository.recalculateTotals: es el único
+    // punto por el que pasan todos los cambios de mano de obra, y así no depende de que la
+    // pantalla se acuerde de invocarlo.
 
     // Service line: add or update
     fun saveServiceLine() {
@@ -859,6 +925,10 @@ class WorkOrderViewModel(
             _uiState.update { it.copy(error = "Ingrese cantidad valida") }
             return
         }
+        if (quantity < 1) {
+            _uiState.update { it.copy(error = "La cantidad debe ser al menos 1") }
+            return
+        }
         val unitPrice = state.partFormPrice.toDoubleOrNull() ?: run {
             _uiState.update { it.copy(error = "Ingrese precio valido") }
             return
@@ -880,14 +950,15 @@ class WorkOrderViewModel(
                     subtotal = subtotal,
                     discount = discount
                 )
-                workOrderRepo.addWorkOrderPart(workOrderPart)
+                val result = workOrderRepo.addWorkOrderPart(workOrderPart)
                 _uiState.update {
                     it.copy(
                         partFormSelectedPartId = null,
                         partFormQuantity = "",
                         partFormPrice = "",
                         partFormHasDiscount = false,
-                        partFormDiscount = ""
+                        partFormDiscount = "",
+                        error = stockShortfallMessage(result.stockShortfall)
                     )
                 }
             } catch (e: Exception) {
@@ -1022,11 +1093,76 @@ class WorkOrderViewModel(
         }
     }
 
+    /**
+     * Crea un repuesto en el catálogo desde el diálogo de la orden y lo deja seleccionado.
+     *
+     * Evita tener que salir de la orden para dar de alta una pieza que no estaba registrada:
+     * el repuesto queda en el inventario y listo para agregarse a la orden en el mismo paso.
+     *
+     * @param stock Existencia inicial. Se registra tal cual; el descuento por la línea de la
+     *   orden se aplica después, al agregar el repuesto.
+     */
+    fun createPartFromOrder(
+        name: String,
+        code: String,
+        brand: String,
+        salePrice: String,
+        stock: String
+    ) {
+        val cleanName = name.trim()
+        if (cleanName.isBlank()) {
+            _uiState.update { it.copy(error = "El nombre del repuesto es obligatorio") }
+            return
+        }
+        val price = salePrice.replace(',', '.').toDoubleOrNull()
+        if (price == null || price < 0.0) {
+            _uiState.update { it.copy(error = "Ingrese un precio de venta valido") }
+            return
+        }
+        val initialStock = stock.filter { it.isDigit() }.toIntOrNull() ?: 0
+        viewModelScope.launch {
+            try {
+                val newId = partRepo.insert(
+                    Part(
+                        name = cleanName.uppercase(),
+                        code = code.trim().ifBlank { null },
+                        brand = brand.trim().ifBlank { null }?.uppercase(),
+                        // Sin costo de adquisición conocido se toma el precio de venta como
+                        // referencia; el administrador lo corrige después en Repuestos.
+                        unitCost = price,
+                        salePrice = price,
+                        currentStock = initialStock
+                    )
+                )
+                // Queda seleccionado en el diálogo con su precio, listo para agregar a la orden.
+                _uiState.update {
+                    it.copy(
+                        partFormSelectedPartId = newId,
+                        partFormPrice = String.format(Locale.US, "%.2f", price),
+                        partFormQuantity = it.partFormQuantity.ifBlank { "1" }
+                    )
+                }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(error = e.message ?: "Error al crear el repuesto") }
+            }
+        }
+    }
+
+    /** Mensaje de aviso cuando el inventario quedó en descubierto; null si había existencia. */
+    private fun stockShortfallMessage(shortfall: Int): String? =
+        if (shortfall > 0)
+            "Stock insuficiente: el inventario quedo en descubierto por $shortfall unidad(es). Revise el repuesto."
+        else null
+
     fun updatePart() {
         val state = _uiState.value
         val editingId = state.editingWorkOrderPartId ?: return
         val quantity = state.partFormQuantity.toIntOrNull() ?: run {
             _uiState.update { it.copy(error = "Ingrese cantidad válida") }
+            return
+        }
+        if (quantity < 1) {
+            _uiState.update { it.copy(error = "La cantidad debe ser al menos 1") }
             return
         }
         val unitPrice = state.partFormPrice.toDoubleOrNull() ?: run {
@@ -1044,13 +1180,16 @@ class WorkOrderViewModel(
             try {
                 val existing = state.orderParts.find { it.id == editingId } ?: return@launch
                 val updated = existing.copy(
+                    // Si en el diálogo se cambió de repuesto, se respeta la nueva selección
+                    // (el repositorio devuelve el stock del anterior y descuenta del nuevo).
+                    partId = state.partFormSelectedPartId ?: existing.partId,
                     quantity = quantity,
                     appliedUnitPrice = unitPrice,
                     subtotal = subtotal,
                     discount = discount,
                     updatedAt = System.currentTimeMillis()
                 )
-                workOrderRepo.updateWorkOrderPart(updated)
+                val shortfall = workOrderRepo.updateWorkOrderPart(updated)
                 _uiState.update {
                     it.copy(
                         editingWorkOrderPartId = null,
@@ -1058,7 +1197,8 @@ class WorkOrderViewModel(
                         partFormQuantity = "",
                         partFormPrice = "",
                         partFormHasDiscount = false,
-                        partFormDiscount = ""
+                        partFormDiscount = "",
+                        error = stockShortfallMessage(shortfall)
                     )
                 }
             } catch (e: Exception) {
@@ -1069,12 +1209,21 @@ class WorkOrderViewModel(
 
     fun addPayment() {
         val state = _uiState.value
-        val orderId = state.selectedOrder?.id ?: return
+        val order = state.selectedOrder ?: return
+        val orderId = order.id
+        if (order.status == OrderStatus.CERRADO) {
+            _uiState.update { it.copy(error = "La orden esta cerrada: no admite nuevos pagos") }
+            return
+        }
         val amount = state.paymentFormAmount.toDoubleOrNull() ?: run {
             _uiState.update { it.copy(error = "Ingrese monto valido") }
             return
         }
         val discount = state.paymentFormDiscount.toDoubleOrNull() ?: 0.0
+        if (amount < 0.0 || discount < 0.0) {
+            _uiState.update { it.copy(error = "Los valores no pueden ser negativos") }
+            return
+        }
         viewModelScope.launch {
             try {
                 val payment = WorkOrderPayment(
@@ -1090,6 +1239,87 @@ class WorkOrderViewModel(
                 }
             } catch (e: Exception) {
                 _uiState.update { it.copy(error = e.message ?: "Error al registrar pago") }
+            }
+        }
+    }
+
+    /** Carga un pago existente en el formulario para corregirlo. */
+    fun startEditPayment(payment: WorkOrderPayment) {
+        _uiState.update {
+            it.copy(
+                editingPaymentId = payment.id,
+                paymentFormAmount = String.format(Locale.US, "%.2f", payment.amount),
+                paymentFormDiscount = if (payment.discount > 0.0)
+                    String.format(Locale.US, "%.2f", payment.discount) else "",
+                paymentFormMethod = payment.method,
+                paymentFormNotes = payment.notes ?: ""
+            )
+        }
+    }
+
+    /** Descarta la corrección en curso y limpia el formulario de pago. */
+    fun cancelEditPayment() {
+        _uiState.update {
+            it.copy(
+                editingPaymentId = null,
+                paymentFormAmount = "",
+                paymentFormDiscount = "",
+                paymentFormMethod = PaymentMethod.EFECTIVO,
+                paymentFormNotes = ""
+            )
+        }
+    }
+
+    /**
+     * Guarda la corrección de un pago ya registrado.
+     *
+     * Conserva la fecha original del pago: se está corrigiendo un cobro que ocurrió antes,
+     * no registrando uno nuevo.
+     */
+    fun updatePayment() {
+        val state = _uiState.value
+        val order = state.selectedOrder ?: return
+        val editingId = state.editingPaymentId ?: return
+        if (order.status == OrderStatus.CERRADO) {
+            _uiState.update { it.copy(error = "La orden esta cerrada: no admite cambios en los pagos") }
+            return
+        }
+        val amount = state.paymentFormAmount.toDoubleOrNull() ?: run {
+            _uiState.update { it.copy(error = "Ingrese monto valido") }
+            return
+        }
+        val discount = state.paymentFormDiscount.toDoubleOrNull() ?: 0.0
+        if (amount < 0.0 || discount < 0.0) {
+            _uiState.update { it.copy(error = "Los valores no pueden ser negativos") }
+            return
+        }
+        if (amount + discount <= 0.0) {
+            _uiState.update { it.copy(error = "Ingrese un monto o descuento mayor a 0") }
+            return
+        }
+        viewModelScope.launch {
+            try {
+                val existing = state.payments.find { it.id == editingId } ?: return@launch
+                workOrderRepo.updatePayment(
+                    existing.copy(
+                        amount = amount,
+                        discount = discount,
+                        method = state.paymentFormMethod,
+                        notes = state.paymentFormNotes.trim().ifBlank { null },
+                        updatedAt = System.currentTimeMillis()
+                    )
+                )
+                _uiState.update {
+                    it.copy(
+                        editingPaymentId = null,
+                        paymentFormAmount = "",
+                        paymentFormDiscount = "",
+                        paymentFormMethod = PaymentMethod.EFECTIVO,
+                        paymentFormNotes = ""
+                    )
+                }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(error = e.message ?: "Error al actualizar el pago") }
             }
         }
     }
@@ -1328,6 +1558,8 @@ class WorkOrderViewModel(
             _uiState.update {
                 it.copy(formPhotoPaths = it.formPhotoPaths + file.absolutePath, pendingPhotoUri = null)
             }
+            // La cámara escribe el archivo a resolución completa: se comprime en segundo plano.
+            viewModelScope.launch { PhotoUtils.compressPhotoInPlace(file) }
         } else {
             file?.delete()
             _uiState.update { it.copy(pendingPhotoUri = null) }
@@ -1349,10 +1581,19 @@ class WorkOrderViewModel(
 
     fun addPhotoFromGallery(uri: Uri) {
         val context = getApplication<Application>()
-        val file = PhotoUtils.copyUriToInternalStorage(context, uri, "WO")
-        if (file != null) {
-            _uiState.update { it.copy(formPhotoPaths = it.formPhotoPaths + file.absolutePath) }
-            saveFormState()
+        // El tope se aplica aquí, no solo ocultando el botón: el selector es múltiple y podían
+        // entrar 15 fotos de una sola vez.
+        if (_uiState.value.formPhotoPaths.size >= PhotoUtils.MAX_PHOTOS) {
+            _uiState.update { it.copy(error = "Máximo ${PhotoUtils.MAX_PHOTOS} fotos por orden") }
+            return
+        }
+        // Copiar y comprimir puede tardar segundos (la URI puede ser remota): fuera del hilo de UI.
+        viewModelScope.launch {
+            val file = PhotoUtils.copyUriToInternalStorage(context, uri, "WO")
+            if (file != null) {
+                _uiState.update { it.copy(formPhotoPaths = it.formPhotoPaths + file.absolutePath) }
+                saveFormState()
+            }
         }
     }
 
@@ -1366,6 +1607,7 @@ class WorkOrderViewModel(
                 PhotoUtils.deletePhoto(paths[index])
                 paths[index] = file.absolutePath
                 _uiState.update { it.copy(formPhotoPaths = paths, pendingPhotoUri = null) }
+                viewModelScope.launch { PhotoUtils.compressPhotoInPlace(file) }
             }
         } else {
             file?.delete()
@@ -1379,25 +1621,29 @@ class WorkOrderViewModel(
 
     fun replacePhotoFromGallery(uri: Uri, index: Int) {
         val context = getApplication<Application>()
-        val file = PhotoUtils.copyUriToInternalStorage(context, uri, "WO")
-        if (file != null && index >= 0) {
-            val paths = _uiState.value.formPhotoPaths.toMutableList()
-            if (index in paths.indices) {
-                PhotoUtils.deletePhoto(paths[index])
-                paths[index] = file.absolutePath
-                _uiState.update { it.copy(formPhotoPaths = paths) }
+        viewModelScope.launch {
+            val file = PhotoUtils.copyUriToInternalStorage(context, uri, "WO")
+            if (file != null && index >= 0) {
+                val paths = _uiState.value.formPhotoPaths.toMutableList()
+                if (index in paths.indices) {
+                    PhotoUtils.deletePhoto(paths[index])
+                    paths[index] = file.absolutePath
+                    _uiState.update { it.copy(formPhotoPaths = paths) }
+                }
+                saveFormState()
             }
-            saveFormState()
         }
     }
 
     // File management for create/edit form
     fun addFormFile(uri: Uri) {
         val context = getApplication<Application>()
-        val file = PhotoUtils.copyFileToInternalStorage(context, uri, "WO")
-        if (file != null) {
-            _uiState.update { it.copy(formFilePaths = it.formFilePaths + file.absolutePath) }
-            saveFormState()
+        viewModelScope.launch {
+            val file = PhotoUtils.copyFileToInternalStorage(context, uri, "WO")
+            if (file != null) {
+                _uiState.update { it.copy(formFilePaths = it.formFilePaths + file.absolutePath) }
+                saveFormState()
+            }
         }
     }
 
@@ -1414,11 +1660,13 @@ class WorkOrderViewModel(
     // File management for detail screen (existing orders)
     fun addDetailFile(uri: Uri) {
         val context = getApplication<Application>()
-        val file = PhotoUtils.copyFileToInternalStorage(context, uri, "WO")
-        if (file != null) {
-            val newPaths = _uiState.value.detailFilePaths + file.absolutePath
-            _uiState.update { it.copy(detailFilePaths = newPaths) }
-            saveOrderFiles(newPaths)
+        viewModelScope.launch {
+            val file = PhotoUtils.copyFileToInternalStorage(context, uri, "WO")
+            if (file != null) {
+                val newPaths = _uiState.value.detailFilePaths + file.absolutePath
+                _uiState.update { it.copy(detailFilePaths = newPaths) }
+                saveOrderFiles(newPaths)
+            }
         }
     }
 
@@ -1458,13 +1706,19 @@ class WorkOrderViewModel(
         saveFormState()
     }
 
-    /** Persiste los campos editables del detalle. Se invoca al perder foco de cada campo. */
+    /**
+     * Persiste los campos editables del detalle. Se invoca al perder foco de cada campo.
+     *
+     * Escribe solo esas columnas: así no revierte fotos, totales ni estado que otra
+     * operación haya guardado mientras el usuario tecleaba.
+     */
     fun saveDetailFields() {
-        val order = _uiState.value.selectedOrder ?: return
+        val orderId = _uiState.value.selectedOrder?.id ?: return
         viewModelScope.launch {
             try {
                 val state = _uiState.value
-                val updated = order.copy(
+                workOrderRepo.updateProcessFields(
+                    orderId = orderId,
                     entryMileage = state.detailEntryMileage.toIntOrNull(),
                     fuelLevel = state.detailFuelLevel.trim().ifBlank { null },
                     deliveryNote = state.detailDeliveryNote.trim().ifBlank { null },
@@ -1472,7 +1726,6 @@ class WorkOrderViewModel(
                     notes = state.detailNotes.trim().ifBlank { null },
                     updatedBy = session.currentUserId
                 )
-                workOrderRepo.update(updated)
             } catch (e: Exception) {
                 _uiState.update { it.copy(error = e.message ?: "Error al guardar") }
             }
@@ -1480,10 +1733,10 @@ class WorkOrderViewModel(
     }
 
     private fun saveOrderFiles(paths: List<String>) {
-        val order = _uiState.value.selectedOrder ?: return
+        val orderId = _uiState.value.selectedOrder?.id ?: return
         viewModelScope.launch {
             try {
-                workOrderRepo.update(order.copy(filePaths = PhotoUtils.serializePaths(paths)))
+                workOrderRepo.updateFilePaths(orderId, PhotoUtils.serializePaths(paths))
             } catch (e: Exception) {
                 _uiState.update { it.copy(error = e.message ?: "Error al guardar archivos") }
             }
@@ -1508,6 +1761,8 @@ class WorkOrderViewModel(
             val newPaths = _uiState.value.detailPhotoPaths + file.absolutePath
             _uiState.update { it.copy(detailPhotoPaths = newPaths, detailPendingPhotoUri = null) }
             saveOrderPhotos(newPaths)
+            // La cámara escribe a resolución completa: se comprime en segundo plano.
+            viewModelScope.launch { PhotoUtils.compressPhotoInPlace(file) }
         } else {
             file?.delete()
             _uiState.update { it.copy(detailPendingPhotoUri = null) }
@@ -1519,11 +1774,17 @@ class WorkOrderViewModel(
 
     fun addDetailPhotoFromGallery(uri: Uri) {
         val context = getApplication<Application>()
-        val file = PhotoUtils.copyUriToInternalStorage(context, uri, "WO")
-        if (file != null) {
-            val newPaths = _uiState.value.detailPhotoPaths + file.absolutePath
-            _uiState.update { it.copy(detailPhotoPaths = newPaths) }
-            saveOrderPhotos(newPaths)
+        if (_uiState.value.detailPhotoPaths.size >= PhotoUtils.MAX_PHOTOS) {
+            _uiState.update { it.copy(error = "Máximo ${PhotoUtils.MAX_PHOTOS} fotos por orden") }
+            return
+        }
+        viewModelScope.launch {
+            val file = PhotoUtils.copyUriToInternalStorage(context, uri, "WO")
+            if (file != null) {
+                val newPaths = _uiState.value.detailPhotoPaths + file.absolutePath
+                _uiState.update { it.copy(detailPhotoPaths = newPaths) }
+                saveOrderPhotos(newPaths)
+            }
         }
     }
 
@@ -1538,10 +1799,10 @@ class WorkOrderViewModel(
     }
 
     private fun saveOrderPhotos(paths: List<String>) {
-        val order = _uiState.value.selectedOrder ?: return
+        val orderId = _uiState.value.selectedOrder?.id ?: return
         viewModelScope.launch {
             try {
-                workOrderRepo.update(order.copy(photoPaths = PhotoUtils.serializePaths(paths)))
+                workOrderRepo.updatePhotoPaths(orderId, PhotoUtils.serializePaths(paths))
             } catch (e: Exception) {
                 _uiState.update { it.copy(error = e.message ?: "Error al guardar fotos") }
             }
@@ -1553,7 +1814,14 @@ class WorkOrderViewModel(
         val order = state.selectedOrder ?: return
         val customer = state.selectedCustomer
         val vehicle = state.selectedVehicle
-        val mechanicName = state.mechanics.find { it.id == order.assignedMechanicId }?.name
+        // El modelo real es multi-mecánico (`work_order_mechanics`). Antes se resolvía el nombre
+        // con `order.assignedMechanicId`, que el flujo de la app no escribía nunca: la fila
+        // "Mecánico" simplemente no salía en el reporte del cliente.
+        val mechanicName = state.orderMechanics
+            .mapNotNull { assigned -> state.mechanics.find { it.id == assigned.mechanicId }?.name }
+            .distinct()
+            .joinToString(", ")
+            .ifBlank { state.mechanics.find { it.id == order.assignedMechanicId }?.name }
 
         _uiState.update { it.copy(pdfGenerating = true) }
 
@@ -1602,6 +1870,11 @@ class WorkOrderViewModel(
     }
 
     fun deleteOrder(orderId: Long) {
+        // Ultima barrera: la UI ya oculta el boton, pero el borrado es irreversible.
+        if (!session.canDeleteOrders()) {
+            _uiState.update { it.copy(error = "No tiene permisos para eliminar ordenes") }
+            return
+        }
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }
             try {

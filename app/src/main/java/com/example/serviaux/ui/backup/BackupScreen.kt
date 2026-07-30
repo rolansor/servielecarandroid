@@ -33,6 +33,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Cloud
 import androidx.compose.material.icons.filled.CloudDownload
 import androidx.compose.material.icons.filled.CloudUpload
+import androidx.compose.material.icons.filled.PhotoLibrary
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -45,8 +46,10 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -56,6 +59,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -68,6 +72,7 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.serviaux.repository.BackupCategory
+import com.example.serviaux.repository.BackupContent
 import com.example.serviaux.util.DropboxHelper
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -81,6 +86,7 @@ fun BackupScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
+    val dateFormat = remember { SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.US) }
 
     val filePickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocument()
@@ -213,16 +219,50 @@ fun BackupScreen(
                     if (uiState.loadingContents) {
                         CircularProgressIndicator(modifier = Modifier.align(Alignment.CenterHorizontally))
                     } else {
-                        Text(
-                            text = "Seleccione las categorías a restaurar.\nLos datos actuales de cada categoría seleccionada serán reemplazados.",
-                            style = MaterialTheme.typography.bodyMedium
-                        )
-                        Spacer(modifier = Modifier.height(12.dp))
+                        // Qué trae el archivo: puede ser solo datos, solo fotos o ambos.
+                        val inspection = uiState.inspection
+                        if (inspection != null && inspection.valid) {
+                            Text(
+                                text = buildString {
+                                    append("Contenido: ${inspection.content.label}")
+                                    if (inspection.photoCount > 0) {
+                                        append(" · ${inspection.photoCount} fotos")
+                                    }
+                                    if (inspection.exportDate > 0) {
+                                        append("\nGenerado: ${dateFormat.format(Date(inspection.exportDate))}")
+                                    }
+                                },
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                        }
+                        if ((inspection?.photoCount ?: 0) > 0) {
+                            Text(
+                                text = "Las fotos se agregan sin borrar las que ya están en el dispositivo.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                        }
+                        if (uiState.backupContents.isNotEmpty()) {
+                            Text(
+                                text = "Seleccione las categorías a restaurar.\nLos datos actuales de cada categoría seleccionada serán reemplazados.",
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                            Spacer(modifier = Modifier.height(12.dp))
+                        }
                         if (uiState.backupContents.isEmpty()) {
                             Text(
-                                text = "No se encontraron datos en el respaldo.",
+                                text = if ((inspection?.photoCount ?: 0) > 0)
+                                    "Este respaldo contiene solo fotos: se restaurarán las imágenes y los datos actuales no se tocan."
+                                else
+                                    "No se encontraron datos en el respaldo.",
                                 style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.error
+                                color = if ((inspection?.photoCount ?: 0) > 0)
+                                    MaterialTheme.colorScheme.onSurface
+                                else
+                                    MaterialTheme.colorScheme.error
                             )
                         } else {
                             BackupCategory.entries.forEach { category ->
@@ -259,8 +299,10 @@ fun BackupScreen(
             },
             confirmButton = {
                 Button(
+                    // Un respaldo de solo fotos no tiene categorías que marcar y se restaura igual.
                     onClick = { viewModel.confirmImport(context) },
-                    enabled = uiState.importCategories.isNotEmpty() && uiState.backupContents.isNotEmpty(),
+                    enabled = (uiState.importCategories.isNotEmpty() && uiState.backupContents.isNotEmpty()) ||
+                        ((uiState.inspection?.photoCount ?: 0) > 0 && uiState.backupContents.isEmpty()),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = MaterialTheme.colorScheme.error
                     )
@@ -270,6 +312,51 @@ fun BackupScreen(
             },
             dismissButton = {
                 TextButton(onClick = { viewModel.cancelImport() }) {
+                    Text("Cancelar")
+                }
+            }
+        )
+    }
+
+    // Confirmación de optimización de fotos: es irreversible sobre los archivos del dispositivo.
+    if (uiState.showOptimizeConfirm) {
+        AlertDialog(
+            onDismissRequest = { viewModel.dismissOptimizeConfirm() },
+            icon = {
+                Icon(
+                    Icons.Default.Warning,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.error
+                )
+            },
+            title = { Text("Optimizar fotos existentes") },
+            text = {
+                Column {
+                    Text(
+                        "Las fotos guardadas se reducirán a un tamaño más liviano (1600 px de lado " +
+                            "mayor). Se ven igual en la app y en los reportes PDF, pero los archivos " +
+                            "originales a resolución completa no se pueden recuperar."
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Text(
+                        "Exporte un respaldo completo antes de continuar: ese respaldo conserva las " +
+                            "fotos originales.",
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = { viewModel.optimizePhotos() },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.error
+                    )
+                ) {
+                    Text("Optimizar")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { viewModel.dismissOptimizeConfirm() }) {
                     Text("Cancelar")
                 }
             }
@@ -362,38 +449,94 @@ fun BackupScreen(
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.SemiBold
                     )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = "Seleccione las categorías a incluir en el respaldo.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        textAlign = TextAlign.Center
-                    )
                     Spacer(modifier = Modifier.height(12.dp))
 
-                    // Checklist de categorías para exportar
-                    BackupCategory.entries.forEach { category ->
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 1.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Checkbox(
-                                checked = category in uiState.exportCategories,
-                                onCheckedChange = { viewModel.toggleExportCategory(category) }
-                            )
-                            Text(
-                                text = category.label,
-                                style = MaterialTheme.typography.bodyMedium
-                            )
+                    // Qué incluye el respaldo: los datos pesan poco, las fotos son casi todo.
+                    Column(modifier = Modifier.fillMaxWidth()) {
+                        BackupContent.entries.forEach { option ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable { viewModel.setBackupContent(option) }
+                                    .padding(vertical = 2.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                RadioButton(
+                                    selected = uiState.backupContent == option,
+                                    onClick = { viewModel.setBackupContent(option) }
+                                )
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = option.label,
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        fontWeight = FontWeight.Medium
+                                    )
+                                    Text(
+                                        text = option.description,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    // Situación del incremental: cuántas fotos faltan por respaldar.
+                    if (uiState.backupContent == BackupContent.ALL_INCREMENTAL) {
+                        val status = uiState.photoBackupStatus
+                        Spacer(modifier = Modifier.height(8.dp))
+                        val pendingMb = status.pendingBytes.toDouble() / (1024 * 1024)
+                        Text(
+                            text = if (status.lastBackupAt == 0L)
+                                "Nunca se han respaldado fotos: este respaldo incluirá las " +
+                                    "${status.totalPhotos} existentes."
+                            else
+                                "Último respaldo con fotos: ${dateFormat.format(Date(status.lastBackupAt))}. " +
+                                    "Pendientes: ${status.pendingPhotos} de ${status.totalPhotos} " +
+                                    "(${String.format(Locale.US, "%.1f", pendingMb)} MB).",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            textAlign = TextAlign.Center
+                        )
+                        if (status.lastBackupAt > 0L) {
+                            TextButton(onClick = { viewModel.resetPhotoBackupMarker() }) {
+                                Text("Volver a incluir todas las fotos", style = MaterialTheme.typography.bodySmall)
+                            }
+                        }
+                    }
+
+                    if (uiState.backupContent.includesData) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = "Categorías de datos a incluir:",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        // Checklist de categorías para exportar
+                        BackupCategory.entries.forEach { category ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 1.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Checkbox(
+                                    checked = category in uiState.exportCategories,
+                                    onCheckedChange = { viewModel.toggleExportCategory(category) }
+                                )
+                                Text(
+                                    text = category.label,
+                                    style = MaterialTheme.typography.bodyMedium
+                                )
+                            }
                         }
                     }
 
                     Spacer(modifier = Modifier.height(12.dp))
                     Button(
                         onClick = { viewModel.exportBackup(context) },
-                        enabled = !uiState.exporting && !uiState.importing && uiState.exportCategories.isNotEmpty(),
+                        enabled = !uiState.exporting && !uiState.importing &&
+                            (!uiState.backupContent.includesData || uiState.exportCategories.isNotEmpty()),
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         if (uiState.exporting) {
@@ -406,10 +549,11 @@ fun BackupScreen(
                             Text("Exportando...")
                         } else {
                             Text(
-                                if (uiState.exportCategories.size == BackupCategory.entries.size)
-                                    "Exportar Todo"
-                                else
-                                    "Exportar Selección"
+                                when (uiState.backupContent) {
+                                    BackupContent.DATA_ONLY -> "Exportar Datos"
+                                    BackupContent.MEDIA_ONLY -> "Exportar Fotos"
+                                    BackupContent.ALL_INCREMENTAL -> "Exportar Todo"
+                                }
                             )
                         }
                     }
@@ -501,6 +645,64 @@ fun BackupScreen(
                                     fontWeight = FontWeight.Bold
                                 )
                             }
+                        }
+                    }
+                }
+            }
+
+            HorizontalDivider()
+
+            // Optimización de fotos: las imágenes son casi todo el peso del respaldo.
+            Card(modifier = Modifier.fillMaxWidth()) {
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.PhotoLibrary,
+                        contentDescription = null,
+                        modifier = Modifier.size(48.dp),
+                        tint = MaterialTheme.colorScheme.tertiary
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "Optimizar Fotos",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    val photoMb = uiState.photoStorageBytes.toDouble() / (1024 * 1024)
+                    Text(
+                        text = "Las fotos ocupan ${String.format(Locale.US, "%.1f", photoMb)} MB y son la mayor parte " +
+                            "del tamaño del respaldo. Las fotos nuevas ya se comprimen al tomarlas; " +
+                            "esta acción reduce las que se guardaron antes.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                    if (uiState.optimizingPhotos) {
+                        val progress = uiState.optimizeProgress
+                        if (progress != null && progress.second > 0) {
+                            LinearProgressIndicator(
+                                progress = { progress.first.toFloat() / progress.second },
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                text = "Optimizando ${progress.first} de ${progress.second}...",
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                        } else {
+                            CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
+                        }
+                    } else {
+                        OutlinedButton(
+                            onClick = { viewModel.requestOptimizePhotos() },
+                            enabled = !uiState.exporting && !uiState.importing && uiState.photoStorageBytes > 0,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text("Optimizar fotos existentes")
                         }
                     }
                 }

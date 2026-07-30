@@ -6,14 +6,15 @@ Serviaux es una app Android para gestión de talleres automotrices, construida c
 
 ## Stack Tecnológico
 
-- Kotlin 2.1.20 + Jetpack Compose + Material 3
+- Kotlin 2.2.10 + Jetpack Compose + Material 3
 - Room Database con KSP (NO kapt)
 - Navigation Compose para enrutamiento
 - DI manual via AppContainer (NO Hilt - por compatibilidad con AGP 9.x)
 - MVVM con AndroidViewModel + StateFlow
 - Coil 3 para carga de imágenes
 - Dropbox SDK (dropbox-core-sdk + dropbox-android-sdk 7.0.0) para respaldos en la nube
-- AGP 9.0.1, compileSdk 36, minSdk 26
+- AGP 9.3.1, Gradle 9.5.0, KSP 2.3.2, compileSdk 36, targetSdk 36, minSdk 26
+- Release con R8: `isMinifyEnabled` + `isShrinkResources` activos (el APK baja de ~26 MB a ~6 MB). Las reglas de lo que no se puede ofuscar están en `app/proguard-rules.pro` (Dropbox/Jackson usan reflexión). **Falta definir `signingConfig`** con el keystore del taller
 
 ## Convenciones Clave
 
@@ -23,13 +24,13 @@ Serviaux es una app Android para gestión de talleres automotrices, construida c
 - Campos de formulario en UiState prefijados con `form` (ej: `formName`, `formCode`)
 - La navegación usa constantes de ruta tipo string en `Routes.kt`
 - Interfaz en español (etiquetas, mensajes de error, etc.)
-- Hash de contraseñas: SHA-256 + salt aleatorio via `SecurityUtils`
+- Hash de contraseñas: **PBKDF2-HMAC-SHA256** (120.000 iteraciones) + salt aleatorio via `SecurityUtils`, formato `pbkdf2$iteraciones$salt$hash`. Los hashes del formato antiguo (SHA-256 de una pasada, como el sembrado en `seed_data.sql`) se siguen aceptando y se migran al iniciar sesión, que es el único momento en que se conoce la contraseña en claro
 
 ## Estructura del Proyecto
 
 - `data/entity/` - Entidades Room y enums (incluye CatalogService para servicios predefinidos)
 - `data/dao/` - DAOs de Room
-- `data/ServiauxDatabase.kt` - Singleton de la BD con callback de seed (versión actual 1, reiniciada tras reestructuración)
+- `data/ServiauxDatabase.kt` - Singleton de la BD con callback de seed. **Versión actual 2**, con `exportSchema = true` (el esquema se versiona en `app/schemas/`) y **sin `fallbackToDestructiveMigration`**: al cambiar cualquier entidad hay que subir `version` y añadir su `Migration` en `buildDatabase`. Si falta la ruta de migración la app falla al abrir, en lugar de borrar en silencio todos los datos del taller
 - `repository/` - Repositorios con lógica de negocio
 - `di/AppContainer.kt` - Inyección de dependencias manual
 - `util/` - SecurityUtils, SessionManager, PhotoUtils, PdfReportGenerator, CommissionPdfGenerator, ShareUtils, DropboxHelper
@@ -50,9 +51,14 @@ Serviaux es una app Android para gestión de talleres automotrices, construida c
 - Validación de descuento: descuento de servicio no puede exceder laborCost, descuento de repuesto no puede exceder subtotal
 - El historial de cambios de estado se sigue registrando en `work_order_status_log`, pero ya no se muestra en el detalle de la orden
 - Cambios de estado permitidos incluso desde ENTREGADO (solo admin) para soportar correcciones
-- Ajustes de stock automáticos al agregar/eliminar WorkOrderParts
+- Ajustes de stock automáticos al agregar/eliminar/editar WorkOrderParts. Si no hay existencia suficiente la línea se registra igual, el stock queda negativo y la UI avisa del descubierto (no se bloquea el mostrador por un inventario mal contado)
+- Las operaciones multi-tabla van en `database.withTransaction { }` (líneas de orden, cambio de estado, borrado de orden, restauración de respaldos, importación de catálogos)
+- `WorkOrderRepository.recalculateTotals` redondea los importes a 2 decimales y **recalcula las comisiones** de los mecánicos no pagados: es el único punto por el que pasan todos los cambios de mano de obra. Las comisiones ya pagadas nunca se modifican
+- Las comisiones pendientes de órdenes CERRADO también aparecen en la pantalla de pago (antes desaparecían al archivar la orden)
 - Gestión de sesión usa singleton `SessionManager` con `StateFlow<User?>` para el estado del usuario actual
 - Fotos almacenadas como archivos en almacenamiento interno (`vehicle_photos/`), rutas guardadas como string separado por comas en campo `photoPaths` en Vehicle y WorkOrder (máx 6 por entidad)
+- Toda foto nueva se comprime al guardarse: `PhotoUtils.compressPhotoInPlace` la reduce a 1600 px de lado mayor con JPEG 80 y aplica la rotación EXIF a los píxeles (las cámaras entregan 3-5 MB y eran el 98% del peso de los respaldos). `PhotoUtils.optimizeExistingPhotos` recomprime las ya guardadas desde la pantalla de Respaldos
+- Las copias de fotos y adjuntos son `suspend` sobre `Dispatchers.IO`: no deben invocarse desde el hilo de UI
 - Patrón UI de fotos: thumbnails clickeables en LazyRow que abren diálogo con vista previa/reemplazar/eliminar; iconos de cámara+galería en un Box al final de la fila para agregar nuevas
 - Acceso a cámara via `ActivityResultContracts.TakePicture()` con FileProvider
 - Catálogo de servicios predefinidos (`CatalogService`) con categorías, precios por defecto y variantes por tipo de vehículo
@@ -62,7 +68,14 @@ Serviaux es una app Android para gestión de talleres automotrices, construida c
 - Columnas de tablas PDF usan alineación vertical consistente via helper `rightAlignAt`
 - Integración Dropbox: OAuth2 PKCE (app key, sin secret), dependencias `dropbox-core-sdk` y `dropbox-android-sdk` 7.0.0
 - Token Dropbox guardado en SharedPreferences (`dropbox_prefs`) como JSON serializado de `DbxCredential`
-- Estructura de carpetas Dropbox: la app sandbox crea `/Aplicaciones/serviaux/` automáticamente; dentro se crean subcarpetas por dispositivo (`/{nombreDispositivo}/`) con archivos ZIP nombrados por fecha (`serviaux_backup_YYYY-MM-dd.zip`) que se sobrescriben si se sube el mismo día
+- Estructura de carpetas Dropbox: la app sandbox crea `/Aplicaciones/serviaux/` automáticamente; dentro se crean subcarpetas por dispositivo (`/{nombreDispositivo}/`)
+- Tres modos de respaldo (`BackupContent`), elegibles en BackupScreen:
+  - `DATA_ONLY` — solo los JSON de datos (pesa muy poco, apto para respaldar a diario). Sube como `serviaux_datos_YYYY-MM-DD.zip`, se sobrescribe el del día
+  - `MEDIA_ONLY` — todas las fotos, sin datos; es el respaldo base de imágenes. Sube como `serviaux_fotos_YYYY-MM-DD.zip`
+  - `ALL_INCREMENTAL` (por defecto) — datos completos + solo las fotos nuevas desde el último respaldo. Sube como `serviaux_backup_YYYY-MM-DD_HHmm.zip` con hora, porque **no debe sobrescribirse**: cada incremental contiene fotos distintas
+- El marcador del incremental vive en SharedPreferences `serviaux_backup` (`last_photo_backup_at`) y solo avanza cuando el respaldo incluyó fotos. `resetPhotoBackupMarker` lo olvida para volver a incluirlas todas
+- El manifiesto declara `content`, `photoMode` (`full`/`incremental`/`none`), `photosSince`, `photoCount` y `photosSkipped`. Los respaldos generados antes de esta versión no los traen y `inspectBackup` deduce el modo
+- Al restaurar, las fotos se agregan **sin borrar** las existentes, así se puede restaurar un respaldo base y luego los incrementales en cadena; las rutas absolutas se reapuntan al directorio de este dispositivo
 - `DropboxHelper` es singleton en `util/` con métodos: `startAuth`, `handleAuthResult`, `isLinked`, `logout`, `uploadFile`, `listBackups`, `downloadFile`, `deleteFile`
 - Flujo Dropbox en BackupScreen: vincular cuenta abre navegador para OAuth2, onResume captura credencial; subir exporta ZIP y lo sube; descargar lista backups de todos los dispositivos y reutiliza flujo de importación normal
 
@@ -76,6 +89,7 @@ Serviaux es una app Android para gestión de talleres automotrices, construida c
 ## Compilar y Ejecutar
 
 - Compilar: `./gradlew assembleDebug`
-- No hay tests configurados actualmente
+- Tests unitarios: `./gradlew test` (14 pruebas en `SecurityUtilsTest` y `RoutesTest`; corren en la JVM, sin emulador)
+- Release: `./gradlew assembleRelease` (pasa por R8; el APK sale sin firmar hasta que se configure el keystore)
 - Ejecutar en dispositivo/emulador API 26+
 - Admin por defecto: `servielecar` / `f4d3s2a1`

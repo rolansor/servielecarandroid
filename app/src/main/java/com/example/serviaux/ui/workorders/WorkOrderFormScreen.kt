@@ -154,9 +154,10 @@ fun WorkOrderFormScreen(
     val cameraLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.TakePicture()
     ) { success ->
-        if (replacingPhoto) {
+        val wasReplacing = replacingPhoto
+        replacingPhoto = false
+        if (wasReplacing) {
             viewModel.onPhotoTakenForReplace(success, dialogPhotoIndex)
-            replacingPhoto = false
         } else {
             viewModel.onPhotoTaken(success)
         }
@@ -165,10 +166,14 @@ fun WorkOrderFormScreen(
     val galleryLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetMultipleContents()
     ) { uris ->
-        if (replacingPhoto && uris.isNotEmpty()) {
+        // El modo "reemplazar" se apaga siempre, también si se canceló el selector: si quedaba
+        // encendido, la siguiente foto que se tomara sustituía a una existente y borraba el
+        // archivo original en lugar de agregarse.
+        val wasReplacing = replacingPhoto
+        replacingPhoto = false
+        if (wasReplacing && uris.isNotEmpty()) {
             viewModel.replacePhotoFromGallery(uris.first(), dialogPhotoIndex)
-            replacingPhoto = false
-        } else {
+        } else if (!wasReplacing) {
             uris.forEach { uri -> viewModel.addPhotoFromGallery(uri) }
         }
     }

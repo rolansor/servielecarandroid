@@ -23,6 +23,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Group
+import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.StarBorder
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
@@ -48,6 +50,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.serviaux.data.entity.UserRole
 import com.example.serviaux.ui.components.EmptyState
 import com.example.serviaux.ui.components.ShimmerLoadingList
 
@@ -136,15 +139,48 @@ fun UserListScreen(
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                                 Spacer(modifier = Modifier.height(4.dp))
-                                Surface(
-                                    color = MaterialTheme.colorScheme.primaryContainer,
-                                    shape = MaterialTheme.shapes.small
-                                ) {
-                                    Text(
-                                        text = user.role.displayName,
-                                        style = MaterialTheme.typography.labelSmall,
-                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
-                                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Surface(
+                                        color = MaterialTheme.colorScheme.primaryContainer,
+                                        shape = MaterialTheme.shapes.small
+                                    ) {
+                                        Text(
+                                            text = user.role.displayName,
+                                            style = MaterialTheme.typography.labelSmall,
+                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
+                                            color = MaterialTheme.colorScheme.onPrimaryContainer
+                                        )
+                                    }
+                                    if (user.id == uiState.defaultMechanicId) {
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Surface(
+                                            color = MaterialTheme.colorScheme.secondaryContainer,
+                                            shape = MaterialTheme.shapes.small
+                                        ) {
+                                            Text(
+                                                text = "Por defecto",
+                                                style = MaterialTheme.typography.labelSmall,
+                                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
+                                                color = MaterialTheme.colorScheme.onSecondaryContainer
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                            // Solo un mecánico puede ser el predeterminado de las órdenes nuevas.
+                            if (user.role == UserRole.MECANICO && user.active) {
+                                IconButton(onClick = { viewModel.toggleDefaultMechanic(user.id) }) {
+                                    Icon(
+                                        imageVector = if (user.id == uiState.defaultMechanicId)
+                                            Icons.Default.Star else Icons.Default.StarBorder,
+                                        contentDescription = if (user.id == uiState.defaultMechanicId)
+                                            "Quitar como mecánico por defecto"
+                                        else
+                                            "Marcar como mecánico por defecto",
+                                        tint = if (user.id == uiState.defaultMechanicId)
+                                            MaterialTheme.colorScheme.secondary
+                                        else
+                                            MaterialTheme.colorScheme.onSurfaceVariant
                                     )
                                 }
                             }

@@ -10,6 +10,9 @@ import androidx.room.*
 import com.example.serviaux.data.entity.Part
 import kotlinx.coroutines.flow.Flow
 
+/** Proyección mínima de un repuesto: solo id y nombre. */
+data class PartNameRow(val id: Long, val name: String)
+
 /**
  * DAO para la entidad [Part].
  */
@@ -56,9 +59,27 @@ interface PartDao {
     @Query("UPDATE parts SET currentStock = currentStock - :qty WHERE id = :partId AND currentStock >= :qty")
     suspend fun decreaseStock(partId: Long, qty: Int): Int
 
+    /**
+     * Disminuye el stock sin exigir existencia suficiente: puede dejarlo en negativo.
+     *
+     * Se usa cuando el repuesto ya se consumió en el taller pero el inventario no lo
+     * refleja; dejar el descubierto visible es preferible a perder el consumo.
+     */
+    @Query("UPDATE parts SET currentStock = currentStock - :qty WHERE id = :partId")
+    suspend fun decreaseStockUnchecked(partId: Long, qty: Int)
+
     /** Incrementa el stock atómicamente; usado al devolver repuestos de una orden eliminada. */
     @Query("UPDATE parts SET currentStock = currentStock + :qty WHERE id = :partId")
     suspend fun increaseStock(partId: Long, qty: Int)
+
+    /**
+     * Nombres de varios repuestos en una sola consulta.
+     *
+     * Evita el patrón N+1 al mostrar listados que solo necesitan el nombre. Nota: SQLite limita
+     * a 999 parámetros por sentencia, así que el llamador debe trocear listas muy grandes.
+     */
+    @Query("SELECT id, name FROM parts WHERE id IN (:ids)")
+    suspend fun getNamesByIds(ids: List<Long>): List<PartNameRow>
 
     @Query("SELECT * FROM parts")
     suspend fun getAllDirect(): List<Part>

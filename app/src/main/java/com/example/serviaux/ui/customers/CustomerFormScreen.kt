@@ -73,6 +73,7 @@ fun CustomerFormScreen(
 
     LaunchedEffect(uiState.savedSuccessfully) {
         if (uiState.savedSuccessfully) {
+            viewModel.clearSaved()
             onSaved()
         }
     }
