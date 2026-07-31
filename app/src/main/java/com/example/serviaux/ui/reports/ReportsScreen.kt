@@ -12,6 +12,7 @@
 package com.example.serviaux.ui.reports
 
 import android.app.DatePickerDialog
+import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -32,8 +33,12 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.CalendarToday
+import androidx.compose.material.icons.filled.GridOn
+import androidx.compose.material.icons.filled.PictureAsPdf
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
@@ -45,10 +50,14 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -68,6 +77,7 @@ import com.example.serviaux.ui.theme.Indigo700
 import com.example.serviaux.ui.theme.Neutral200
 import com.example.serviaux.ui.theme.Neutral400
 import com.example.serviaux.ui.theme.OnErrorContainerRed
+import com.example.serviaux.util.ExcelSheet
 import com.example.serviaux.util.formatMoney
 import java.text.SimpleDateFormat
 import java.util.Calendar
@@ -82,6 +92,25 @@ fun ReportsScreen(
     viewModel: ReportsViewModel = viewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val context = LocalContext.current
+    var showExcelDialog by remember { mutableStateOf(false) }
+
+    LaunchedEffect(uiState.exportError) {
+        uiState.exportError?.let {
+            Toast.makeText(context, it, Toast.LENGTH_LONG).show()
+            viewModel.clearExportError()
+        }
+    }
+
+    if (showExcelDialog) {
+        ExcelSheetsDialog(
+            onDismiss = { showExcelDialog = false },
+            onGenerate = { sheets ->
+                showExcelDialog = false
+                viewModel.exportExcel(context, sheets)
+            }
+        )
+    }
 
     val monthChipLabel = remember {
         SimpleDateFormat("MMMM", Locale("es")).format(Date())
@@ -151,6 +180,12 @@ fun ReportsScreen(
                 BreakdownCard(uiState)
                 Spacer(modifier = Modifier.height(12.dp))
                 TopPartsCard(uiState)
+                Spacer(modifier = Modifier.height(12.dp))
+                ExportCard(
+                    exporting = uiState.isExporting,
+                    onExcel = { showExcelDialog = true },
+                    onPdf = { viewModel.exportDashboardPdf(context) }
+                )
             }
 
             Spacer(modifier = Modifier.height(24.dp))
@@ -388,6 +423,138 @@ private fun TopPartsCard(uiState: ReportsUiState) {
             }
         }
     }
+}
+
+// ── Tarjeta: exportar ────────────────────────────────────────────────────
+
+@Composable
+private fun ExportCard(
+    exporting: Boolean,
+    onExcel: () -> Unit,
+    onPdf: () -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant
+        )
+    ) {
+        Column(modifier = Modifier.padding(vertical = 8.dp)) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.padding(horizontal = 20.dp, vertical = 6.dp)
+            ) {
+                SectionLabel("EXPORTAR")
+                if (exporting) {
+                    Spacer(modifier = Modifier.width(10.dp))
+                    CircularProgressIndicator(
+                        modifier = Modifier.height(14.dp).width(14.dp),
+                        strokeWidth = 2.dp
+                    )
+                }
+            }
+            ExportRow(
+                icon = { Icon(Icons.Default.GridOn, contentDescription = null, tint = Indigo700) },
+                title = "Excel del período",
+                subtitle = "Órdenes, mecánicos, trabajos, repuestos, tipos y clientes",
+                enabled = !exporting,
+                onClick = onExcel
+            )
+            HorizontalDivider(
+                color = MaterialTheme.colorScheme.outlineVariant,
+                modifier = Modifier.padding(horizontal = 20.dp)
+            )
+            ExportRow(
+                icon = { Icon(Icons.Default.PictureAsPdf, contentDescription = null, tint = Indigo700) },
+                title = "PDF resumen",
+                subtitle = "Dashboard del período para compartir o imprimir",
+                enabled = !exporting,
+                onClick = onPdf
+            )
+        }
+    }
+}
+
+@Composable
+private fun ExportRow(
+    icon: @Composable () -> Unit,
+    title: String,
+    subtitle: String,
+    enabled: Boolean,
+    onClick: () -> Unit
+) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(enabled = enabled, onClick = onClick)
+            .padding(horizontal = 20.dp, vertical = 12.dp)
+    ) {
+        icon()
+        Spacer(modifier = Modifier.width(14.dp))
+        Column {
+            Text(title, style = MaterialTheme.typography.titleMedium)
+            Text(
+                text = subtitle,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+}
+
+@Composable
+private fun ExcelSheetsDialog(
+    onDismiss: () -> Unit,
+    onGenerate: (Set<ExcelSheet>) -> Unit
+) {
+    var selected by remember { mutableStateOf(ExcelSheet.entries.toSet()) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Excel del período") },
+        text = {
+            Column {
+                Text(
+                    text = "Elija las hojas que llevará el archivo:",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                ExcelSheet.entries.forEach { sheet ->
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                selected = if (sheet in selected) selected - sheet else selected + sheet
+                            }
+                    ) {
+                        Checkbox(
+                            checked = sheet in selected,
+                            onCheckedChange = { checked ->
+                                selected = if (checked) selected + sheet else selected - sheet
+                            }
+                        )
+                        Text(sheet.title, style = MaterialTheme.typography.bodyMedium)
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = { onGenerate(selected) },
+                enabled = selected.isNotEmpty()
+            ) {
+                Text("Generar")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancelar")
+            }
+        }
+    )
 }
 
 // ── Auxiliares ───────────────────────────────────────────────────────────

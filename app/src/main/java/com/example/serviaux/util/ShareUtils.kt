@@ -20,15 +20,29 @@ object ShareUtils {
      * @param file Archivo PDF a compartir.
      */
     fun sharePdf(context: Context, file: File) {
+        shareFile(context, file, "application/pdf", "Orden de Trabajo - SERVIAUX")
+    }
+
+    /**
+     * Abre el diálogo de compartir con cualquier archivo generado por la app
+     * (PDF, Excel…). El archivo debe vivir en una ruta cubierta por el
+     * FileProvider (`filesDir/reports/`, fotos, adjuntos).
+     */
+    fun shareFile(
+        context: Context,
+        file: File,
+        mimeType: String,
+        subject: String = "Reporte - SERVIAUX"
+    ) {
         val uri = FileProvider.getUriForFile(
             context,
             "${context.packageName}.fileprovider",
             file
         )
         val intent = Intent(Intent.ACTION_SEND).apply {
-            type = "application/pdf"
+            type = mimeType
             putExtra(Intent.EXTRA_STREAM, uri)
-            putExtra(Intent.EXTRA_SUBJECT, "Orden de Trabajo - SERVIAUX")
+            putExtra(Intent.EXTRA_SUBJECT, subject)
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }
         context.startActivity(Intent.createChooser(intent, "Compartir reporte"))

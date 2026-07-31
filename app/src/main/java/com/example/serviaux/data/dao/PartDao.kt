@@ -81,6 +81,10 @@ interface PartDao {
     @Query("SELECT id, name FROM parts WHERE id IN (:ids)")
     suspend fun getNamesByIds(ids: List<Long>): List<PartNameRow>
 
+    /** Filas completas de varios repuestos; mismo límite de 999 parámetros que arriba. */
+    @Query("SELECT * FROM parts WHERE id IN (:ids)")
+    suspend fun getByIdsDirect(ids: List<Long>): List<Part>
+
     @Query("SELECT * FROM parts")
     suspend fun getAllDirect(): List<Part>
 

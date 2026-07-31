@@ -15,17 +15,29 @@
 package com.example.serviaux.ui.reports
 
 import android.app.Application
+import android.content.Context
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.serviaux.ServiauxApp
 import com.example.serviaux.data.entity.Part
 import com.example.serviaux.data.entity.WorkOrder
+import com.example.serviaux.util.DashboardMechanicRow
+import com.example.serviaux.util.DashboardPdfData
+import com.example.serviaux.util.DashboardPdfGenerator
+import com.example.serviaux.util.DashboardTopRow
+import com.example.serviaux.util.ExcelSheet
+import com.example.serviaux.util.ReportExcelGenerator
+import com.example.serviaux.util.ReportExportData
+import com.example.serviaux.util.ShareUtils
+import com.example.serviaux.util.XlsxWriter
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
@@ -50,7 +62,10 @@ data class ReportsUiState(
     val extrasTotal: Double = 0.0,
     val buckets: List<ChartBucket> = emptyList(),
     val topParts: List<Pair<Part, Long>> = emptyList(),
-    val isLoading: Boolean = false
+    val isLoading: Boolean = false,
+    /** true mientras se genera un Excel o el PDF resumen. */
+    val isExporting: Boolean = false,
+    val exportError: String? = null
 )
 
 class ReportsViewModel(application: Application) : AndroidViewModel(application) {
@@ -121,6 +136,142 @@ class ReportsViewModel(application: Application) : AndroidViewModel(application)
                 _uiState.update { it.copy(isLoading = false) }
             }
         }
+    }
+
+    // ── Exportación (Excel y PDF resumen) ───────────────────────────────
+
+    /** Genera el .xlsx con las hojas elegidas y abre el diálogo de compartir. */
+    fun exportExcel(context: Context, sheets: Set<ExcelSheet>) {
+        if (sheets.isEmpty()) return
+        val state = _uiState.value
+        viewModelScope.launch {
+            _uiState.update { it.copy(isExporting = true) }
+            try {
+                val file = withContext(Dispatchers.IO) {
+                    val data = loadExportData(state.dateFrom, state.dateTo)
+                    ReportExcelGenerator.generate(context, state.dateFrom, state.dateTo, data, sheets)
+                }
+                ShareUtils.shareFile(context, file, XlsxWriter.MIME_TYPE, "Reporte Excel - SERVIAUX")
+                _uiState.update { it.copy(isExporting = false) }
+            } catch (e: Exception) {
+                _uiState.update {
+                    it.copy(isExporting = false, exportError = "No se pudo generar el Excel")
+                }
+            }
+        }
+    }
+
+    /** Genera el PDF "Resumen del período" (dashboard) y lo comparte. */
+    fun exportDashboardPdf(context: Context) {
+        val state = _uiState.value
+        viewModelScope.launch {
+            _uiState.update { it.copy(isExporting = true) }
+            try {
+                val file = withContext(Dispatchers.IO) {
+                    val data = loadExportData(state.dateFrom, state.dateTo)
+                    DashboardPdfGenerator.generate(context, buildDashboardData(state, data))
+                }
+                ShareUtils.sharePdf(context, file)
+                _uiState.update { it.copy(isExporting = false) }
+            } catch (e: Exception) {
+                _uiState.update {
+                    it.copy(isExporting = false, exportError = "No se pudo generar el PDF")
+                }
+            }
+        }
+    }
+
+    fun clearExportError() {
+        _uiState.update { it.copy(exportError = null) }
+    }
+
+    /**
+     * Carga todo lo que cruzan las hojas: órdenes del rango (por `createdAt`,
+     * el mismo criterio de la pantalla) y sus hijos. Las tablas hijas son
+     * chicas (cientos de filas) y se filtran en memoria; `parts` NO: son
+     * ~16.000, así que solo se traen los repuestos usados en el período.
+     */
+    private suspend fun loadExportData(from: Long, to: Long): ReportExportData {
+        val db = app.container.database
+        val orders = workOrderRepo.getByDateRange(from, to).firstOrNull() ?: emptyList()
+        val orderIds = orders.map { it.id }.toSet()
+
+        val serviceLines = db.serviceLineDao().getAllDirect().filter { it.workOrderId in orderIds }
+        val orderParts = db.workOrderPartDao().getAllDirect().filter { it.workOrderId in orderIds }
+        val payments = db.workOrderPaymentDao().getAllDirect().filter { it.workOrderId in orderIds }
+        val mechanics = db.workOrderMechanicDao().getAllDirect().filter { it.workOrderId in orderIds }
+
+        val partIds = orderParts.map { it.partId }.distinct()
+        // SQLite limita a 999 parámetros por consulta
+        val parts = partIds.chunked(900).flatMap { db.partDao().getByIdsDirect(it) }
+
+        return ReportExportData(
+            orders = orders,
+            vehiclesById = db.vehicleDao().getAllDirect().associateBy { it.id },
+            customersById = db.customerDao().getAllDirect().associateBy { it.id },
+            usersById = db.userDao().getAllDirect().associateBy { it.id },
+            serviceLines = serviceLines,
+            orderParts = orderParts,
+            payments = payments,
+            mechanics = mechanics,
+            partsById = parts.associateBy { it.id }
+        )
+    }
+
+    private fun buildDashboardData(state: ReportsUiState, data: ReportExportData): DashboardPdfData {
+        val topJobs = data.serviceLines
+            .groupBy { it.description.trim().uppercase(Locale("es")) }
+            .map { (desc, lines) ->
+                DashboardTopRow(desc, lines.size.toLong(), lines.sumOf { it.laborCost - it.discount })
+            }
+            .sortedByDescending { it.total }
+            .take(5)
+
+        val topParts = data.orderParts
+            .groupBy { it.partId }
+            .map { (partId, rows) ->
+                DashboardTopRow(
+                    data.partsById[partId]?.name ?: "Repuesto #$partId",
+                    rows.sumOf { it.quantity }.toLong(),
+                    rows.sumOf { it.subtotal - it.discount }
+                )
+            }
+            .sortedByDescending { it.total }
+            .take(5)
+
+        val mechanicRows = data.mechanics
+            .groupBy { it.mechanicId }
+            .map { (mechanicId, rows) ->
+                DashboardMechanicRow(
+                    name = data.usersById[mechanicId]?.name ?: "Mecánico #$mechanicId",
+                    orders = rows.map { it.workOrderId }.distinct().size,
+                    generated = rows.sumOf { it.commissionAmount },
+                    paid = rows.filter { it.commissionPaid }.sumOf { it.commissionAmount }
+                )
+            }
+            .sortedByDescending { it.generated }
+
+        val paidEffectiveByOrder = data.payments.groupBy { it.workOrderId }
+            .mapValues { (_, pays) -> pays.sumOf { it.amount + it.discount } }
+        val balances = data.orders.map { it.total - (paidEffectiveByOrder[it.id] ?: 0.0) }
+        val pendingBalances = balances.filter { it > 0.01 }
+
+        return DashboardPdfData(
+            from = state.dateFrom,
+            to = state.dateTo,
+            totalRevenue = data.orders.sumOf { it.total },
+            prevRevenue = state.prevRevenue,
+            prevLabel = state.prevLabel,
+            orderCount = data.orders.size,
+            laborTotal = data.orders.sumOf { it.totalLabor },
+            partsTotal = data.orders.sumOf { it.totalParts },
+            extrasTotal = data.orders.sumOf { it.totalExtras },
+            topJobs = topJobs,
+            topParts = topParts,
+            mechanics = mechanicRows,
+            pendingBalance = pendingBalances.sum(),
+            pendingOrders = pendingBalances.size
+        )
     }
 
     // ── Rangos y comparaciones ──────────────────────────────────────────
