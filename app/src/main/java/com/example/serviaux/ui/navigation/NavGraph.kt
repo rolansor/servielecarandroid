@@ -33,8 +33,9 @@ import com.example.serviaux.ui.backup.BackupScreen
 import com.example.serviaux.ui.customers.CustomerDetailScreen
 import com.example.serviaux.ui.customers.CustomerFormScreen
 import com.example.serviaux.ui.customers.CustomerListScreen
-import com.example.serviaux.ui.dashboard.DashboardScreen
+import com.example.serviaux.ui.more.MoreScreen
 import com.example.serviaux.ui.parts.PartFormScreen
+import com.example.serviaux.ui.taller.TallerScreen
 import com.example.serviaux.ui.parts.PartListScreen
 import com.example.serviaux.ui.reports.ReportsScreen
 import com.example.serviaux.ui.settings.CatalogSettingsScreen
@@ -110,24 +111,25 @@ fun ServiauxNavGraph(navController: NavHostController) {
             })
         }
 
-        // Dashboard
+        // "El taller hoy" — tablero por estados (reemplaza al dashboard de módulos)
         composable(Routes.DASHBOARD) {
-            DashboardScreen(
-                onNavigateToCustomers = { navController.navigate(Routes.CUSTOMER_LIST) },
-                onNavigateToVehicles = { navController.navigate(Routes.VEHICLE_LIST) },
-                onNavigateToOrders = { navController.navigate(Routes.workOrderList()) },
-                onNavigateToOrdersByStatus = { status -> navController.navigate(Routes.workOrderList(status.name)) },
+            TallerScreen(
                 onNavigateToOrderDetail = { orderId -> navController.navigate(Routes.workOrderDetail(orderId)) },
+                onNavigateToOrdersByStatus = { status -> navController.navigate(Routes.workOrderList(status.name)) },
+                onNavigateToNewOrder = { navController.navigate(Routes.WORK_ORDER_FORM) }
+            )
+        }
+
+        // "Más" — accesos generales y administración
+        composable(Routes.MORE) {
+            MoreScreen(
                 onNavigateToParts = { navController.navigate(Routes.PART_LIST) },
-                onNavigateToUsers = { navController.navigate(Routes.USER_LIST) },
+                onNavigateToAppointments = { navController.navigate(Routes.APPOINTMENT_LIST) },
+                onNavigateToHistory = { navController.navigate(Routes.serviceHistory()) },
+                onNavigateToCommissions = { navController.navigate(Routes.COMMISSIONS) },
                 onNavigateToReports = { navController.navigate(Routes.REPORTS) },
                 onNavigateToCatalogSettings = { navController.navigate(Routes.CATALOG_SETTINGS) },
-                onNavigateToNewOrder = { navController.navigate(Routes.WORK_ORDER_FORM) },
-                onNavigateToNewCustomer = { navController.navigate(Routes.customerForm()) },
-                onNavigateToNewVehicle = { navController.navigate(Routes.vehicleForm()) },
-                onNavigateToAppointments = { navController.navigate(Routes.APPOINTMENT_LIST) },
-                onNavigateToCommissions = { navController.navigate(Routes.COMMISSIONS) },
-                onNavigateToHistory = { navController.navigate(Routes.serviceHistory()) },
+                onNavigateToUsers = { navController.navigate(Routes.USER_LIST) },
                 onNavigateToBackup = { navController.navigate(Routes.BACKUP) },
                 onLogout = {
                     navController.navigate(Routes.LOGIN) {

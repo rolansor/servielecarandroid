@@ -24,6 +24,10 @@ Serviaux es una app Android para gestión de talleres automotrices, construida c
 - Campos de formulario en UiState prefijados con `form` (ej: `formName`, `formCode`)
 - La navegación usa constantes de ruta tipo string en `Routes.kt`
 - Interfaz en español (etiquetas, mensajes de error, etc.)
+- **Rediseño índigo (fase 1 aplicada)**: tema con rampas índigo/verde-agua/neutral en `ui/theme/` (tokens del handoff en `docs/nuevo_diseño/`, alcance en `docs/rediseno-fase1.md`). Color dinámico apagado y **tema claro forzado** (el modo oscuro no está diseñado). Fuentes Caprasimo (títulos/cifras) y Figtree (cuerpo) en `res/font/`. Orientación vertical fija en el manifest
+- Navegación por 5 pestañas: **Taller** (`ui/taller/TallerScreen`, home "Órdenes activas" con secciones por estado — los estados vacíos no se muestran, secciones separadas por divisor) · Órdenes · Autos · Clientes · **Más** (`ui/more/MoreScreen`: Repuestos, Turnos, Historial y, solo para ADMIN, Comisiones/Reportes/Catálogos/Usuarios/Respaldos). El dashboard de módulos ya no existe; la ruta `dashboard` apunta al tablero
+- Moneda SIEMPRE con `formatMoney()` de `util/Money.kt` (`$1.234,56`, formato Ecuador) en pantallas; kilometraje con `formatKm()`. Excepciones: los prefills de campos editables usan `%.2f` con punto (se parsean con `toDouble()`) y los PDF conservan su formato propio
+- `StatusChip` implementa la semántica fija de estados: índigo sólido = en proceso, verde-agua = terminado, borde punteado = espera repuesto, neutro = inerte. El saldo es el único número coloreado (`SaldoSaldado`/`SaldoPendiente`)
 - Hash de contraseñas: **PBKDF2-HMAC-SHA256** (120.000 iteraciones) + salt aleatorio via `SecurityUtils`, formato `pbkdf2$iteraciones$salt$hash`. Los hashes del formato antiguo (SHA-256 de una pasada, como el sembrado en `seed_data.sql`) se siguen aceptando y se migran al iniciar sesión, que es el único momento en que se conoce la contraseña en claro
 
 ## Estructura del Proyecto
@@ -33,8 +37,8 @@ Serviaux es una app Android para gestión de talleres automotrices, construida c
 - `data/ServiauxDatabase.kt` - Singleton de la BD con callback de seed. **Versión actual 2**, con `exportSchema = true` (el esquema se versiona en `app/schemas/`) y **sin `fallbackToDestructiveMigration`**: al cambiar cualquier entidad hay que subir `version` y añadir su `Migration` en `buildDatabase`. Si falta la ruta de migración la app falla al abrir, en lugar de borrar en silencio todos los datos del taller
 - `repository/` - Repositorios con lógica de negocio
 - `di/AppContainer.kt` - Inyección de dependencias manual
-- `util/` - SecurityUtils, SessionManager, PhotoUtils, PdfReportGenerator, CommissionPdfGenerator, ShareUtils, DropboxHelper
-- `ui/` - Pantallas Compose organizadas por módulo de funcionalidad
+- `util/` - SecurityUtils, SessionManager, PhotoUtils, Money (formatMoney/formatKm), PdfReportGenerator, CommissionPdfGenerator, ShareUtils, DropboxHelper
+- `ui/` - Pantallas Compose organizadas por módulo de funcionalidad (`ui/taller/` es el home; `ui/more/` la pestaña Más; ya no existe `ui/dashboard/`)
 
 ## Patrones Importantes
 
@@ -89,7 +93,7 @@ Serviaux es una app Android para gestión de talleres automotrices, construida c
 ## Compilar y Ejecutar
 
 - Compilar: `./gradlew assembleDebug`
-- Tests unitarios: `./gradlew test` (14 pruebas en `SecurityUtilsTest` y `RoutesTest`; corren en la JVM, sin emulador)
+- Tests unitarios: `./gradlew test` (`SecurityUtilsTest`, `RoutesTest` y `MoneyTest`; corren en la JVM, sin emulador)
 - Release: `./gradlew assembleRelease` (pasa por R8; el APK sale sin firmar hasta que se configure el keystore)
 - Ejecutar en dispositivo/emulador API 26+
 - Admin por defecto: `servielecar` / `f4d3s2a1`

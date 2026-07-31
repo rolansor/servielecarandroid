@@ -9,6 +9,8 @@
  */
 package com.example.serviaux.ui.commissions
 
+import com.example.serviaux.util.formatMoney
+
 import android.widget.Toast
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -114,7 +116,7 @@ fun CommissionScreen(
                                 color = MaterialTheme.colorScheme.onPrimaryContainer
                             )
                             Text(
-                                text = "Total: $${String.format(Locale.US, "%.2f", selectedTotal)}",
+                                text = "Total: ${formatMoney(selectedTotal)}",
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.onPrimaryContainer
@@ -260,7 +262,7 @@ private fun PendingCommissionsList(
                             )
                         }
                         Text(
-                            text = "$${String.format(Locale.US, "%.2f", mechanicTotal)}",
+                            text = "${formatMoney(mechanicTotal)}",
                             style = MaterialTheme.typography.titleSmall,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.primary
@@ -293,7 +295,7 @@ private fun PendingCommissionsList(
                         )
                     }
                     Text(
-                        text = "$${String.format(Locale.US, "%.2f", commission.commissionAmount)}",
+                        text = "${formatMoney(commission.commissionAmount)}",
                         style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.Medium
                     )
@@ -364,7 +366,7 @@ private fun PaidHistoryList(
                             )
                         }
                         Text(
-                            text = "$${String.format(Locale.US, "%.2f", mechanicTotal)}",
+                            text = "${formatMoney(mechanicTotal)}",
                             style = MaterialTheme.typography.titleSmall,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.primary
@@ -401,7 +403,7 @@ private fun PaidHistoryList(
                         }
                     }
                     Text(
-                        text = "$${String.format(Locale.US, "%.2f", commission.commissionAmount)}",
+                        text = "${formatMoney(commission.commissionAmount)}",
                         style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.Medium
                     )
@@ -458,7 +460,7 @@ private fun PaymentSummary(
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        text = "Total: $${String.format(Locale.US, "%.2f", totalPaid)}",
+                        text = "Total: ${formatMoney(totalPaid)}",
                         style = MaterialTheme.typography.headlineSmall,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onPrimaryContainer
@@ -495,7 +497,7 @@ private fun PaymentSummary(
                                     modifier = Modifier.weight(1f)
                                 )
                                 Text(
-                                    text = "$${String.format(Locale.US, "%.2f", c.commissionAmount)}",
+                                    text = "${formatMoney(c.commissionAmount)}",
                                     style = MaterialTheme.typography.bodySmall,
                                     fontWeight = FontWeight.Medium
                                 )
@@ -510,7 +512,7 @@ private fun PaymentSummary(
                                 modifier = Modifier.weight(1f)
                             )
                             Text(
-                                text = "$${String.format(Locale.US, "%.2f", commissions.sumOf { it.commissionAmount })}",
+                                text = "${formatMoney(commissions.sumOf { it.commissionAmount })}",
                                 style = MaterialTheme.typography.bodyMedium,
                                 fontWeight = FontWeight.Bold
                             )

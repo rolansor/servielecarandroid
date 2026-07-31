@@ -1,78 +1,102 @@
 /**
- * Color.kt - Paleta de colores del tema de Serviaux.
+ * Color.kt - Paleta de colores del tema de Serviaux (rediseño índigo).
  *
- * Define colores inspirados en un taller mecánico:
- * - Primario: azul acero (herramientas).
- * - Secundario: ámbar/naranja (chispas, señales).
- * - Terciario: gris metálico (metal cepillado).
- * - Error: rojo freno.
+ * Tokens tomados del handoff de diseño en `docs/nuevo_diseño/` (prototipo
+ * "Serviaux App.dc.html"): tres rampas tonales 100→900 generadas sobre una
+ * misma escala de luminosidad, de modo que el mismo paso de cualquier rampa
+ * pesa visualmente igual.
  *
- * También define colores semánticos para estados de órdenes y prioridades.
+ * - Accent (índigo): acción / actividad ("está pasando ahora").
+ * - Accent2 (verde-agua): terminado / confirmado.
+ * - Neutral: texto secundario, fondos, estados inertes.
+ *
+ * Regla de contraste del sistema: los rellenos sólidos con texto claro usan
+ * siempre el paso 700 de la rampa con texto Neutral100; nunca el paso 500.
+ * Fondos tintados: paso 100/200 con texto del paso 800.
  */
 package com.example.serviaux.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-// ── Colores primarios: azul acero ──────────────────────────────────────
+// ── Suelo de la pantalla ────────────────────────────────────────────────
+val BgLila = Color(0xFFF1EFF7)        // fondo de pantalla (lila muy claro)
+val SurfaceLila = Color(0xFFE4E2F0)   // tarjetas y secciones
+val TextInk = Color(0xFF1E1C26)       // texto principal
 
-// Primary: Deep steel blue (like tool steel)
-val SteelBlue80 = Color(0xFF8EAEBF)       // Light variant for dark theme
-val SteelBlue40 = Color(0xFF1B3A4B)       // Dark variant for light theme
-val SteelBlue30 = Color(0xFF142D3A)       // Even darker for containers in light
-val SteelBlue90 = Color(0xFFD0E1EA)       // Very light for containers in dark
+// ── Rampa accent: índigo ────────────────────────────────────────────────
+val Indigo100 = Color(0xFFEEEEFF)
+val Indigo200 = Color(0xFFDCDCFB)
+val Indigo300 = Color(0xFFC3C3F5)
+val Indigo400 = Color(0xFFA0A1EC)
+val Indigo500 = Color(0xFF7C7EE0)
+val Indigo600 = Color(0xFF6062CC)
+val Indigo700 = Color(0xFF4A4BAB)
+val Indigo800 = Color(0xFF363688)
+val Indigo900 = Color(0xFF262560)
 
-// ── Secundarios: ámbar/naranja ──────────────────────────────────────────
-val Amber80 = Color(0xFFF5C77E)            // Light variant for dark theme
-val Amber40 = Color(0xFFE67E22)            // Dark variant for light theme
-val Amber30 = Color(0xFFBF6516)            // Darker for containers in light
-val Amber90 = Color(0xFFFDE8C8)            // Very light for containers in dark
+// ── Rampa accent2: verde-agua ───────────────────────────────────────────
+val Aqua100 = Color(0xFFE3F6F2)
+val Aqua200 = Color(0xFFCBEAE4)
+val Aqua300 = Color(0xFFA9D8CF)
+val Aqua400 = Color(0xFF7FBEB3)
+val Aqua500 = Color(0xFF5DA296)
+val Aqua600 = Color(0xFF47857A)
+val Aqua700 = Color(0xFF35655D)
+val Aqua800 = Color(0xFF244841)
+val Aqua900 = Color(0xFF17302B)
 
-// ── Terciarios: gris metálico ───────────────────────────────────────────
-val MetalGray80 = Color(0xFFB8C4C5)        // Light variant for dark theme
-val MetalGray40 = Color(0xFF7F8C8D)        // Dark variant for light theme
-val MetalGray30 = Color(0xFF5D6A6B)        // Darker for containers in light
-val MetalGray90 = Color(0xFFDDE3E3)        // Very light for containers in dark
+// ── Rampa neutral ───────────────────────────────────────────────────────
+val Neutral100 = Color(0xFFF7F6FB)
+val Neutral200 = Color(0xFFECEBF3)
+val Neutral300 = Color(0xFFD9D7E4)
+val Neutral400 = Color(0xFFBAB7C8)
+val Neutral500 = Color(0xFF9B98AB)
+val Neutral600 = Color(0xFF7D7A8D)
+val Neutral700 = Color(0xFF605D6F)
+val Neutral800 = Color(0xFF43414F)
+val Neutral900 = Color(0xFF2B2934)
 
-// ── Error: rojo freno ──────────────────────────────────────────────────
-val BrakeRed80 = Color(0xFFF5A8A0)         // Light variant for dark theme
-val BrakeRed40 = Color(0xFFE74C3C)         // Dark variant for light theme
+// ── Error (fuera de las rampas; el prototipo no define rojo propio) ─────
+val ErrorRed = Color(0xFFBA1A1A)
+val OnErrorWhite = Color(0xFFFFFFFF)
+val ErrorContainerRed = Color(0xFFFFDAD6)
+val OnErrorContainerRed = Color(0xFF410002)
 
-// ── Fondos y superficies ────────────────────────────────────────────────
-val DarkCharcoal = Color(0xFF1A1A2E)       // Dark theme background
-val DarkNavy = Color(0xFF16213E)           // Dark theme surface
-val DarkSurfaceVariant = Color(0xFF1E2A3A) // Dark theme surface variant
-val LightGray = Color(0xFFF5F5F5)          // Light theme background
-val White = Color(0xFFFFFFFF)              // Light theme surface
-val LightSurfaceVariant = Color(0xFFE8ECEF) // Light theme surface variant
+// ── Colores de estado de órdenes (chip: fondo + texto) ──────────────────
+// Semántica fija: índigo sólido = pasando ahora; verde-agua = terminado;
+// punteado = esperando algo de fuera; neutro = inerte.
+val StatusRecibidoBg = Neutral100
+val StatusRecibidoText = Neutral800
+val StatusDiagnosticoBg = Indigo200
+val StatusDiagnosticoText = Indigo800
+val StatusEnProcesoBg = Indigo700          // sólido = "pasando ahora"
+val StatusEnProcesoText = Neutral100
+val StatusEsperaBg = Indigo100             // + borde punteado Indigo600
+val StatusEsperaText = Indigo800
+val StatusEsperaBorder = Indigo600         // único borde punteado del sistema
+val StatusListoBg = Aqua700
+val StatusListoText = Neutral100
+val StatusEntregadoBg = Aqua200
+val StatusEntregadoText = Aqua800
+val StatusCerradoBg = Neutral300
+val StatusCerradoText = Neutral800
 
-// On-colors for dark theme
-val OnDarkPrimary = Color(0xFF0A1F2B)
-val OnDarkSecondary = Color(0xFF3D2200)
-val OnDarkBackground = Color(0xFFE8E8E8)
-val OnDarkSurface = Color(0xFFE0E0E0)
-val OnDarkSurfaceVariant = Color(0xFFB0BEC5)
+// Color representativo por estado, para puntos y barras laterales donde el
+// chip no cabe (listas). Mantienen los nombres históricos.
+val StatusRecibido = Neutral600
+val StatusDiagnostico = Indigo500
+val StatusEnProceso = Indigo700
+val StatusEsperaRepuesto = Indigo400
+val StatusListo = Aqua700
+val StatusEntregado = Aqua500
+val StatusCancelado = Neutral400           // CERRADO
 
-// On-colors for light theme
-val OnLightPrimary = Color(0xFFFFFFFF)
-val OnLightSecondary = Color(0xFFFFFFFF)
-val OnLightBackground = Color(0xFF1A1A1A)
-val OnLightSurface = Color(0xFF1A1A1A)
-val OnLightSurfaceVariant = Color(0xFF4A5568)
-
-// Outline
-val OutlineDark = Color(0xFF3A4A5A)
-val OutlineLight = Color(0xFFB0BEC5)
-
-// ── Colores de estado de órdenes ────────────────────────────────────────
-val StatusRecibido = Color(0xFF2196F3)       // Blue - received
-val StatusDiagnostico = Color(0xFFE67E22)    // Orange - diagnosis
-val StatusEnProceso = Color(0xFFF1C40F)      // Yellow - in progress
-val StatusEsperaRepuesto = Color(0xFFE91E63) // Pink - waiting for parts
-val StatusListo = Color(0xFF27AE60)          // Green - ready
-val StatusEntregado = Color(0xFF2ECC71)      // Light green - delivered
-val StatusCancelado = Color(0xFF95A5A6)      // Gray - cancelled
+// ── Semántica de saldo ──────────────────────────────────────────────────
+// El saldo es el ÚNICO número que se pinta de color.
+val SaldoSaldado = Aqua800                 // $0,00 — saldado
+val SaldoPendiente = Indigo800             // abonado o sin pagos
 
 // ── Colores de prioridad ────────────────────────────────────────────────
-val PriorityAlta = Color(0xFFE74C3C)    // Red - high
-val PriorityMedia = Color(0xFFE67E22)   // Orange - medium
-val PriorityBaja = Color(0xFF27AE60)    // Green - low
+val PriorityAlta = ErrorRed
+val PriorityMedia = Indigo700
+val PriorityBaja = Aqua700

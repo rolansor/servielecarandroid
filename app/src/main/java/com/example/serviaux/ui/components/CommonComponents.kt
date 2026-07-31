@@ -12,7 +12,9 @@
  */
 package com.example.serviaux.ui.components
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -21,7 +23,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Inbox
 import androidx.compose.material.icons.filled.Search
@@ -30,29 +32,42 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.foundation.BorderStroke
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.serviaux.data.entity.OrderStatus
 import com.example.serviaux.data.entity.Priority
-import com.example.serviaux.ui.theme.PriorityAlta
-import com.example.serviaux.ui.theme.PriorityBaja
-import com.example.serviaux.ui.theme.PriorityMedia
-import com.example.serviaux.ui.theme.StatusCancelado
-import com.example.serviaux.ui.theme.StatusDiagnostico
-import com.example.serviaux.ui.theme.StatusEnProceso
-import com.example.serviaux.ui.theme.StatusEntregado
-import com.example.serviaux.ui.theme.StatusEsperaRepuesto
-import com.example.serviaux.ui.theme.StatusListo
-import com.example.serviaux.ui.theme.StatusRecibido
+import com.example.serviaux.ui.theme.Aqua200
+import com.example.serviaux.ui.theme.Aqua800
+import com.example.serviaux.ui.theme.ErrorContainerRed
+import com.example.serviaux.ui.theme.Indigo200
+import com.example.serviaux.ui.theme.Indigo800
+import com.example.serviaux.ui.theme.OnErrorContainerRed
+import com.example.serviaux.ui.theme.StatusCerradoBg
+import com.example.serviaux.ui.theme.StatusCerradoText
+import com.example.serviaux.ui.theme.StatusDiagnosticoBg
+import com.example.serviaux.ui.theme.StatusDiagnosticoText
+import com.example.serviaux.ui.theme.StatusEnProcesoBg
+import com.example.serviaux.ui.theme.StatusEnProcesoText
+import com.example.serviaux.ui.theme.StatusEntregadoBg
+import com.example.serviaux.ui.theme.StatusEntregadoText
+import com.example.serviaux.ui.theme.StatusEsperaBg
+import com.example.serviaux.ui.theme.StatusEsperaBorder
+import com.example.serviaux.ui.theme.StatusEsperaText
+import com.example.serviaux.ui.theme.StatusListoBg
+import com.example.serviaux.ui.theme.StatusListoText
+import com.example.serviaux.ui.theme.StatusRecibidoBg
+import com.example.serviaux.ui.theme.StatusRecibidoText
 
 /** Barra de búsqueda con ícono de lupa. Usada en listas de clientes, vehículos, repuestos, etc. */
 @Composable
@@ -77,54 +92,70 @@ fun ServiauxSearchBar(
     )
 }
 
-/** Badge coloreado que muestra el estado de una orden de trabajo. */
+/**
+ * Chip píldora del estado de una orden, con la semántica fija del rediseño:
+ * índigo sólido = pasando ahora; verde-agua = terminado; borde punteado =
+ * esperando algo de fuera (único punteado del sistema); neutro = inerte.
+ */
 @Composable
 fun StatusChip(status: OrderStatus, modifier: Modifier = Modifier) {
-    val color = when (status) {
-        OrderStatus.RECIBIDO -> StatusRecibido
-        OrderStatus.EN_DIAGNOSTICO -> StatusDiagnostico
-        OrderStatus.EN_PROCESO -> StatusEnProceso
-        OrderStatus.EN_ESPERA_REPUESTO -> StatusEsperaRepuesto
-        OrderStatus.LISTO -> StatusListo
-        OrderStatus.ENTREGADO -> StatusEntregado
-        OrderStatus.CERRADO -> StatusCancelado
+    val (bg, textColor) = when (status) {
+        OrderStatus.RECIBIDO -> StatusRecibidoBg to StatusRecibidoText
+        OrderStatus.EN_DIAGNOSTICO -> StatusDiagnosticoBg to StatusDiagnosticoText
+        OrderStatus.EN_PROCESO -> StatusEnProcesoBg to StatusEnProcesoText
+        OrderStatus.EN_ESPERA_REPUESTO -> StatusEsperaBg to StatusEsperaText
+        OrderStatus.LISTO -> StatusListoBg to StatusListoText
+        OrderStatus.ENTREGADO -> StatusEntregadoBg to StatusEntregadoText
+        OrderStatus.CERRADO -> StatusCerradoBg to StatusCerradoText
     }
-    Surface(
-        color = color.copy(alpha = 0.15f),
-        shape = RoundedCornerShape(16.dp),
-        border = BorderStroke(1.dp, color.copy(alpha = 0.3f)),
+    val dashed = status == OrderStatus.EN_ESPERA_REPUESTO
+    Box(
         modifier = modifier
+            .clip(CircleShape)
+            .background(bg)
+            .then(
+                if (dashed) Modifier.drawBehind {
+                    val strokeWidth = 1.5.dp.toPx()
+                    drawRoundRect(
+                        color = StatusEsperaBorder,
+                        cornerRadius = CornerRadius(size.height / 2),
+                        style = Stroke(
+                            width = strokeWidth,
+                            pathEffect = PathEffect.dashPathEffect(floatArrayOf(8f, 7f))
+                        )
+                    )
+                } else Modifier
+            )
     ) {
         Text(
             text = status.displayName,
-            color = color,
+            color = textColor,
             style = MaterialTheme.typography.labelMedium,
             fontWeight = FontWeight.Bold,
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 5.dp)
         )
     }
 }
 
-/** Badge coloreado que muestra la prioridad de una orden (alta, media, baja). */
+/** Chip píldora de la prioridad de una orden, tintado desde las rampas. */
 @Composable
 fun PriorityChip(priority: Priority, modifier: Modifier = Modifier) {
-    val color = when (priority) {
-        Priority.ALTA -> PriorityAlta
-        Priority.MEDIA -> PriorityMedia
-        Priority.BAJA -> PriorityBaja
+    val (bg, textColor) = when (priority) {
+        Priority.ALTA -> ErrorContainerRed to OnErrorContainerRed
+        Priority.MEDIA -> Indigo200 to Indigo800
+        Priority.BAJA -> Aqua200 to Aqua800
     }
-    Surface(
-        color = color.copy(alpha = 0.15f),
-        shape = RoundedCornerShape(16.dp),
-        border = BorderStroke(1.dp, color.copy(alpha = 0.3f)),
+    Box(
         modifier = modifier
+            .clip(CircleShape)
+            .background(bg)
     ) {
         Text(
             text = priority.displayName,
-            color = color,
+            color = textColor,
             style = MaterialTheme.typography.labelMedium,
             fontWeight = FontWeight.Bold,
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 5.dp)
         )
     }
 }

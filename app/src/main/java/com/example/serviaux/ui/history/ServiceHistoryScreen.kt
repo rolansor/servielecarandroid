@@ -1,5 +1,8 @@
 package com.example.serviaux.ui.history
 
+import com.example.serviaux.util.formatKm
+import com.example.serviaux.util.formatMoney
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -59,7 +62,6 @@ import com.example.serviaux.ui.theme.StatusEntregado
 import com.example.serviaux.ui.theme.StatusEsperaRepuesto
 import com.example.serviaux.ui.theme.StatusListo
 import com.example.serviaux.ui.theme.StatusRecibido
-import java.text.NumberFormat
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -74,7 +76,6 @@ fun ServiceHistoryScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val dateFormat = SimpleDateFormat("dd/MM/yyyy", Locale("es"))
-    val currencyFormat = NumberFormat.getCurrencyInstance(Locale.US)
 
     LaunchedEffect(customerId) {
         if (customerId != null && uiState.selectedCustomer == null) {
@@ -231,7 +232,6 @@ fun ServiceHistoryScreen(
                                 parts = uiState.partMap[order.id] ?: emptyList(),
                                 partNameMap = uiState.partNameMap,
                                 dateFormat = dateFormat,
-                                currencyFormat = currencyFormat,
                                 onClick = { onNavigateToOrderDetail(order.id) }
                             )
                         }
@@ -251,7 +251,6 @@ private fun OrderHistoryCard(
     parts: List<WorkOrderPart>,
     partNameMap: Map<Long, String>,
     dateFormat: SimpleDateFormat,
-    currencyFormat: NumberFormat,
     onClick: () -> Unit
 ) {
     val statusColor = when (order.status) {
@@ -304,7 +303,7 @@ private fun OrderHistoryCard(
                             )
                             if (order.entryMileage != null) {
                                 Text(
-                                    text = "${NumberFormat.getNumberInstance().format(order.entryMileage)} km",
+                                    text = formatKm(order.entryMileage),
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
@@ -341,7 +340,7 @@ private fun OrderHistoryCard(
                             )
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(
-                                text = currencyFormat.format(service.laborCost - service.discount),
+                                text = formatMoney(service.laborCost - service.discount),
                                 style = MaterialTheme.typography.bodySmall,
                                 fontWeight = FontWeight.Medium
                             )
@@ -376,7 +375,7 @@ private fun OrderHistoryCard(
                             )
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(
-                                text = currencyFormat.format(part.subtotal - part.discount),
+                                text = formatMoney(part.subtotal - part.discount),
                                 style = MaterialTheme.typography.bodySmall,
                                 fontWeight = FontWeight.Medium
                             )
@@ -399,7 +398,7 @@ private fun OrderHistoryCard(
                         fontWeight = FontWeight.SemiBold
                     )
                     Text(
-                        text = currencyFormat.format(order.total),
+                        text = formatMoney(order.total),
                         style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.primary

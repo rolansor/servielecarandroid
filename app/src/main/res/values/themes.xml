@@ -1,4 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <style name="Theme.Serviaux" parent="android:Theme.Material.Light.NoActionBar" />
+    <style name="Theme.Serviaux" parent="android:Theme.Material.Light.NoActionBar">
+        <!-- Mismo fondo que el tema Compose, para que el arranque no destelle en blanco -->
+        <item name="android:windowBackground">@color/bg_lila</item>
+    </style>
 </resources>

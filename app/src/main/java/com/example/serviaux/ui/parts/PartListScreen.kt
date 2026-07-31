@@ -7,6 +7,8 @@
  */
 package com.example.serviaux.ui.parts
 
+import com.example.serviaux.util.formatMoney
+
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -209,7 +211,7 @@ fun PartListScreen(
                                             color = if (part.currentStock <= 0) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant
                                         )
                                         Text(
-                                            text = String.format("$%.2f", part.salePrice ?: part.unitCost),
+                                            text = formatMoney(part.salePrice ?: part.unitCost),
                                             style = MaterialTheme.typography.bodyMedium,
                                             fontWeight = FontWeight.SemiBold,
                                             color = MaterialTheme.colorScheme.primary

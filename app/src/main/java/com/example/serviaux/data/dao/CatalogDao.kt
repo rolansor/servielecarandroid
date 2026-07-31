@@ -52,6 +52,9 @@ interface CatalogDao {
     @Query("SELECT * FROM catalog_models ORDER BY name")
     suspend fun getAllModelsDirect(): List<CatalogModel>
 
+    @Query("SELECT * FROM catalog_models ORDER BY name")
+    fun getAllModels(): Flow<List<CatalogModel>>
+
     @Insert
     suspend fun insertModel(model: CatalogModel): Long
 

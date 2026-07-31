@@ -28,12 +28,13 @@ class MainActivity : FragmentActivity() {
                 val navBackStackEntry by navController.currentBackStackEntryAsState()
                 val currentRoute = navBackStackEntry?.destination?.route
 
+                // Las cinco raíces de la barra: Taller · Órdenes · Autos · Clientes · Más
                 val showBottomBar = currentRoute in setOf(
                     Routes.DASHBOARD,
-                    Routes.CUSTOMER_LIST,
-                    Routes.VEHICLE_LIST,
                     Routes.WORK_ORDER_LIST,
-                    Routes.APPOINTMENT_LIST
+                    Routes.VEHICLE_LIST,
+                    Routes.CUSTOMER_LIST,
+                    Routes.MORE
                 )
 
                 Scaffold(

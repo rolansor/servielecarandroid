@@ -41,6 +41,7 @@ class CatalogRepository(
 
     // ── Modelos ─────────────────────────────────────────────────────────
     fun getModelsByBrand(brandId: Long): Flow<List<CatalogModel>> = dao.getModelsByBrand(brandId)
+    fun getAllModels(): Flow<List<CatalogModel>> = dao.getAllModels()
     suspend fun insertModel(brandId: Long, name: String): Long = dao.insertModel(CatalogModel(brandId = brandId, name = name))
     suspend fun updateModel(model: CatalogModel) = dao.updateModel(model)
     suspend fun deleteModel(model: CatalogModel) = dao.deleteModel(model)

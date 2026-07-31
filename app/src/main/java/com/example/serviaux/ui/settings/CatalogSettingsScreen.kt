@@ -1,23 +1,29 @@
 /**
  * CatalogSettingsScreen.kt - Pantalla de configuración de catálogos.
  *
- * Interfaz de administración para los 9 tipos de catálogo del sistema:
- * marcas de vehículos (con modelos), colores, marcas de repuestos,
- * servicios predefinidos, tipos de vehículo, accesorios, quejas y diagnósticos.
+ * Rediseño s15: en vez de 9 pestañas, un hub con buscador global y una
+ * lista de categorías con su conteo. Cada categoría abre su propia vista
+ * con buscador; "Marcas y modelos" y "Motivos y diagnósticos" usan dos
+ * pestañas planas (ya no hay anidado expandible). Agregar un modelo o un
+ * diagnóstico pide la marca / el motivo con un dropdown buscable.
  *
- * Cada sección es expandible y permite crear, editar y eliminar elementos.
- * Incluye exportación e importación de catálogos en formato JSON.
- * Solo accesible para administradores.
+ * El buscador del hub busca en todos los catálogos a la vez y tocar un
+ * resultado abre su diálogo de edición. Solo accesible para administradores.
  */
 package com.example.serviaux.ui.settings
 
+import com.example.serviaux.util.formatMoney
+
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -26,19 +32,20 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
@@ -51,10 +58,11 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.MenuAnchorType
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.ScrollableTabRow
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Tab
+import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -64,20 +72,32 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
-import java.util.Locale
 import com.example.serviaux.data.entity.CatalogBrand
 import com.example.serviaux.data.entity.CatalogComplaint
-import com.example.serviaux.data.entity.CatalogDiagnosis
 import com.example.serviaux.data.entity.CatalogService
+import com.example.serviaux.ui.components.SearchableDropdown
+import com.example.serviaux.ui.components.SearchableItem
+
+/** Categorías del hub de catálogos, en el orden en que se listan. */
+enum class CatalogCategory(val title: String) {
+    MARCAS_MODELOS("Marcas y modelos"),
+    SERVICIOS("Servicios y precios"),
+    MOTIVOS_DIAGNOSTICOS("Motivos y diagnósticos"),
+    COLORES("Colores"),
+    MARCAS_REPUESTOS("Marcas de repuestos"),
+    ACCESORIOS("Accesorios del checklist"),
+    ACEITES("Aceites"),
+    TIPOS_VEHICULO("Tipos de vehículo")
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -87,9 +107,17 @@ fun CatalogSettingsScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
-    var selectedTab by remember { mutableIntStateOf(0) }
-    val context = LocalContext.current
-    val tabs = listOf("Marcas", "Colores", "Repuestos", "Servicios", "Tipos Veh.", "Accesorios", "Aceites", "Motivos", "Diagn\u00f3sticos")
+    var openCategory by rememberSaveable { mutableStateOf<CatalogCategory?>(null) }
+    var query by rememberSaveable { mutableStateOf("") }
+    var selectedTab by rememberSaveable { mutableIntStateOf(0) }
+
+    fun backToHub() {
+        openCategory = null
+        query = ""
+        selectedTab = 0
+    }
+
+    BackHandler(enabled = openCategory != null) { backToHub() }
 
     LaunchedEffect(uiState.error) {
         uiState.error?.let {
@@ -111,9 +139,9 @@ fun CatalogSettingsScreen(
         topBar = {
             TopAppBar(
                 expandedHeight = 40.dp,
-                title = { Text("Mantenimiento Cat\u00e1logos") },
+                title = { Text(openCategory?.title ?: "Catálogos") },
                 navigationIcon = {
-                    IconButton(onClick = onNavigateBack) {
+                    IconButton(onClick = { if (openCategory != null) backToHub() else onNavigateBack() }) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Volver")
                     }
                 }
@@ -121,27 +149,28 @@ fun CatalogSettingsScreen(
         },
         snackbarHost = { SnackbarHost(snackbarHostState) },
         floatingActionButton = {
-            FloatingActionButton(
-                onClick = {
-                    when (selectedTab) {
-                        0 -> viewModel.showAddBrandDialog()
-                        1 -> viewModel.showAddColorDialog()
-                        2 -> viewModel.showAddPartBrandDialog()
-                        3 -> viewModel.showAddServiceDialog()
-                        4 -> viewModel.showAddVehicleTypeDialog()
-                        5 -> viewModel.showAddAccessoryDialog()
-                        6 -> viewModel.showAddOilTypeDialog()
-                        7 -> viewModel.showAddComplaintDialog()
-                        8 -> {
-                            val complaintId = uiState.selectedComplaintId
-                            if (complaintId != null) {
-                                viewModel.showAddDiagnosisDialog(complaintId)
-                            }
+            val category = openCategory
+            if (category != null) {
+                FloatingActionButton(
+                    onClick = {
+                        when (category) {
+                            CatalogCategory.MARCAS_MODELOS ->
+                                if (selectedTab == 0) viewModel.showAddBrandDialog()
+                                else viewModel.showAddModelDialog()
+                            CatalogCategory.MOTIVOS_DIAGNOSTICOS ->
+                                if (selectedTab == 0) viewModel.showAddComplaintDialog()
+                                else viewModel.showAddDiagnosisDialog()
+                            CatalogCategory.SERVICIOS -> viewModel.showAddServiceDialog()
+                            CatalogCategory.COLORES -> viewModel.showAddColorDialog()
+                            CatalogCategory.MARCAS_REPUESTOS -> viewModel.showAddPartBrandDialog()
+                            CatalogCategory.ACCESORIOS -> viewModel.showAddAccessoryDialog()
+                            CatalogCategory.ACEITES -> viewModel.showAddOilTypeDialog()
+                            CatalogCategory.TIPOS_VEHICULO -> viewModel.showAddVehicleTypeDialog()
                         }
                     }
+                ) {
+                    Icon(Icons.Default.Add, contentDescription = "Agregar")
                 }
-            ) {
-                Icon(Icons.Default.Add, contentDescription = "Agregar")
             }
         }
     ) { padding ->
@@ -150,300 +179,508 @@ fun CatalogSettingsScreen(
                 .fillMaxSize()
                 .padding(padding)
         ) {
-            // Scrollable tabs
-            ScrollableTabRow(
-                selectedTabIndex = selectedTab,
-                edgePadding = 8.dp
-            ) {
-                tabs.forEachIndexed { index, title ->
-                    Tab(
-                        selected = selectedTab == index,
-                        onClick = { selectedTab = index },
-                        text = { Text(title) }
-                    )
-                }
-            }
+            CatalogSearchField(
+                query = query,
+                onQueryChange = { query = it },
+                placeholder = if (openCategory == null) "Buscar en todos los catálogos"
+                else "Buscar en ${openCategory!!.title.lowercase()}"
+            )
 
-            when (selectedTab) {
-                0 -> BrandsTab(uiState = uiState, viewModel = viewModel)
-                1 -> SimpleListTab(
-                    items = uiState.colors.map { SimpleItem(it.id, it.name) },
+            when (val category = openCategory) {
+                null ->
+                    if (query.isBlank()) {
+                        CatalogHub(uiState = uiState, onOpenCategory = { openCategory = it; query = "" })
+                    } else {
+                        GlobalSearchResults(uiState = uiState, query = query, viewModel = viewModel)
+                    }
+                CatalogCategory.MARCAS_MODELOS ->
+                    BrandsModelsContent(uiState, query, selectedTab, { selectedTab = it }, viewModel)
+                CatalogCategory.MOTIVOS_DIAGNOSTICOS ->
+                    ComplaintsDiagnosesContent(uiState, query, selectedTab, { selectedTab = it }, viewModel)
+                CatalogCategory.SERVICIOS ->
+                    ServicesContent(uiState, query, viewModel)
+                CatalogCategory.COLORES -> SimpleCatalogList(
+                    items = uiState.colors.map { CatalogRowData(it.id, it.name) },
+                    query = query,
                     onEdit = { id -> uiState.colors.find { it.id == id }?.let { viewModel.showEditColorDialog(it) } },
                     onDelete = { id, name -> viewModel.showDeleteConfirmation("color", id, name) }
                 )
-                2 -> SimpleListTab(
-                    items = uiState.partBrands.map { SimpleItem(it.id, it.name) },
+                CatalogCategory.MARCAS_REPUESTOS -> SimpleCatalogList(
+                    items = uiState.partBrands.map { CatalogRowData(it.id, it.name) },
+                    query = query,
                     onEdit = { id -> uiState.partBrands.find { it.id == id }?.let { viewModel.showEditPartBrandDialog(it) } },
                     onDelete = { id, name -> viewModel.showDeleteConfirmation("partBrand", id, name) }
                 )
-                3 -> ServicesTab(uiState = uiState, viewModel = viewModel)
-                4 -> SimpleListTab(
-                    items = uiState.vehicleTypes.map { SimpleItem(it.id, it.name) },
-                    onEdit = { id -> uiState.vehicleTypes.find { it.id == id }?.let { viewModel.showEditVehicleTypeDialog(it) } },
-                    onDelete = { id, name -> viewModel.showDeleteConfirmation("vehicleType", id, name) }
-                )
-                5 -> SimpleListTab(
-                    items = uiState.accessories.map { SimpleItem(it.id, it.name) },
+                CatalogCategory.ACCESORIOS -> SimpleCatalogList(
+                    items = uiState.accessories.map { CatalogRowData(it.id, it.name) },
+                    query = query,
                     onEdit = { id -> uiState.accessories.find { it.id == id }?.let { viewModel.showEditAccessoryDialog(it) } },
                     onDelete = { id, name -> viewModel.showDeleteConfirmation("accessory", id, name) }
                 )
-                6 -> SimpleListTab(
-                    items = uiState.oilTypes.map { SimpleItem(it.id, it.name) },
+                CatalogCategory.ACEITES -> SimpleCatalogList(
+                    items = uiState.oilTypes.map { CatalogRowData(it.id, it.name) },
+                    query = query,
                     onEdit = { id -> uiState.oilTypes.find { it.id == id }?.let { viewModel.showEditOilTypeDialog(it) } },
                     onDelete = { id, name -> viewModel.showDeleteConfirmation("oilType", id, name) }
                 )
-                7 -> ComplaintsTab(uiState = uiState, viewModel = viewModel)
-                8 -> DiagnosesTab(uiState = uiState, viewModel = viewModel)
+                CatalogCategory.TIPOS_VEHICULO -> SimpleCatalogList(
+                    items = uiState.vehicleTypes.map { CatalogRowData(it.id, it.name) },
+                    query = query,
+                    onEdit = { id -> uiState.vehicleTypes.find { it.id == id }?.let { viewModel.showEditVehicleTypeDialog(it) } },
+                    onDelete = { id, name -> viewModel.showDeleteConfirmation("vehicleType", id, name) }
+                )
             }
         }
     }
 }
 
-// ─── Simple reusable item for flat list tabs ─────────────────────────
-
-private data class SimpleItem(val id: Long, val name: String)
+// ─── Buscador ────────────────────────────────────────────────────────
 
 @Composable
-private fun SimpleListTab(
-    items: List<SimpleItem>,
-    onEdit: (Long) -> Unit,
-    onDelete: (Long, String) -> Unit
+private fun CatalogSearchField(
+    query: String,
+    onQueryChange: (String) -> Unit,
+    placeholder: String
 ) {
-    LazyColumn(
-        modifier = Modifier.fillMaxSize(),
-        contentPadding = androidx.compose.foundation.layout.PaddingValues(vertical = 8.dp, horizontal = 0.dp)
+    OutlinedTextField(
+        value = query,
+        onValueChange = onQueryChange,
+        placeholder = { Text(placeholder, style = MaterialTheme.typography.bodyMedium) },
+        leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+        trailingIcon = {
+            if (query.isNotBlank()) {
+                IconButton(onClick = { onQueryChange("") }) {
+                    Icon(Icons.Default.Close, contentDescription = "Limpiar", modifier = Modifier.size(20.dp))
+                }
+            }
+        },
+        singleLine = true,
+        shape = CircleShape,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 8.dp)
+    )
+}
+
+// ─── Hub: lista de categorías con conteo ─────────────────────────────
+
+@Composable
+private fun CatalogHub(
+    uiState: CatalogUiState,
+    onOpenCategory: (CatalogCategory) -> Unit
+) {
+    fun count(category: CatalogCategory): Int = when (category) {
+        CatalogCategory.MARCAS_MODELOS -> uiState.brands.size + uiState.allModels.size
+        CatalogCategory.SERVICIOS -> uiState.services.size
+        CatalogCategory.MOTIVOS_DIAGNOSTICOS -> uiState.complaints.size + uiState.diagnoses.size
+        CatalogCategory.COLORES -> uiState.colors.size
+        CatalogCategory.MARCAS_REPUESTOS -> uiState.partBrands.size
+        CatalogCategory.ACCESORIOS -> uiState.accessories.size
+        CatalogCategory.ACEITES -> uiState.oilTypes.size
+        CatalogCategory.TIPOS_VEHICULO -> uiState.vehicleTypes.size
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(horizontal = 16.dp, vertical = 8.dp)
     ) {
-        items(items, key = { it.id }) { item ->
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 2.dp)
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = item.name,
-                        style = MaterialTheme.typography.bodyLarge,
-                        modifier = Modifier.weight(1f)
-                    )
-                    IconButton(onClick = { onEdit(item.id) }, modifier = Modifier.size(36.dp)) {
-                        Icon(Icons.Default.Edit, contentDescription = "Editar", modifier = Modifier.size(18.dp))
+        Surface(
+            color = MaterialTheme.colorScheme.surfaceVariant,
+            shape = MaterialTheme.shapes.extraLarge,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(modifier = Modifier.padding(vertical = 4.dp)) {
+                CatalogCategory.entries.forEachIndexed { index, category ->
+                    if (index > 0) {
+                        HorizontalDivider(
+                            color = MaterialTheme.colorScheme.outlineVariant,
+                            modifier = Modifier.padding(horizontal = 18.dp)
+                        )
                     }
-                    IconButton(onClick = { onDelete(item.id, item.name) }, modifier = Modifier.size(36.dp)) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { onOpenCategory(category) }
+                            .defaultMinSize(minHeight = 52.dp)
+                            .padding(horizontal = 18.dp, vertical = 14.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = category.title,
+                            style = MaterialTheme.typography.titleMedium,
+                            modifier = Modifier.weight(1f)
+                        )
+                        Text(
+                            text = "${count(category)}",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                         Icon(
-                            Icons.Default.Delete,
-                            contentDescription = "Eliminar",
-                            tint = MaterialTheme.colorScheme.error,
-                            modifier = Modifier.size(18.dp)
+                            imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }
             }
         }
+        Spacer(modifier = Modifier.height(12.dp))
+        Text(
+            text = "El inventario de repuestos no vive aquí: se administra en su propia pestaña.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(horizontal = 4.dp)
+        )
     }
 }
 
-// ─── Brands Tab (hierarchical with models) ───────────────────────────
+// ─── Búsqueda global ─────────────────────────────────────────────────
+
+private data class GlobalResult(
+    val key: String,
+    val name: String,
+    val subtitle: String?,
+    val onClick: () -> Unit
+)
 
 @Composable
-private fun BrandsTab(uiState: CatalogUiState, viewModel: CatalogViewModel) {
+private fun GlobalSearchResults(
+    uiState: CatalogUiState,
+    query: String,
+    viewModel: CatalogViewModel
+) {
+    val brandNames = uiState.brands.associate { it.id to it.name }
+    val complaintNames = uiState.complaints.associate { it.id to it.name }
+
+    fun matches(text: String) = text.contains(query, ignoreCase = true)
+
+    val groups: List<Pair<String, List<GlobalResult>>> = listOf(
+        "Marcas" to uiState.brands.filter { matches(it.name) }
+            .map { b -> GlobalResult("brand_${b.id}", b.name, null) { viewModel.showEditBrandDialog(b) } },
+        "Modelos" to uiState.allModels.filter { matches(it.name) || matches(brandNames[it.brandId] ?: "") }
+            .map { m -> GlobalResult("model_${m.id}", m.name, brandNames[m.brandId]) { viewModel.showEditModelDialog(m) } },
+        "Servicios" to uiState.services.filter { matches(it.name) || matches(it.category) }
+            .map { s -> GlobalResult("service_${s.id}", s.name, "${s.category} · ${formatMoney(s.defaultPrice)}") { viewModel.showEditServiceDialog(s) } },
+        "Motivos" to uiState.complaints.filter { matches(it.name) }
+            .map { c -> GlobalResult("complaint_${c.id}", c.name, null) { viewModel.showEditComplaintDialog(c) } },
+        "Diagnósticos" to uiState.diagnoses.filter { matches(it.name) }
+            .map { d -> GlobalResult("diagnosis_${d.id}", d.name, complaintNames[d.complaintId]) { viewModel.showEditDiagnosisDialog(d) } },
+        "Colores" to uiState.colors.filter { matches(it.name) }
+            .map { c -> GlobalResult("color_${c.id}", c.name, null) { viewModel.showEditColorDialog(c) } },
+        "Marcas de repuestos" to uiState.partBrands.filter { matches(it.name) }
+            .map { p -> GlobalResult("partBrand_${p.id}", p.name, null) { viewModel.showEditPartBrandDialog(p) } },
+        "Accesorios" to uiState.accessories.filter { matches(it.name) }
+            .map { a -> GlobalResult("accessory_${a.id}", a.name, null) { viewModel.showEditAccessoryDialog(a) } },
+        "Aceites" to uiState.oilTypes.filter { matches(it.name) }
+            .map { o -> GlobalResult("oil_${o.id}", o.name, null) { viewModel.showEditOilTypeDialog(o) } },
+        "Tipos de vehículo" to uiState.vehicleTypes.filter { matches(it.name) }
+            .map { v -> GlobalResult("vt_${v.id}", v.name, null) { viewModel.showEditVehicleTypeDialog(v) } }
+    ).filter { it.second.isNotEmpty() }
+
+    if (groups.isEmpty()) {
+        Text(
+            text = "Sin resultados para \"$query\"",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(horizontal = 20.dp, vertical = 24.dp)
+        )
+        return
+    }
+
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 80.dp)
+        contentPadding = PaddingValues(bottom = 96.dp)
     ) {
-        items(uiState.brands, key = { it.id }) { brand ->
-            BrandItem(
-                brand = brand,
-                isExpanded = uiState.selectedBrandId == brand.id,
-                models = if (uiState.selectedBrandId == brand.id) uiState.models else emptyList(),
-                onToggle = {
-                    if (uiState.selectedBrandId == brand.id) viewModel.selectBrand(null)
-                    else viewModel.selectBrand(brand)
-                },
-                onEditBrand = { viewModel.showEditBrandDialog(brand) },
-                onDeleteBrand = { viewModel.showDeleteConfirmation("brand", brand.id, brand.name) },
-                onAddModel = { viewModel.showAddModelDialog(brand.id) },
-                onEditModel = { model -> viewModel.showEditModelDialog(model) },
-                onDeleteModel = { model -> viewModel.showDeleteConfirmation("model", model.id, model.name) }
+        groups.forEach { (label, results) ->
+            item(key = "header_$label") {
+                Text(
+                    text = label.uppercase() + " (${results.size})",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 14.dp, bottom = 4.dp)
+                )
+            }
+            items(results, key = { it.key }) { result ->
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { result.onClick() }
+                        .padding(horizontal = 20.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(result.name, style = MaterialTheme.typography.bodyLarge)
+                        if (result.subtitle != null) {
+                            Text(
+                                text = result.subtitle,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                    Icon(
+                        imageVector = Icons.Default.Edit,
+                        contentDescription = "Editar",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
+            }
+        }
+    }
+}
+
+// ─── Fila estándar de las listas de categoría ────────────────────────
+
+private data class CatalogRowData(val id: Long, val name: String, val subtitle: String? = null)
+
+@Composable
+private fun CatalogRow(
+    item: CatalogRowData,
+    onEdit: () -> Unit,
+    onDelete: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onEdit() }
+            .padding(start = 20.dp, end = 8.dp, top = 6.dp, bottom = 6.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(item.name, style = MaterialTheme.typography.bodyLarge)
+            if (item.subtitle != null) {
+                Text(
+                    text = item.subtitle,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+        IconButton(onClick = onEdit, modifier = Modifier.size(36.dp)) {
+            Icon(
+                Icons.Default.Edit,
+                contentDescription = "Editar",
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(18.dp)
+            )
+        }
+        IconButton(onClick = onDelete, modifier = Modifier.size(36.dp)) {
+            Icon(
+                Icons.Default.Delete,
+                contentDescription = "Eliminar",
+                tint = MaterialTheme.colorScheme.error,
+                modifier = Modifier.size(18.dp)
             )
         }
     }
 }
 
 @Composable
-private fun BrandItem(
-    brand: CatalogBrand,
-    isExpanded: Boolean,
-    models: List<com.example.serviaux.data.entity.CatalogModel>,
-    onToggle: () -> Unit,
-    onEditBrand: () -> Unit,
-    onDeleteBrand: () -> Unit,
-    onAddModel: () -> Unit,
-    onEditModel: (com.example.serviaux.data.entity.CatalogModel) -> Unit,
-    onDeleteModel: (com.example.serviaux.data.entity.CatalogModel) -> Unit
+private fun SimpleCatalogList(
+    items: List<CatalogRowData>,
+    query: String,
+    onEdit: (Long) -> Unit,
+    onDelete: (Long, String) -> Unit
 ) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 4.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = if (isExpanded)
-                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
-            else MaterialTheme.colorScheme.surface
-        )
-    ) {
-        Column {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable { onToggle() }
-                    .padding(horizontal = 16.dp, vertical = 12.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Icon(
-                    imageVector = if (isExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
-                    contentDescription = null,
-                    modifier = Modifier.size(24.dp)
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    text = brand.name,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Medium,
-                    modifier = Modifier.weight(1f)
-                )
-                IconButton(onClick = onEditBrand, modifier = Modifier.size(36.dp)) {
-                    Icon(Icons.Default.Edit, contentDescription = "Editar marca", modifier = Modifier.size(18.dp))
-                }
-                IconButton(onClick = onDeleteBrand, modifier = Modifier.size(36.dp)) {
-                    Icon(Icons.Default.Delete, contentDescription = "Eliminar marca", tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(18.dp))
-                }
-            }
+    val filtered = if (query.isBlank()) items
+    else items.filter {
+        it.name.contains(query, ignoreCase = true) ||
+            it.subtitle?.contains(query, ignoreCase = true) == true
+    }
 
-            AnimatedVisibility(visible = isExpanded) {
-                Column(modifier = Modifier.padding(start = 32.dp, end = 16.dp, bottom = 8.dp)) {
-                    HorizontalDivider()
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = "Modelos (${models.size})",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(vertical = 4.dp)
-                    )
-                    models.forEach { model ->
-                        Row(
-                            modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(text = model.name, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
-                            IconButton(onClick = { onEditModel(model) }, modifier = Modifier.size(32.dp)) {
-                                Icon(Icons.Default.Edit, contentDescription = "Editar modelo", modifier = Modifier.size(16.dp))
-                            }
-                            IconButton(onClick = { onDeleteModel(model) }, modifier = Modifier.size(32.dp)) {
-                                Icon(Icons.Default.Delete, contentDescription = "Eliminar modelo", tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(16.dp))
-                            }
-                        }
-                    }
-                    Spacer(modifier = Modifier.height(4.dp))
-                    TextButton(onClick = onAddModel) {
-                        Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text("Agregar modelo")
-                    }
-                }
-            }
+    if (filtered.isEmpty()) {
+        Text(
+            text = if (query.isBlank()) "Sin elementos todavía" else "Sin resultados para \"$query\"",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(horizontal = 20.dp, vertical = 24.dp)
+        )
+        return
+    }
+
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(top = 4.dp, bottom = 96.dp)
+    ) {
+        items(filtered, key = { it.id }) { item ->
+            CatalogRow(
+                item = item,
+                onEdit = { onEdit(item.id) },
+                onDelete = { onDelete(item.id, item.name) }
+            )
+            HorizontalDivider(
+                color = MaterialTheme.colorScheme.outlineVariant,
+                modifier = Modifier.padding(horizontal = 20.dp)
+            )
         }
     }
 }
 
-// ─── Services Tab (grouped by category) ──────────────────────────────
+// ─── Marcas y modelos (dos pestañas planas) ──────────────────────────
 
 @Composable
-private fun ServicesTab(uiState: CatalogUiState, viewModel: CatalogViewModel) {
+private fun BrandsModelsContent(
+    uiState: CatalogUiState,
+    query: String,
+    selectedTab: Int,
+    onTabChange: (Int) -> Unit,
+    viewModel: CatalogViewModel
+) {
+    Column(modifier = Modifier.fillMaxSize()) {
+        TabRow(selectedTabIndex = selectedTab) {
+            Tab(selected = selectedTab == 0, onClick = { onTabChange(0) }, text = { Text("Marcas") })
+            Tab(selected = selectedTab == 1, onClick = { onTabChange(1) }, text = { Text("Modelos") })
+        }
+        if (selectedTab == 0) {
+            val modelCount = uiState.allModels.groupingBy { it.brandId }.eachCount()
+            SimpleCatalogList(
+                items = uiState.brands.map { brand ->
+                    val n = modelCount[brand.id] ?: 0
+                    CatalogRowData(brand.id, brand.name, if (n == 1) "1 modelo" else "$n modelos")
+                },
+                query = query,
+                onEdit = { id -> uiState.brands.find { it.id == id }?.let { viewModel.showEditBrandDialog(it) } },
+                onDelete = { id, name -> viewModel.showDeleteConfirmation("brand", id, name) }
+            )
+        } else {
+            val brandNames = uiState.brands.associate { it.id to it.name }
+            SimpleCatalogList(
+                items = uiState.allModels.map { model ->
+                    CatalogRowData(model.id, model.name, brandNames[model.brandId] ?: "Sin marca")
+                },
+                query = query,
+                onEdit = { id -> uiState.allModels.find { it.id == id }?.let { viewModel.showEditModelDialog(it) } },
+                onDelete = { id, name -> viewModel.showDeleteConfirmation("model", id, name) }
+            )
+        }
+    }
+}
+
+// ─── Motivos y diagnósticos (dos pestañas planas) ────────────────────
+
+@Composable
+private fun ComplaintsDiagnosesContent(
+    uiState: CatalogUiState,
+    query: String,
+    selectedTab: Int,
+    onTabChange: (Int) -> Unit,
+    viewModel: CatalogViewModel
+) {
+    Column(modifier = Modifier.fillMaxSize()) {
+        TabRow(selectedTabIndex = selectedTab) {
+            Tab(selected = selectedTab == 0, onClick = { onTabChange(0) }, text = { Text("Motivos") })
+            Tab(selected = selectedTab == 1, onClick = { onTabChange(1) }, text = { Text("Diagnósticos") })
+        }
+        if (selectedTab == 0) {
+            val diagnosisCount = uiState.diagnoses.groupingBy { it.complaintId }.eachCount()
+            SimpleCatalogList(
+                items = uiState.complaints.map { complaint ->
+                    val n = diagnosisCount[complaint.id] ?: 0
+                    CatalogRowData(complaint.id, complaint.name, if (n == 1) "1 diagnóstico" else "$n diagnósticos")
+                },
+                query = query,
+                onEdit = { id -> uiState.complaints.find { it.id == id }?.let { viewModel.showEditComplaintDialog(it) } },
+                onDelete = { id, name -> viewModel.showDeleteConfirmation("complaint", id, name) }
+            )
+        } else {
+            val complaintNames = uiState.complaints.associate { it.id to it.name }
+            SimpleCatalogList(
+                items = uiState.diagnoses.map { diagnosis ->
+                    CatalogRowData(diagnosis.id, diagnosis.name, complaintNames[diagnosis.complaintId] ?: "Sin motivo")
+                },
+                query = query,
+                onEdit = { id -> uiState.diagnoses.find { it.id == id }?.let { viewModel.showEditDiagnosisDialog(it) } },
+                onDelete = { id, name -> viewModel.showDeleteConfirmation("diagnosis", id, name) }
+            )
+        }
+    }
+}
+
+// ─── Servicios (agrupados por categoría; búsqueda aplana) ────────────
+
+@Composable
+private fun ServicesContent(
+    uiState: CatalogUiState,
+    query: String,
+    viewModel: CatalogViewModel
+) {
+    if (query.isNotBlank()) {
+        SimpleCatalogList(
+            items = uiState.services
+                .filter { it.name.contains(query, ignoreCase = true) || it.category.contains(query, ignoreCase = true) }
+                .map { CatalogRowData(it.id, it.name, "${it.category} · ${formatMoney(it.defaultPrice)}") },
+            query = "",
+            onEdit = { id -> uiState.services.find { it.id == id }?.let { viewModel.showEditServiceDialog(it) } },
+            onDelete = { id, name -> viewModel.showDeleteConfirmation("service", id, name) }
+        )
+        return
+    }
+
     val servicesByCategory = uiState.services.groupBy { it.category }
     val categories = servicesByCategory.keys.sorted()
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 80.dp)
+        contentPadding = PaddingValues(top = 4.dp, bottom = 96.dp)
     ) {
         items(categories, key = { it }) { category ->
             val services = servicesByCategory[category] ?: emptyList()
             val isExpanded = uiState.expandedServiceCategory == category
 
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 4.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = if (isExpanded)
-                        MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.3f)
-                    else MaterialTheme.colorScheme.surface
-                )
-            ) {
-                Column {
-                    // Category header
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { viewModel.toggleServiceCategory(category) }
-                            .padding(horizontal = 16.dp, vertical = 12.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            imageVector = if (isExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
-                            contentDescription = null,
-                            modifier = Modifier.size(24.dp)
+            Column {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { viewModel.toggleServiceCategory(category) }
+                        .padding(horizontal = 20.dp, vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(category, style = MaterialTheme.typography.titleMedium)
+                        Text(
+                            text = if (services.size == 1) "1 servicio" else "${services.size} servicios",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = category,
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Medium
-                            )
-                            Text(
-                                text = "${services.size} servicios",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                    }
+                    Icon(
+                        imageVector = if (isExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                AnimatedVisibility(visible = isExpanded) {
+                    Column {
+                        services.forEach { service ->
+                            ServiceRow(
+                                service = service,
+                                onEdit = { viewModel.showEditServiceDialog(service) },
+                                onDelete = { viewModel.showDeleteConfirmation("service", service.id, service.name) }
                             )
                         }
-                    }
-
-                    // Services list
-                    AnimatedVisibility(visible = isExpanded) {
-                        Column(modifier = Modifier.padding(start = 32.dp, end = 16.dp, bottom = 8.dp)) {
-                            HorizontalDivider()
-                            Spacer(modifier = Modifier.height(4.dp))
-
-                            services.forEach { service ->
-                                ServiceItem(
-                                    service = service,
-                                    onEdit = { viewModel.showEditServiceDialog(service) },
-                                    onDelete = { viewModel.showDeleteConfirmation("service", service.id, service.name) }
-                                )
-                            }
-
-                            Spacer(modifier = Modifier.height(4.dp))
-                            TextButton(onClick = { viewModel.showAddServiceDialog(category) }) {
-                                Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text("Agregar servicio")
-                            }
+                        TextButton(
+                            onClick = { viewModel.showAddServiceDialog(category) },
+                            modifier = Modifier.padding(start = 20.dp)
+                        ) {
+                            Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Agregar en $category")
                         }
                     }
                 }
+                HorizontalDivider(
+                    color = MaterialTheme.colorScheme.outlineVariant,
+                    modifier = Modifier.padding(horizontal = 20.dp)
+                )
             }
         }
     }
 }
 
 @Composable
-private fun ServiceItem(
+private fun ServiceRow(
     service: CatalogService,
     onEdit: () -> Unit,
     onDelete: () -> Unit
@@ -451,14 +688,24 @@ private fun ServiceItem(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 4.dp),
+            .clickable { onEdit() }
+            .padding(start = 28.dp, end = 8.dp, top = 4.dp, bottom = 4.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Column(modifier = Modifier.weight(1f)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(text = service.name, style = MaterialTheme.typography.bodyMedium)
+            Text(service.name, style = MaterialTheme.typography.bodyMedium)
+            // El chip de tipo va junto al precio: al lado del nombre se
+            // aplastaba y partía letra por letra con nombres largos.
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                Text(
+                    text = formatMoney(service.defaultPrice),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.primary
+                )
                 if (service.vehicleType != null) {
-                    Spacer(modifier = Modifier.width(6.dp))
                     Text(
                         text = service.vehicleType,
                         style = MaterialTheme.typography.labelSmall,
@@ -472,126 +719,22 @@ private fun ServiceItem(
                     )
                 }
             }
-            Text(
-                text = "$${String.format(Locale.US, "%.2f", service.defaultPrice)}",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.primary
-            )
         }
         IconButton(onClick = onEdit, modifier = Modifier.size(32.dp)) {
-            Icon(Icons.Default.Edit, contentDescription = "Editar", modifier = Modifier.size(16.dp))
+            Icon(
+                Icons.Default.Edit,
+                contentDescription = "Editar",
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(16.dp)
+            )
         }
         IconButton(onClick = onDelete, modifier = Modifier.size(32.dp)) {
-            Icon(Icons.Default.Delete, contentDescription = "Eliminar", tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(16.dp))
-        }
-    }
-}
-
-// ─── Complaints Tab ──────────────────────────────────────────────────
-
-@Composable
-private fun ComplaintsTab(uiState: CatalogUiState, viewModel: CatalogViewModel) {
-    SimpleListTab(
-        items = uiState.complaints.map { SimpleItem(it.id, it.name) },
-        onEdit = { id -> uiState.complaints.find { it.id == id }?.let { viewModel.showEditComplaintDialog(it) } },
-        onDelete = { id, name -> viewModel.showDeleteConfirmation("complaint", id, name) }
-    )
-}
-
-// ─── Diagnoses Tab ───────────────────────────────────────────────────
-
-@Composable
-private fun DiagnosesTab(uiState: CatalogUiState, viewModel: CatalogViewModel) {
-    val complaints = uiState.complaints
-    val allDiagnoses = uiState.diagnoses
-
-    LazyColumn(
-        modifier = Modifier.fillMaxSize(),
-        contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 80.dp)
-    ) {
-        items(complaints, key = { it.id }) { complaint ->
-            val isExpanded = uiState.selectedComplaintId == complaint.id
-            val diagnoses = allDiagnoses.filter { it.complaintId == complaint.id }
-
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 4.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = if (isExpanded)
-                        MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
-                    else MaterialTheme.colorScheme.surface
-                )
-            ) {
-                Column {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable {
-                                viewModel.selectComplaint(if (isExpanded) null else complaint)
-                            }
-                            .padding(horizontal = 16.dp, vertical = 12.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            imageVector = if (isExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
-                            contentDescription = null,
-                            modifier = Modifier.size(24.dp)
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = complaint.name,
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Medium
-                            )
-                            Text(
-                                text = "${diagnoses.size} diagn\u00f3sticos",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    }
-
-                    AnimatedVisibility(visible = isExpanded) {
-                        Column(modifier = Modifier.padding(start = 32.dp, end = 16.dp, bottom = 8.dp)) {
-                            HorizontalDivider()
-                            Spacer(modifier = Modifier.height(4.dp))
-
-                            if (diagnoses.isEmpty()) {
-                                Text(
-                                    text = "Sin diagn\u00f3sticos",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.padding(vertical = 4.dp)
-                                )
-                            }
-
-                            diagnoses.forEach { diagnosis ->
-                                Row(
-                                    modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Text(text = diagnosis.name, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
-                                    IconButton(onClick = { viewModel.showEditDiagnosisDialog(diagnosis) }, modifier = Modifier.size(32.dp)) {
-                                        Icon(Icons.Default.Edit, contentDescription = "Editar", modifier = Modifier.size(16.dp))
-                                    }
-                                    IconButton(onClick = { viewModel.showDeleteConfirmation("diagnosis", diagnosis.id, diagnosis.name) }, modifier = Modifier.size(32.dp)) {
-                                        Icon(Icons.Default.Delete, contentDescription = "Eliminar", tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(16.dp))
-                                    }
-                                }
-                            }
-
-                            Spacer(modifier = Modifier.height(4.dp))
-                            TextButton(onClick = { viewModel.showAddDiagnosisDialog(complaint.id) }) {
-                                Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text("Agregar diagn\u00f3stico")
-                            }
-                        }
-                    }
-                }
-            }
+            Icon(
+                Icons.Default.Delete,
+                contentDescription = "Eliminar",
+                tint = MaterialTheme.colorScheme.error,
+                modifier = Modifier.size(16.dp)
+            )
         }
     }
 }
@@ -626,12 +769,15 @@ private fun CatalogDialogs(uiState: CatalogUiState, viewModel: CatalogViewModel)
         }
 
         is CatalogDialogState.AddModel -> {
-            TextInputDialog(
+            ParentPickerInputDialog(
                 title = "Agregar Modelo",
-                label = "Nombre del modelo",
-                value = dialog.name,
-                onValueChange = { viewModel.updateDialogText(it) },
-                onConfirm = { viewModel.confirmAddModel(dialog.brandId, dialog.name) },
+                parentLabel = "Marca",
+                parents = uiState.brands.map { SearchableItem(it.id, it.name) },
+                initialParentId = dialog.brandId,
+                nameLabel = "Nombre del modelo",
+                name = dialog.name,
+                onNameChange = { viewModel.updateDialogText(it) },
+                onConfirm = { parentId -> viewModel.confirmAddModel(parentId, dialog.name) },
                 onDismiss = { viewModel.dismissDialog() }
             )
         }
@@ -727,7 +873,7 @@ private fun CatalogDialogs(uiState: CatalogUiState, viewModel: CatalogViewModel)
 
         is CatalogDialogState.AddVehicleType -> {
             TextInputDialog(
-                title = "Agregar Tipo de Veh\u00edculo",
+                title = "Agregar Tipo de Vehículo",
                 label = "Nombre del tipo",
                 value = dialog.name,
                 onValueChange = { viewModel.updateDialogText(it) },
@@ -738,7 +884,7 @@ private fun CatalogDialogs(uiState: CatalogUiState, viewModel: CatalogViewModel)
 
         is CatalogDialogState.EditVehicleType -> {
             TextInputDialog(
-                title = "Editar Tipo de Veh\u00edculo",
+                title = "Editar Tipo de Vehículo",
                 label = "Nombre del tipo",
                 value = dialog.name,
                 onValueChange = { viewModel.updateDialogText(it) },
@@ -814,20 +960,23 @@ private fun CatalogDialogs(uiState: CatalogUiState, viewModel: CatalogViewModel)
         }
 
         is CatalogDialogState.AddDiagnosis -> {
-            TextInputDialog(
-                title = "Agregar Diagn\u00f3stico",
-                label = "Nombre del diagn\u00f3stico",
-                value = dialog.name,
-                onValueChange = { viewModel.updateDialogText(it) },
-                onConfirm = { viewModel.confirmAddDiagnosis(dialog.complaintId, dialog.name) },
+            ParentPickerInputDialog(
+                title = "Agregar Diagnóstico",
+                parentLabel = "Motivo",
+                parents = uiState.complaints.map { SearchableItem(it.id, it.name) },
+                initialParentId = dialog.complaintId,
+                nameLabel = "Nombre del diagnóstico",
+                name = dialog.name,
+                onNameChange = { viewModel.updateDialogText(it) },
+                onConfirm = { parentId -> viewModel.confirmAddDiagnosis(parentId, dialog.name) },
                 onDismiss = { viewModel.dismissDialog() }
             )
         }
 
         is CatalogDialogState.EditDiagnosis -> {
             TextInputDialog(
-                title = "Editar Diagn\u00f3stico",
-                label = "Nombre del diagn\u00f3stico",
+                title = "Editar Diagnóstico",
+                label = "Nombre del diagnóstico",
                 value = dialog.name,
                 onValueChange = { viewModel.updateDialogText(it) },
                 onConfirm = { viewModel.confirmEditDiagnosis(dialog.diagnosis, dialog.name) },
@@ -838,10 +987,10 @@ private fun CatalogDialogs(uiState: CatalogUiState, viewModel: CatalogViewModel)
         is CatalogDialogState.ConfirmDelete -> {
             AlertDialog(
                 onDismissRequest = { viewModel.dismissDialog() },
-                title = { Text("Confirmar eliminaci\u00f3n") },
+                title = { Text("Confirmar eliminación") },
                 text = {
-                    Text("Est\u00e1 seguro que desea eliminar \"${dialog.name}\"?${
-                        if (dialog.type == "brand") "\n\nEsto eliminar\u00e1 tambi\u00e9n todos sus modelos." else ""
+                    Text("Está seguro que desea eliminar \"${dialog.name}\"?${
+                        if (dialog.type == "brand") "\n\nEsto eliminará también todos sus modelos." else ""
                     }")
                 },
                 confirmButton = {
@@ -896,6 +1045,78 @@ private fun TextInputDialog(
     )
 }
 
+/**
+ * Diálogo de alta para elementos que dependen de un padre (modelo → marca,
+ * diagnóstico → motivo). El padre se elige con dropdown buscable y puede
+ * venir preseleccionado.
+ */
+@Composable
+private fun ParentPickerInputDialog(
+    title: String,
+    parentLabel: String,
+    parents: List<SearchableItem>,
+    initialParentId: Long?,
+    nameLabel: String,
+    name: String,
+    onNameChange: (String) -> Unit,
+    onConfirm: (parentId: Long) -> Unit,
+    onDismiss: () -> Unit
+) {
+    var selectedParentId by remember {
+        mutableStateOf(initialParentId?.takeIf { id -> parents.any { it.id == id } })
+    }
+    var parentQuery by remember {
+        mutableStateOf(parents.find { it.id == initialParentId }?.name ?: "")
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(title) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                SearchableDropdown(
+                    value = parentQuery,
+                    onValueChange = {
+                        parentQuery = it
+                        selectedParentId = parents.find { p -> p.name == it }?.id
+                    },
+                    items = parents,
+                    onItemSelected = {
+                        selectedParentId = it.id
+                        parentQuery = it.name
+                    },
+                    label = parentLabel,
+                    isError = parentQuery.isNotBlank() && selectedParentId == null,
+                    supportingText = if (parentQuery.isNotBlank() && selectedParentId == null) {
+                        { Text("Elija $parentLabel de la lista") }
+                    } else null
+                )
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = onNameChange,
+                    label = { Text(nameLabel) },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Characters),
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = { selectedParentId?.let { onConfirm(it) } },
+                enabled = selectedParentId != null && name.isNotBlank()
+            ) {
+                Text("Guardar")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancelar")
+            }
+        }
+    )
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ServiceInputDialog(
@@ -923,7 +1144,7 @@ private fun ServiceInputDialog(
                 OutlinedTextField(
                     value = category,
                     onValueChange = onCategoryChange,
-                    label = { Text("Categor\u00eda") },
+                    label = { Text("Categoría") },
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Characters),
                     modifier = Modifier.fillMaxWidth()
@@ -931,7 +1152,7 @@ private fun ServiceInputDialog(
                 // Show existing categories as quick chips
                 if (existingCategories.isNotEmpty() && category.isEmpty()) {
                     Text(
-                        text = "Categor\u00edas existentes:",
+                        text = "Categorías existentes:",
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -973,7 +1194,7 @@ private fun ServiceInputDialog(
                         value = if (vehicleType.isBlank()) "Todos" else vehicleType,
                         onValueChange = {},
                         readOnly = true,
-                        label = { Text("Tipo de veh\u00edculo") },
+                        label = { Text("Tipo de vehículo") },
                         trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = vtDropdownExpanded) },
                         modifier = Modifier
                             .fillMaxWidth()

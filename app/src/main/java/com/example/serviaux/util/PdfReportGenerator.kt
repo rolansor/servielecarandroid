@@ -87,17 +87,18 @@ object PdfReportGenerator {
     private val dateTimeFmt = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale("es"))
 
     // Colors
-    private const val COL_ACCENT = 0xFFE65100.toInt()
-    private const val COL_HEADER_BG = 0xFF37474F.toInt()
-    private const val COL_HEADER_TEXT = 0xFFFFFFFF.toInt()
-    private const val COL_TABLE_HEADER_BG = 0xFFECEFF1.toInt()
-    private const val COL_ALT_ROW = 0xFFF5F5F5.toInt()
-    private const val COL_TEXT = 0xFF333333.toInt()
-    private const val COL_TEXT_BOLD = 0xFF1A1A1A.toInt()
-    private const val COL_MUTED = 0xFF666666.toInt()
-    private const val COL_TOTAL_BG = 0xFFE8F5E9.toInt()
-    private const val COL_TOTAL_TEXT = 0xFF1B5E20.toInt()
-    private const val COL_DIVIDER = 0xFFBDBDBD.toInt()
+    // Línea gráfica del rediseño índigo (rampa en ui/theme/Color.kt)
+    private const val COL_ACCENT = 0xFF4A4BAB.toInt()          // Indigo700
+    private const val COL_HEADER_BG = 0xFF363688.toInt()       // Indigo800
+    private const val COL_HEADER_TEXT = 0xFFF7F6FB.toInt()     // Neutral100
+    private const val COL_TABLE_HEADER_BG = 0xFFECEBF3.toInt() // Neutral200
+    private const val COL_ALT_ROW = 0xFFF7F6FB.toInt()         // Neutral100
+    private const val COL_TEXT = 0xFF2B2934.toInt()            // Neutral900
+    private const val COL_TEXT_BOLD = 0xFF1E1C26.toInt()       // TextInk
+    private const val COL_MUTED = 0xFF605D6F.toInt()           // Neutral700
+    private const val COL_TOTAL_BG = 0xFFE3F6F2.toInt()        // Aqua100
+    private const val COL_TOTAL_TEXT = 0xFF244841.toInt()      // Aqua800
+    private const val COL_DIVIDER = 0xFFD9D7E4.toInt()         // Neutral300
 
     /**
      * Genera el PDF completo de una orden de trabajo.
@@ -197,7 +198,7 @@ object PdfReportGenerator {
         c.drawRect(0f, 0f, PAGE_WIDTH.toFloat(), 5f, bgAccent)
         y = MT + 5f
 
-        // Logo from drawable (high-res Servielecar logo)
+        // Logo from drawable (logo serviaux de la hoja de marca)
         val logo = getLogoBitmap(context, 128)
         if (logo != null) {
             // Draw at 56x56 on the PDF but decoded at 128px for sharpness
@@ -394,7 +395,7 @@ object PdfReportGenerator {
                 if (sl.discount > 0) {
                     rightAlignAt(money(sl.laborCost), sCostRight, rowTextY, pMoney)
                     y += ROW_H - 2f
-                    val pDiscount = paint(8f, 0xFFD32F2F.toInt())
+                    val pDiscount = paint(8f, 0xFFBA1A1A.toInt())
                     rightAlignAt("Desc: -${money(sl.discount)} = ${money(sl.laborCost - sl.discount)}", sCostRight, y + 10f, pDiscount)
                 } else {
                     rightAlignAt(money(sl.laborCost), sCostRight, rowTextY, pMoney)
@@ -448,7 +449,7 @@ object PdfReportGenerator {
                 rightAlignAt(money(wp.subtotal), pSubRight, rowTextY, pMoney)
                 if (wp.discount > 0) {
                     y += ROW_H - 2f
-                    val pDiscount = paint(8f, 0xFFD32F2F.toInt())
+                    val pDiscount = paint(8f, 0xFFBA1A1A.toInt())
                     rightAlignAt("Desc: -${money(wp.discount)} = ${money(wp.subtotal - wp.discount)}", pSubRight, y + 10f, pDiscount)
                 }
                 y += ROW_H
@@ -495,7 +496,7 @@ object PdfReportGenerator {
                 if (extra.discount > 0) {
                     rightAlignAt(money(extra.cost), eCostRight, rowTextY, pMoney)
                     y += ROW_H - 2f
-                    val pDiscount = paint(8f, 0xFFD32F2F.toInt())
+                    val pDiscount = paint(8f, 0xFFBA1A1A.toInt())
                     rightAlignAt("Desc: -${money(extra.discount)} = ${money(extra.cost - extra.discount)}", eCostRight, y + 10f, pDiscount)
                 } else {
                     rightAlignAt(money(extra.cost), eCostRight, rowTextY, pMoney)
@@ -609,7 +610,8 @@ object PdfReportGenerator {
 
         if (hasPayments) {
             y += 16f
-            val balColor = if (balance > 0.01) 0xFFD32F2F.toInt() else 0xFF388E3C.toInt()
+            // Semántica de saldo del tema: pendiente índigo, saldado aqua
+            val balColor = if (balance > 0.01) 0xFF363688.toInt() else 0xFF244841.toInt()
             val pBal = paint(11f, balColor, bold = true)
             val balLabel = if (balance > 0.01) "Saldo Pendiente:" else "Pagado:"
             c.drawText(balLabel, labelX, y, pBal)
@@ -697,7 +699,7 @@ object PdfReportGenerator {
         return try {
             // Decode at high resolution then scale down for quality
             val opts = BitmapFactory.Options().apply { inScaled = false }
-            val bmp = BitmapFactory.decodeResource(context.resources, R.drawable.servielecar_logo, opts)
+            val bmp = BitmapFactory.decodeResource(context.resources, R.drawable.serviaux_logo, opts)
                 ?: BitmapFactory.decodeResource(context.resources, R.mipmap.ic_launcher, opts)
                 ?: return null
             Bitmap.createScaledBitmap(bmp, sizePx, sizePx, true)
@@ -725,13 +727,14 @@ object PdfReportGenerator {
 
     /** Mapea cada estado de orden a su color representativo para el badge del PDF. */
     private fun statusColor(status: OrderStatus): Int = when (status) {
-        OrderStatus.RECIBIDO -> 0xFF2196F3.toInt()
-        OrderStatus.EN_DIAGNOSTICO -> 0xFFFF9800.toInt()
-        OrderStatus.EN_PROCESO -> 0xFF4CAF50.toInt()
-        OrderStatus.EN_ESPERA_REPUESTO -> 0xFFF44336.toInt()
-        OrderStatus.LISTO -> 0xFF8BC34A.toInt()
-        OrderStatus.ENTREGADO -> 0xFF607D8B.toInt()
-        OrderStatus.CERRADO -> 0xFF9E9E9E.toInt()
+        // Misma semántica que StatusChip: índigo = en curso, aqua = terminado, neutro = inerte
+        OrderStatus.RECIBIDO -> 0xFF7D7A8D.toInt()             // Neutral600
+        OrderStatus.EN_DIAGNOSTICO -> 0xFF7C7EE0.toInt()       // Indigo500
+        OrderStatus.EN_PROCESO -> 0xFF4A4BAB.toInt()           // Indigo700
+        OrderStatus.EN_ESPERA_REPUESTO -> 0xFFA0A1EC.toInt()   // Indigo400
+        OrderStatus.LISTO -> 0xFF35655D.toInt()                // Aqua700
+        OrderStatus.ENTREGADO -> 0xFF5DA296.toInt()            // Aqua500
+        OrderStatus.CERRADO -> 0xFFBAB7C8.toInt()              // Neutral400
     }
 
     private fun money(amount: Double): String = "$${String.format(Locale.US, "%.2f", amount)}"

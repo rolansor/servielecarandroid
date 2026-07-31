@@ -15,10 +15,11 @@
  */
 package com.example.serviaux.ui.workorders
 
+import com.example.serviaux.util.formatMoney
+
 import android.Manifest
-import com.example.serviaux.ui.theme.Amber40
-import com.example.serviaux.ui.theme.BrakeRed40
-import com.example.serviaux.ui.theme.StatusListo
+import com.example.serviaux.ui.theme.SaldoPendiente
+import com.example.serviaux.ui.theme.SaldoSaldado
 import android.content.Intent
 import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -112,6 +113,7 @@ import coil3.compose.AsyncImage
 import coil3.request.ImageRequest
 import com.example.serviaux.data.entity.OrderStatus
 import com.example.serviaux.data.entity.PaymentMethod
+import com.example.serviaux.ui.components.CollapsibleSection
 import com.example.serviaux.ui.components.ConfirmDialog
 import com.example.serviaux.ui.components.InfoRow
 import com.example.serviaux.ui.components.PriorityChip
@@ -596,65 +598,161 @@ fun WorkOrderDetailScreen(
                     .padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                // Status and priority header
+                // Estado y prioridad (expandido por defecto)
                 item {
-                    Card(modifier = Modifier.fillMaxWidth()) {
-                        Column(modifier = Modifier.padding(16.dp)) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Column {
-                                    Text(
-                                        text = "Estado",
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                    Spacer(modifier = Modifier.height(4.dp))
-                                    StatusChip(status = order.status)
-                                }
-                                Column(horizontalAlignment = Alignment.End) {
-                                    Text(
-                                        text = "Prioridad",
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                    Spacer(modifier = Modifier.height(4.dp))
-                                    PriorityChip(priority = order.priority)
-                                }
-                            }
-                            if (isAdmin) {
-                                Spacer(modifier = Modifier.height(12.dp))
+                    CollapsibleSection(
+                        title = "Estado",
+                        summary = "${order.status.displayName} \u00b7 ${order.priority.displayName}",
+                        initiallyExpanded = true
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column {
                                 Text(
-                                    text = "Cambiar Estado",
+                                    text = "Estado",
                                     style = MaterialTheme.typography.labelSmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                                 Spacer(modifier = Modifier.height(4.dp))
-                                val hasMechanics = uiState.orderMechanics.isNotEmpty()
-                                FlowRow(
-                                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                                StatusChip(status = order.status)
+                            }
+                            Column(horizontalAlignment = Alignment.End) {
+                                Text(
+                                    text = "Prioridad",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Spacer(modifier = Modifier.height(4.dp))
+                                PriorityChip(priority = order.priority)
+                            }
+                        }
+                        if (isAdmin) {
+                            Spacer(modifier = Modifier.height(12.dp))
+                            Text(
+                                text = "Cambiar Estado",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            val hasMechanics = uiState.orderMechanics.isNotEmpty()
+                            FlowRow(
+                                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                verticalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                OrderStatus.entries.forEach { status ->
+                                    val needsMechanic = status in listOf(OrderStatus.LISTO, OrderStatus.ENTREGADO)
+                                    val isEnabled = status != order.status && !(needsMechanic && !hasMechanics)
+                                    FilterChip(
+                                        selected = status == order.status,
+                                        onClick = { if (isEnabled) viewModel.changeStatus(status) },
+                                        enabled = isEnabled,
+                                        label = { Text(status.displayName, style = MaterialTheme.typography.labelSmall) }
+                                    )
+                                }
+                            }
+                            if (!hasMechanics) {
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                    text = "Asigne un mec\u00e1nico para marcar como Listo o Entregado",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.error
+                                )
+                            }
+                        }
+                    }
+                }
+
+                // Mec\u00e1nicos: justo despu\u00e9s del estado, porque el cambio a
+                // LISTO/ENTREGADO depende de tener mec\u00e1nico asignado.
+                item {
+                    val mechanicsSummary = if (uiState.orderMechanics.isEmpty()) {
+                        "Sin asignar"
+                    } else {
+                        uiState.orderMechanics.joinToString(", ") { wm ->
+                            uiState.mechanics.find { it.id == wm.mechanicId }?.name ?: "Mec\u00e1nico #${wm.mechanicId}"
+                        }
+                    }
+                    CollapsibleSection(
+                        title = "Mec\u00e1nicos",
+                        summary = mechanicsSummary,
+                        initiallyExpanded = true,
+                        headerAction = if (!isLocked && isAdmin) {
+                            {
+                                IconButton(onClick = { showMechanicDialog = true }) {
+                                    Icon(Icons.Default.Add, contentDescription = "Agregar mec\u00e1nico")
+                                }
+                            }
+                        } else null
+                    ) {
+                        if (uiState.orderMechanics.isEmpty()) {
+                            Text(
+                                "Sin mec\u00e1nicos asignados",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        } else {
+                            uiState.orderMechanics.forEach { wm ->
+                                val mechName = uiState.mechanics.find { it.id == wm.mechanicId }?.name ?: "Mec\u00e1nico #${wm.mechanicId}"
+                                val typeLabel = when (wm.commissionType) {
+                                    "FIJA" -> "Fija"
+                                    "PORCENTAJE" -> "${wm.commissionValue}%"
+                                    else -> "Sin comisi\u00f3n"
+                                }
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(vertical = 4.dp),
+                                    verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    OrderStatus.entries.forEach { status ->
-                                        val needsMechanic = status in listOf(OrderStatus.LISTO, OrderStatus.ENTREGADO)
-                                        val isEnabled = status != order.status && !(needsMechanic && !hasMechanics)
-                                        FilterChip(
-                                            selected = status == order.status,
-                                            onClick = { if (isEnabled) viewModel.changeStatus(status) },
-                                            enabled = isEnabled,
-                                            label = { Text(status.displayName, style = MaterialTheme.typography.labelSmall) }
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(mechName, style = MaterialTheme.typography.bodyMedium)
+                                        Text(
+                                            "$typeLabel \u2022 ${formatMoney(wm.commissionAmount)}",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
                                         )
                                     }
-                                }
-                                if (!hasMechanics) {
-                                    Spacer(modifier = Modifier.height(4.dp))
-                                    Text(
-                                        text = "Asigne un mec\u00e1nico para marcar como Listo o Entregado",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.error
-                                    )
+                                    val (badgeText, badgeContainerColor, badgeContentColor) = when {
+                                        wm.commissionType == "NINGUNA" -> Triple(
+                                            "Sin comisi\u00f3n",
+                                            MaterialTheme.colorScheme.surfaceVariant,
+                                            MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                        wm.commissionPaid -> Triple(
+                                            "Pagada",
+                                            MaterialTheme.colorScheme.primaryContainer,
+                                            MaterialTheme.colorScheme.onPrimaryContainer
+                                        )
+                                        else -> Triple(
+                                            "Pendiente",
+                                            MaterialTheme.colorScheme.errorContainer,
+                                            MaterialTheme.colorScheme.onErrorContainer
+                                        )
+                                    }
+                                    Surface(
+                                        color = badgeContainerColor,
+                                        shape = MaterialTheme.shapes.small
+                                    ) {
+                                        Text(
+                                            text = badgeText,
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = badgeContentColor,
+                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                        )
+                                    }
+                                    if (!isLocked && isAdmin) {
+                                        IconButton(onClick = { viewModel.removeMechanicFromOrder(wm) }) {
+                                            Icon(
+                                                Icons.Default.Close,
+                                                contentDescription = "Eliminar",
+                                                modifier = Modifier.size(18.dp),
+                                                tint = MaterialTheme.colorScheme.error
+                                            )
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -663,9 +761,11 @@ fun WorkOrderDetailScreen(
 
                 // General Information
                 item {
-                    Card(modifier = Modifier.fillMaxWidth()) {
-                        Column(modifier = Modifier.padding(16.dp)) {
-                            SectionTitle("Informaci\u00f3n General")
+                    CollapsibleSection(
+                        title = "Informaci\u00f3n General",
+                        summary = uiState.vehicleName.ifBlank { uiState.customerName }
+                    ) {
+                        Column {
                             InfoRow(label = "Fecha Ingreso", value = dateFormat.format(Date(order.entryDate)))
                             InfoRow(label = "Cliente", value = uiState.customerName.ifBlank { "Cliente #${order.customerId}" })
                             InfoRow(label = "Veh\u00edculo", value = uiState.vehicleName.ifBlank { "Veh\u00edculo #${order.vehicleId}" })
@@ -687,9 +787,11 @@ fun WorkOrderDetailScreen(
 
                 // Editable detail fields
                 item {
-                    Card(modifier = Modifier.fillMaxWidth()) {
-                        Column(modifier = Modifier.padding(16.dp)) {
-                            SectionTitle("Datos del Proceso")
+                    CollapsibleSection(
+                        title = "Datos del Proceso",
+                        summary = uiState.detailInvoiceNumber.takeIf { it.isNotBlank() }?.let { "Fact. $it" }
+                    ) {
+                        Column {
                             Spacer(modifier = Modifier.height(8.dp))
 
                             // Cada campo se persiste al perder el foco v\u00eda saveDetailFields().
@@ -804,10 +906,11 @@ fun WorkOrderDetailScreen(
 
                 // Photos section
                 item {
-                    Card(modifier = Modifier.fillMaxWidth()) {
-                        Column(modifier = Modifier.padding(16.dp)) {
-                            SectionTitle("Fotos (${uiState.detailPhotoPaths.size})")
-                            Spacer(modifier = Modifier.height(8.dp))
+                    CollapsibleSection(
+                        title = "Fotos",
+                        summary = "${uiState.detailPhotoPaths.size}"
+                    ) {
+                        Column {
                             LazyRow(
                                 horizontalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
@@ -873,20 +976,19 @@ fun WorkOrderDetailScreen(
 
                 // Files section
                 item {
-                    Card(modifier = Modifier.fillMaxWidth()) {
-                        Column(modifier = Modifier.padding(16.dp)) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                verticalAlignment = Alignment.CenterVertically
+                    CollapsibleSection(
+                        title = "Archivos Adjuntos",
+                        summary = "${uiState.detailFilePaths.size}",
+                        headerAction = {
+                            IconButton(
+                                onClick = { detailFileLauncher.launch(arrayOf("*/*")) },
+                                enabled = !isLocked
                             ) {
-                                SectionTitle("Archivos Adjuntos (${uiState.detailFilePaths.size})", modifier = Modifier.weight(1f))
-                                IconButton(
-                                    onClick = { detailFileLauncher.launch(arrayOf("*/*")) },
-                                    enabled = !isLocked
-                                ) {
-                                    Icon(Icons.Default.AttachFile, contentDescription = "Adjuntar archivo")
-                                }
+                                Icon(Icons.Default.AttachFile, contentDescription = "Adjuntar archivo")
                             }
+                        }
+                    ) {
+                        Column {
                             if (uiState.detailFilePaths.isEmpty()) {
                                 Text(
                                     text = "No hay archivos adjuntos",
@@ -963,196 +1065,104 @@ fun WorkOrderDetailScreen(
                     }
                 }
 
-                // Mecánicos
-                item {
-                    Card(modifier = Modifier.fillMaxWidth()) {
-                        Column(modifier = Modifier.padding(16.dp)) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                SectionTitle("Mec\u00e1nicos", modifier = Modifier.weight(1f))
-                                if (!isLocked && isAdmin) {
-                                    IconButton(onClick = { showMechanicDialog = true }) {
-                                        Icon(Icons.Default.Add, contentDescription = "Agregar mec\u00e1nico")
-                                    }
-                                }
-                            }
-
-                            if (uiState.orderMechanics.isEmpty()) {
-                                Text(
-                                    "Sin mec\u00e1nicos asignados",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            } else {
-                                uiState.orderMechanics.forEach { wm ->
-                                    val mechName = uiState.mechanics.find { it.id == wm.mechanicId }?.name ?: "Mec\u00e1nico #${wm.mechanicId}"
-                                    val typeLabel = when (wm.commissionType) {
-                                        "FIJA" -> "Fija"
-                                        "PORCENTAJE" -> "${wm.commissionValue}%"
-                                        else -> "Sin comisi\u00f3n"
-                                    }
-                                    Row(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .padding(vertical = 4.dp),
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Column(modifier = Modifier.weight(1f)) {
-                                            Text(mechName, style = MaterialTheme.typography.bodyMedium)
-                                            Text(
-                                                "$typeLabel \u2022 $${String.format(Locale.US, "%.2f", wm.commissionAmount)}",
-                                                style = MaterialTheme.typography.bodySmall,
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                                            )
-                                        }
-                                        val (badgeText, badgeContainerColor, badgeContentColor) = when {
-                                            wm.commissionType == "NINGUNA" -> Triple(
-                                                "Sin comisión",
-                                                MaterialTheme.colorScheme.surfaceVariant,
-                                                MaterialTheme.colorScheme.onSurfaceVariant
-                                            )
-                                            wm.commissionPaid -> Triple(
-                                                "Pagada",
-                                                MaterialTheme.colorScheme.primaryContainer,
-                                                MaterialTheme.colorScheme.onPrimaryContainer
-                                            )
-                                            else -> Triple(
-                                                "Pendiente",
-                                                MaterialTheme.colorScheme.errorContainer,
-                                                MaterialTheme.colorScheme.onErrorContainer
-                                            )
-                                        }
-                                        Surface(
-                                            color = badgeContainerColor,
-                                            shape = MaterialTheme.shapes.small
-                                        ) {
-                                            Text(
-                                                text = badgeText,
-                                                style = MaterialTheme.typography.labelSmall,
-                                                color = badgeContentColor,
-                                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                                            )
-                                        }
-                                        if (!isLocked && isAdmin) {
-                                            IconButton(onClick = { viewModel.removeMechanicFromOrder(wm) }) {
-                                                Icon(
-                                                    Icons.Default.Close,
-                                                    contentDescription = "Eliminar",
-                                                    modifier = Modifier.size(18.dp),
-                                                    tint = MaterialTheme.colorScheme.error
-                                                )
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-
                 // Service Lines
                 item {
-                    Card(modifier = Modifier.fillMaxWidth()) {
-                        Column(modifier = Modifier.padding(16.dp)) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                SectionTitle("Servicios / Mano de Obra", modifier = Modifier.weight(1f))
-                                IconButton(
-                                    onClick = {
-                                        viewModel.cancelEditServiceLine()
-                                        showServiceLineDialog = true
-                                    },
-                                    enabled = !isLocked
-                                ) {
-                                    Icon(Icons.Default.Add, contentDescription = "Agregar servicio")
-                                }
-                            }
-
-                            if (uiState.serviceLines.isEmpty()) {
-                                Text(
-                                    text = "No hay servicios registrados",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                        }
-                    }
-                }
-
-                items(uiState.serviceLines, key = { "sl_${it.id}" }) { serviceLine ->
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = CardDefaults.cardColors(
-                            containerColor = if (uiState.editingServiceLineId == serviceLine.id)
-                                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
-                            else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-                        )
-                    ) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(12.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = serviceLine.description,
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    fontWeight = FontWeight.Medium
-                                )
-                                if (serviceLine.discount > 0) {
-                                    Text(
-                                        text = String.format("$%.2f", serviceLine.laborCost),
-                                        style = MaterialTheme.typography.bodySmall,
-                                        textDecoration = TextDecoration.LineThrough,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                    Text(
-                                        text = "Desc: -${String.format("$%.2f", serviceLine.discount)}",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.error
-                                    )
-                                    Text(
-                                        text = String.format("$%.2f", serviceLine.laborCost - serviceLine.discount),
-                                        style = MaterialTheme.typography.bodySmall,
-                                        fontWeight = FontWeight.SemiBold,
-                                        color = MaterialTheme.colorScheme.primary
-                                    )
-                                } else {
-                                    Text(
-                                        text = String.format("$%.2f", serviceLine.laborCost),
-                                        style = MaterialTheme.typography.bodySmall,
-                                        fontWeight = FontWeight.SemiBold,
-                                        color = MaterialTheme.colorScheme.primary
-                                    )
-                                }
-                            }
+                    CollapsibleSection(
+                        title = "Servicios / Mano de Obra",
+                        summary = "${uiState.serviceLines.size} · ${formatMoney(order.totalLabor)}",
+                        headerAction = {
                             IconButton(
                                 onClick = {
-                                    viewModel.startEditServiceLine(serviceLine)
+                                    viewModel.cancelEditServiceLine()
                                     showServiceLineDialog = true
                                 },
                                 enabled = !isLocked
                             ) {
-                                Icon(
-                                    Icons.Default.Edit,
-                                    contentDescription = "Editar",
-                                    tint = if (isLocked) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f) else MaterialTheme.colorScheme.primary
-                                )
+                                Icon(Icons.Default.Add, contentDescription = "Agregar servicio")
                             }
-                            IconButton(
-                                onClick = { showDeleteServiceLineDialog = serviceLine.id },
-                                enabled = !isLocked
-                            ) {
-                                Icon(
-                                    Icons.Default.Delete,
-                                    contentDescription = "Eliminar",
-                                    tint = if (isLocked) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f) else MaterialTheme.colorScheme.error
-                                )
+                        }
+                    ) {
+                        if (uiState.serviceLines.isEmpty()) {
+                            Text(
+                                text = "No hay servicios registrados",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            uiState.serviceLines.forEach { serviceLine ->
+                                Card(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    colors = CardDefaults.cardColors(
+                                        containerColor = if (uiState.editingServiceLineId == serviceLine.id)
+                                            MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
+                                        else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                                    )
+                                ) {
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(12.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Column(modifier = Modifier.weight(1f)) {
+                                            Text(
+                                                text = serviceLine.description,
+                                                style = MaterialTheme.typography.bodyMedium,
+                                                fontWeight = FontWeight.Medium
+                                            )
+                                            if (serviceLine.discount > 0) {
+                                                Text(
+                                                    text = formatMoney(serviceLine.laborCost),
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                    textDecoration = TextDecoration.LineThrough,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                )
+                                                Text(
+                                                    text = "Desc: -${formatMoney(serviceLine.discount)}",
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                    color = MaterialTheme.colorScheme.error
+                                                )
+                                                Text(
+                                                    text = formatMoney(serviceLine.laborCost - serviceLine.discount),
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                    fontWeight = FontWeight.SemiBold,
+                                                    color = MaterialTheme.colorScheme.primary
+                                                )
+                                            } else {
+                                                Text(
+                                                    text = formatMoney(serviceLine.laborCost),
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                    fontWeight = FontWeight.SemiBold,
+                                                    color = MaterialTheme.colorScheme.primary
+                                                )
+                                            }
+                                        }
+                                        IconButton(
+                                            onClick = {
+                                                viewModel.startEditServiceLine(serviceLine)
+                                                showServiceLineDialog = true
+                                            },
+                                            enabled = !isLocked
+                                        ) {
+                                            Icon(
+                                                Icons.Default.Edit,
+                                                contentDescription = "Editar",
+                                                tint = if (isLocked) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f) else MaterialTheme.colorScheme.primary
+                                            )
+                                        }
+                                        IconButton(
+                                            onClick = { showDeleteServiceLineDialog = serviceLine.id },
+                                            enabled = !isLocked
+                                        ) {
+                                            Icon(
+                                                Icons.Default.Delete,
+                                                contentDescription = "Eliminar",
+                                                tint = if (isLocked) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f) else MaterialTheme.colorScheme.error
+                                            )
+                                        }
+                                    }
+                                }
                             }
                         }
                     }
@@ -1160,103 +1170,100 @@ fun WorkOrderDetailScreen(
 
                 // Work Order Parts
                 item {
-                    Card(modifier = Modifier.fillMaxWidth()) {
-                        Column(modifier = Modifier.padding(16.dp)) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                verticalAlignment = Alignment.CenterVertically
+                    CollapsibleSection(
+                        title = "Repuestos Utilizados",
+                        summary = "${uiState.orderParts.size} · ${formatMoney(order.totalParts)}",
+                        headerAction = {
+                            IconButton(
+                                onClick = { showPartDialog = true },
+                                enabled = !isLocked
                             ) {
-                                SectionTitle("Repuestos Utilizados", modifier = Modifier.weight(1f))
-                                IconButton(
-                                    onClick = { showPartDialog = true },
-                                    enabled = !isLocked
-                                ) {
-                                    Icon(Icons.Default.Add, contentDescription = "Agregar repuesto")
-                                }
-                            }
-
-                            if (uiState.orderParts.isEmpty()) {
-                                Text(
-                                    text = "No hay repuestos registrados",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
+                                Icon(Icons.Default.Add, contentDescription = "Agregar repuesto")
                             }
                         }
-                    }
-                }
-
-                items(uiState.orderParts, key = { "op_${it.id}" }) { orderPart ->
-                    val part = uiState.availableParts.find { it.id == orderPart.partId }
-                    val partName = part?.let { p ->
-                        if (!p.code.isNullOrBlank()) "${p.code} - ${p.name}" else p.name
-                    } ?: "Repuesto #${orderPart.partId}"
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-                        )
                     ) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(12.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = partName,
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    fontWeight = FontWeight.Medium
-                                )
-                                if (orderPart.discount > 0) {
-                                    Text(
-                                        text = "Cant: ${orderPart.quantity} x $${String.format(Locale.US, "%.2f", orderPart.appliedUnitPrice)} = $${String.format(Locale.US, "%.2f", orderPart.subtotal)}",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        textDecoration = TextDecoration.LineThrough,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        if (uiState.orderParts.isEmpty()) {
+                            Text(
+                                text = "No hay repuestos registrados",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            uiState.orderParts.forEach { orderPart ->
+                                val part = uiState.availableParts.find { it.id == orderPart.partId }
+                                val partName = part?.let { p ->
+                                    if (!p.code.isNullOrBlank()) "${p.code} - ${p.name}" else p.name
+                                } ?: "Repuesto #${orderPart.partId}"
+                                Card(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    colors = CardDefaults.cardColors(
+                                        containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
                                     )
-                                    Text(
-                                        text = "Desc: -${String.format("$%.2f", orderPart.discount)}",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.error
-                                    )
-                                    Text(
-                                        text = String.format("$%.2f", orderPart.subtotal - orderPart.discount),
-                                        style = MaterialTheme.typography.bodySmall,
-                                        fontWeight = FontWeight.SemiBold,
-                                        color = MaterialTheme.colorScheme.primary
-                                    )
-                                } else {
-                                    Text(
-                                        text = "Cant: ${orderPart.quantity} x $${String.format(Locale.US, "%.2f", orderPart.appliedUnitPrice)} = $${String.format(Locale.US, "%.2f", orderPart.subtotal)}",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
+                                ) {
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(12.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Column(modifier = Modifier.weight(1f)) {
+                                            Text(
+                                                text = partName,
+                                                style = MaterialTheme.typography.bodyMedium,
+                                                fontWeight = FontWeight.Medium
+                                            )
+                                            if (orderPart.discount > 0) {
+                                                Text(
+                                                    text = "Cant: ${orderPart.quantity} x ${formatMoney(orderPart.appliedUnitPrice)} = ${formatMoney(orderPart.subtotal)}",
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                    textDecoration = TextDecoration.LineThrough,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                )
+                                                Text(
+                                                    text = "Desc: -${formatMoney(orderPart.discount)}",
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                    color = MaterialTheme.colorScheme.error
+                                                )
+                                                Text(
+                                                    text = formatMoney(orderPart.subtotal - orderPart.discount),
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                    fontWeight = FontWeight.SemiBold,
+                                                    color = MaterialTheme.colorScheme.primary
+                                                )
+                                            } else {
+                                                Text(
+                                                    text = "Cant: ${orderPart.quantity} x ${formatMoney(orderPart.appliedUnitPrice)} = ${formatMoney(orderPart.subtotal)}",
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                )
+                                            }
+                                        }
+                                        IconButton(
+                                            onClick = {
+                                                viewModel.startEditPart(orderPart)
+                                                showPartDialog = true
+                                            },
+                                            enabled = !isLocked
+                                        ) {
+                                            Icon(
+                                                Icons.Default.Edit,
+                                                contentDescription = "Editar",
+                                                tint = if (isLocked) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f) else MaterialTheme.colorScheme.primary
+                                            )
+                                        }
+                                        IconButton(
+                                            onClick = { showDeletePartDialog = orderPart.id },
+                                            enabled = !isLocked
+                                        ) {
+                                            Icon(
+                                                Icons.Default.Delete,
+                                                contentDescription = "Eliminar",
+                                                tint = if (isLocked) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f) else MaterialTheme.colorScheme.error
+                                            )
+                                        }
+                                    }
                                 }
-                            }
-                            IconButton(
-                                onClick = {
-                                    viewModel.startEditPart(orderPart)
-                                    showPartDialog = true
-                                },
-                                enabled = !isLocked
-                            ) {
-                                Icon(
-                                    Icons.Default.Edit,
-                                    contentDescription = "Editar",
-                                    tint = if (isLocked) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f) else MaterialTheme.colorScheme.primary
-                                )
-                            }
-                            IconButton(
-                                onClick = { showDeletePartDialog = orderPart.id },
-                                enabled = !isLocked
-                            ) {
-                                Icon(
-                                    Icons.Default.Delete,
-                                    contentDescription = "Eliminar",
-                                    tint = if (isLocked) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f) else MaterialTheme.colorScheme.error
-                                )
                             }
                         }
                     }
@@ -1264,110 +1271,107 @@ fun WorkOrderDetailScreen(
 
                 // Extras
                 item {
-                    Card(modifier = Modifier.fillMaxWidth()) {
-                        Column(modifier = Modifier.padding(16.dp)) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                SectionTitle("Extras", modifier = Modifier.weight(1f))
-                                IconButton(
-                                    onClick = {
-                                        viewModel.cancelEditExtra()
-                                        showExtraDialog = true
-                                    },
-                                    enabled = !isLocked
-                                ) {
-                                    Icon(Icons.Default.Add, contentDescription = "Agregar extra")
-                                }
-                            }
-
-                            if (uiState.orderExtras.isEmpty()) {
-                                Text(
-                                    text = "No hay extras registrados",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                        }
-                    }
-                }
-
-                items(uiState.orderExtras, key = { "ex_${it.id}" }) { extra ->
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-                        )
-                    ) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(12.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = extra.description,
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    fontWeight = FontWeight.Medium
-                                )
-                                extra.category?.let { cat ->
-                                    Text(
-                                        text = cat,
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                }
-                                if (extra.discount > 0) {
-                                    Text(
-                                        text = String.format("$%.2f", extra.cost),
-                                        style = MaterialTheme.typography.bodySmall,
-                                        textDecoration = TextDecoration.LineThrough,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                    Text(
-                                        text = "Desc: -${String.format("$%.2f", extra.discount)}",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.error
-                                    )
-                                    Text(
-                                        text = String.format("$%.2f", extra.cost - extra.discount),
-                                        style = MaterialTheme.typography.bodySmall,
-                                        fontWeight = FontWeight.SemiBold,
-                                        color = MaterialTheme.colorScheme.primary
-                                    )
-                                } else {
-                                    Text(
-                                        text = String.format("$%.2f", extra.cost),
-                                        style = MaterialTheme.typography.bodySmall,
-                                        fontWeight = FontWeight.SemiBold,
-                                        color = MaterialTheme.colorScheme.primary
-                                    )
-                                }
-                            }
+                    CollapsibleSection(
+                        title = "Extras",
+                        summary = "${uiState.orderExtras.size} · ${formatMoney(order.totalExtras)}",
+                        headerAction = {
                             IconButton(
                                 onClick = {
-                                    viewModel.startEditExtra(extra)
+                                    viewModel.cancelEditExtra()
                                     showExtraDialog = true
                                 },
                                 enabled = !isLocked
                             ) {
-                                Icon(
-                                    Icons.Default.Edit,
-                                    contentDescription = "Editar",
-                                    tint = if (isLocked) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f) else MaterialTheme.colorScheme.primary
-                                )
+                                Icon(Icons.Default.Add, contentDescription = "Agregar extra")
                             }
-                            IconButton(
-                                onClick = { showDeleteExtraDialog = extra.id },
-                                enabled = !isLocked
-                            ) {
-                                Icon(
-                                    Icons.Default.Delete,
-                                    contentDescription = "Eliminar",
-                                    tint = if (isLocked) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f) else MaterialTheme.colorScheme.error
-                                )
+                        }
+                    ) {
+                        if (uiState.orderExtras.isEmpty()) {
+                            Text(
+                                text = "No hay extras registrados",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            uiState.orderExtras.forEach { extra ->
+                                Card(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    colors = CardDefaults.cardColors(
+                                        containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                                    )
+                                ) {
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(12.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Column(modifier = Modifier.weight(1f)) {
+                                            Text(
+                                                text = extra.description,
+                                                style = MaterialTheme.typography.bodyMedium,
+                                                fontWeight = FontWeight.Medium
+                                            )
+                                            extra.category?.let { cat ->
+                                                Text(
+                                                    text = cat,
+                                                    style = MaterialTheme.typography.labelSmall,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                )
+                                            }
+                                            if (extra.discount > 0) {
+                                                Text(
+                                                    text = formatMoney(extra.cost),
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                    textDecoration = TextDecoration.LineThrough,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                )
+                                                Text(
+                                                    text = "Desc: -${formatMoney(extra.discount)}",
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                    color = MaterialTheme.colorScheme.error
+                                                )
+                                                Text(
+                                                    text = formatMoney(extra.cost - extra.discount),
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                    fontWeight = FontWeight.SemiBold,
+                                                    color = MaterialTheme.colorScheme.primary
+                                                )
+                                            } else {
+                                                Text(
+                                                    text = formatMoney(extra.cost),
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                    fontWeight = FontWeight.SemiBold,
+                                                    color = MaterialTheme.colorScheme.primary
+                                                )
+                                            }
+                                        }
+                                        IconButton(
+                                            onClick = {
+                                                viewModel.startEditExtra(extra)
+                                                showExtraDialog = true
+                                            },
+                                            enabled = !isLocked
+                                        ) {
+                                            Icon(
+                                                Icons.Default.Edit,
+                                                contentDescription = "Editar",
+                                                tint = if (isLocked) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f) else MaterialTheme.colorScheme.primary
+                                            )
+                                        }
+                                        IconButton(
+                                            onClick = { showDeleteExtraDialog = extra.id },
+                                            enabled = !isLocked
+                                        ) {
+                                            Icon(
+                                                Icons.Default.Delete,
+                                                contentDescription = "Eliminar",
+                                                tint = if (isLocked) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f) else MaterialTheme.colorScheme.error
+                                            )
+                                        }
+                                    }
+                                }
                             }
                         }
                     }
@@ -1383,10 +1387,10 @@ fun WorkOrderDetailScreen(
                     ) {
                         Column(modifier = Modifier.padding(16.dp)) {
                             SectionTitle("Resumen")
-                            InfoRow(label = "Mano de Obra", value = String.format("$%.2f", order.totalLabor))
-                            InfoRow(label = "Repuestos", value = String.format("$%.2f", order.totalParts))
+                            InfoRow(label = "Mano de Obra", value = formatMoney(order.totalLabor))
+                            InfoRow(label = "Repuestos", value = formatMoney(order.totalParts))
                             if (order.totalExtras > 0) {
-                                InfoRow(label = "Extras", value = String.format("$%.2f", order.totalExtras))
+                                InfoRow(label = "Extras", value = formatMoney(order.totalExtras))
                             }
                             HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
                             Row(
@@ -1399,7 +1403,7 @@ fun WorkOrderDetailScreen(
                                     fontWeight = FontWeight.Bold
                                 )
                                 Text(
-                                    text = String.format("$%.2f", order.total),
+                                    text = formatMoney(order.total),
                                     style = MaterialTheme.typography.titleMedium,
                                     fontWeight = FontWeight.Bold,
                                     color = MaterialTheme.colorScheme.primary
@@ -1409,16 +1413,17 @@ fun WorkOrderDetailScreen(
                             val totalPaidSummary = uiState.payments.sumOf { it.amount }
                             val totalDiscountsSummary = uiState.payments.sumOf { it.discount }
                             val balanceSummary = (order.total - totalPaidSummary - totalDiscountsSummary).coerceAtLeast(0.0)
+                            // Semántica de saldo del rediseño: verde-agua = saldado,
+                            // índigo = abonado o sin pagos. Único número coloreado.
                             val balanceColor = when {
                                 order.total <= 0.0 -> MaterialTheme.colorScheme.onSurfaceVariant
-                                balanceSummary <= 0.01 -> StatusListo
-                                totalPaidSummary > 0.0 || totalDiscountsSummary > 0.0 -> Amber40
-                                else -> BrakeRed40
+                                balanceSummary <= 0.01 -> SaldoSaldado
+                                else -> SaldoPendiente
                             }
                             Spacer(modifier = Modifier.height(4.dp))
-                            InfoRow(label = "Pagado", value = String.format("$%.2f", totalPaidSummary))
+                            InfoRow(label = "Pagado", value = formatMoney(totalPaidSummary))
                             if (totalDiscountsSummary > 0.0) {
-                                InfoRow(label = "Descuentos", value = String.format("$%.2f", totalDiscountsSummary))
+                                InfoRow(label = "Descuentos", value = formatMoney(totalDiscountsSummary))
                             }
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
@@ -1430,7 +1435,7 @@ fun WorkOrderDetailScreen(
                                     fontWeight = FontWeight.SemiBold
                                 )
                                 Text(
-                                    text = String.format("$%.2f", balanceSummary),
+                                    text = formatMoney(balanceSummary),
                                     style = MaterialTheme.typography.titleSmall,
                                     fontWeight = FontWeight.SemiBold,
                                     color = balanceColor
@@ -1442,114 +1447,112 @@ fun WorkOrderDetailScreen(
 
                 // Payments
                 item {
-                    Card(modifier = Modifier.fillMaxWidth()) {
-                        Column(modifier = Modifier.padding(16.dp)) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                verticalAlignment = Alignment.CenterVertically
+                    val totalPaidHeader = uiState.payments.sumOf { it.amount }
+                    CollapsibleSection(
+                        title = "Pagos",
+                        summary = "${uiState.payments.size} · ${formatMoney(totalPaidHeader)}",
+                        headerAction = {
+                            IconButton(
+                                onClick = {
+                                    // Limpia cualquier edición previa: este botón registra un pago nuevo.
+                                    viewModel.cancelEditPayment()
+                                    showPaymentDialog = true
+                                },
+                                enabled = !isLocked
                             ) {
-                                SectionTitle("Pagos", modifier = Modifier.weight(1f))
-                                IconButton(
-                                    onClick = {
-                                        // Limpia cualquier edición previa: este botón registra un pago nuevo.
-                                        viewModel.cancelEditPayment()
-                                        showPaymentDialog = true
-                                    },
-                                    enabled = !isLocked
-                                ) {
-                                    Icon(Icons.Default.Add, contentDescription = "Agregar pago")
-                                }
-                            }
-
-                            if (uiState.payments.isEmpty()) {
-                                Text(
-                                    text = "No hay pagos registrados",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
+                                Icon(Icons.Default.Add, contentDescription = "Agregar pago")
                             }
                         }
-                    }
-                }
-
-                items(uiState.payments, key = { "pay_${it.id}" }) { payment ->
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-                        )
                     ) {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(12.dp)
-                        ) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween
-                            ) {
-                                Text(
-                                    text = payment.method.displayName,
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    fontWeight = FontWeight.Medium
-                                )
-                                Text(
-                                    text = String.format("$%.2f", payment.amount),
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.primary
-                                )
-                            }
-                            if (payment.discount > 0) {
-                                Row(
+                        if (uiState.payments.isEmpty()) {
+                            Text(
+                                text = "No hay pagos registrados",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            uiState.payments.forEach { payment ->
+                                Card(
                                     modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween
+                                    colors = CardDefaults.cardColors(
+                                        containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                                    )
                                 ) {
-                                    Text(
-                                        text = "Descuento",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.error
-                                    )
-                                    Text(
-                                        text = String.format("-$%.2f", payment.discount),
-                                        style = MaterialTheme.typography.bodySmall,
-                                        fontWeight = FontWeight.Medium,
-                                        color = MaterialTheme.colorScheme.error
-                                    )
-                                }
-                            }
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Text(
-                                        text = dateFormat.format(Date(payment.date)),
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                    payment.notes?.let { note ->
-                                        Text(
-                                            text = note,
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                                        )
+                                    Column(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(12.dp)
+                                    ) {
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween
+                                        ) {
+                                            Text(
+                                                text = payment.method.displayName,
+                                                style = MaterialTheme.typography.bodyMedium,
+                                                fontWeight = FontWeight.Medium
+                                            )
+                                            Text(
+                                                text = formatMoney(payment.amount),
+                                                style = MaterialTheme.typography.bodyMedium,
+                                                fontWeight = FontWeight.Bold,
+                                                color = MaterialTheme.colorScheme.primary
+                                            )
+                                        }
+                                        if (payment.discount > 0) {
+                                            Row(
+                                                modifier = Modifier.fillMaxWidth(),
+                                                horizontalArrangement = Arrangement.SpaceBetween
+                                            ) {
+                                                Text(
+                                                    text = "Descuento",
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                    color = MaterialTheme.colorScheme.error
+                                                )
+                                                Text(
+                                                    text = "-" + formatMoney(payment.discount),
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                    fontWeight = FontWeight.Medium,
+                                                    color = MaterialTheme.colorScheme.error
+                                                )
+                                            }
+                                        }
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Column(modifier = Modifier.weight(1f)) {
+                                                Text(
+                                                    text = dateFormat.format(Date(payment.date)),
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                )
+                                                payment.notes?.let { note ->
+                                                    Text(
+                                                        text = note,
+                                                        style = MaterialTheme.typography.bodySmall,
+                                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                    )
+                                                }
+                                            }
+                                            // Corregir un cobro mal registrado sin tener que borrarlo y volver a crearlo.
+                                            IconButton(
+                                                onClick = {
+                                                    viewModel.startEditPayment(payment)
+                                                    showPaymentDialog = true
+                                                },
+                                                enabled = !isLocked,
+                                                modifier = Modifier.size(32.dp)
+                                            ) {
+                                                Icon(
+                                                    Icons.Default.Edit,
+                                                    contentDescription = "Editar pago",
+                                                    modifier = Modifier.size(18.dp)
+                                                )
+                                            }
+                                        }
                                     }
-                                }
-                                // Corregir un cobro mal registrado sin tener que borrarlo y volver a crearlo.
-                                IconButton(
-                                    onClick = {
-                                        viewModel.startEditPayment(payment)
-                                        showPaymentDialog = true
-                                    },
-                                    enabled = !isLocked,
-                                    modifier = Modifier.size(32.dp)
-                                ) {
-                                    Icon(
-                                        Icons.Default.Edit,
-                                        contentDescription = "Editar pago",
-                                        modifier = Modifier.size(18.dp)
-                                    )
                                 }
                             }
                         }
@@ -2011,7 +2014,7 @@ private fun PartDialog(
                                         Column {
                                             Text("${part.code ?: ""} - ${part.name}")
                                             Text(
-                                                text = "Stock: ${part.currentStock} | $${String.format(Locale.US, "%.2f", part.salePrice ?: part.unitCost)}",
+                                                text = "Stock: ${part.currentStock} | ${formatMoney(part.salePrice ?: part.unitCost)}",
                                                 style = MaterialTheme.typography.bodySmall,
                                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                                             )
@@ -2443,7 +2446,7 @@ private fun PaymentDialog(
                     supportingText = if (amountError != null) {
                         { Text(amountError!!, color = MaterialTheme.colorScheme.error) }
                     } else {
-                        { Text("Balance pendiente: $${String.format(Locale.US, "%.2f", remainingBalance)}") }
+                        { Text("Balance pendiente: ${formatMoney(remainingBalance)}") }
                     },
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -2509,7 +2512,7 @@ private fun PaymentDialog(
                 } else if (totalPayment <= 0) {
                     amountError = "Ingrese un monto o descuento mayor a 0"
                 } else if (totalPayment > remainingBalance + 0.01) {
-                    amountError = "El total (monto + descuento) excede el balance pendiente ($${String.format(Locale.US, "%.2f", remainingBalance)})"
+                    amountError = "El total (monto + descuento) excede el balance pendiente (${formatMoney(remainingBalance)})"
                 } else {
                     onSave()
                 }

@@ -46,17 +46,18 @@ object CommissionPdfGenerator {
     private val fileDateFmt = SimpleDateFormat("yyyy-MM-dd_HHmm", Locale("es"))
 
     // Colors (mismos que PdfReportGenerator)
-    private const val COL_ACCENT = 0xFFE65100.toInt()
-    private const val COL_HEADER_BG = 0xFF37474F.toInt()
-    private const val COL_HEADER_TEXT = 0xFFFFFFFF.toInt()
-    private const val COL_TABLE_HEADER_BG = 0xFFECEFF1.toInt()
-    private const val COL_ALT_ROW = 0xFFF5F5F5.toInt()
-    private const val COL_TEXT = 0xFF333333.toInt()
-    private const val COL_TEXT_BOLD = 0xFF1A1A1A.toInt()
-    private const val COL_MUTED = 0xFF666666.toInt()
-    private const val COL_TOTAL_BG = 0xFFE8F5E9.toInt()
-    private const val COL_TOTAL_TEXT = 0xFF1B5E20.toInt()
-    private const val COL_DIVIDER = 0xFFBDBDBD.toInt()
+    // Línea gráfica del rediseño índigo (rampa en ui/theme/Color.kt)
+    private const val COL_ACCENT = 0xFF4A4BAB.toInt()          // Indigo700
+    private const val COL_HEADER_BG = 0xFF363688.toInt()       // Indigo800
+    private const val COL_HEADER_TEXT = 0xFFF7F6FB.toInt()     // Neutral100
+    private const val COL_TABLE_HEADER_BG = 0xFFECEBF3.toInt() // Neutral200
+    private const val COL_ALT_ROW = 0xFFF7F6FB.toInt()         // Neutral100
+    private const val COL_TEXT = 0xFF2B2934.toInt()            // Neutral900
+    private const val COL_TEXT_BOLD = 0xFF1E1C26.toInt()       // TextInk
+    private const val COL_MUTED = 0xFF605D6F.toInt()           // Neutral700
+    private const val COL_TOTAL_BG = 0xFFE3F6F2.toInt()        // Aqua100
+    private const val COL_TOTAL_TEXT = 0xFF244841.toInt()      // Aqua800
+    private const val COL_DIVIDER = 0xFFD9D7E4.toInt()         // Neutral300
 
     /**
      * Genera el PDF de comisiones pagadas.
@@ -258,7 +259,7 @@ object CommissionPdfGenerator {
     private fun getLogoBitmap(context: Context, sizePx: Int): Bitmap? {
         return try {
             val opts = BitmapFactory.Options().apply { inScaled = false }
-            val bmp = BitmapFactory.decodeResource(context.resources, R.drawable.servielecar_logo, opts)
+            val bmp = BitmapFactory.decodeResource(context.resources, R.drawable.serviaux_logo, opts)
                 ?: BitmapFactory.decodeResource(context.resources, R.mipmap.ic_launcher, opts)
                 ?: return null
             Bitmap.createScaledBitmap(bmp, sizePx, sizePx, true)

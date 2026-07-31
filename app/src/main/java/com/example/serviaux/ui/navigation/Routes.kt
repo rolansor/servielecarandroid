@@ -16,7 +16,8 @@ package com.example.serviaux.ui.navigation
  */
 object Routes {
     const val LOGIN = "login"
-    const val DASHBOARD = "dashboard"
+    const val DASHBOARD = "dashboard"   // "El taller hoy" (tablero por estados)
+    const val MORE = "more"             // pestaña "Más": accesos y administración
     const val CUSTOMER_LIST = "customers"
     const val CUSTOMER_DETAIL = "customers/{customerId}"
     const val CUSTOMER_FORM = "customers/form?customerId={customerId}"

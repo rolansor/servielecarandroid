@@ -1,60 +1,63 @@
-package com.example.serviaux.ui.dashboard
+/**
+ * TallerViewModel.kt - Estado del tablero "El taller hoy".
+ *
+ * Reemplaza al antiguo DashboardViewModel: en lugar de contadores sueltos,
+ * agrupa las órdenes activas por estado para pintarlas como secciones.
+ * Hereda de aquel el diálogo de primer arranque (cargar datos de ejemplo).
+ */
+package com.example.serviaux.ui.taller
 
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.serviaux.ServiauxApp
 import com.example.serviaux.data.ServiauxDatabase
-import com.example.serviaux.data.entity.AppointmentStatus
 import com.example.serviaux.data.entity.OrderStatus
 import com.example.serviaux.data.entity.User
 import com.example.serviaux.data.entity.UserRole
+import com.example.serviaux.data.entity.Vehicle
 import com.example.serviaux.data.entity.WorkOrder
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
-data class DashboardUiState(
-    val recibido: Int = 0,
-    val enDiagnostico: Int = 0,
-    val enProceso: Int = 0,
-    val enEsperaRepuesto: Int = 0,
-    val listo: Int = 0,
-    val entregado: Int = 0,
+/** Orden de las secciones del tablero: el flujo de trabajo del taller. */
+val TALLER_SECTION_ORDER = listOf(
+    OrderStatus.RECIBIDO,
+    OrderStatus.EN_DIAGNOSTICO,
+    OrderStatus.EN_PROCESO,
+    OrderStatus.EN_ESPERA_REPUESTO,
+    OrderStatus.LISTO
+)
+
+data class TallerUiState(
+    val ordersByStatus: Map<OrderStatus, List<WorkOrder>> = emptyMap(),
+    val totalActivos: Int = 0,
     val currentUserName: String = "",
     val currentUserRole: UserRole = UserRole.MECANICO,
-    val recentOrders: List<WorkOrder> = emptyList(),
-    val totalActiveOrders: Int = 0,
-    val vehicleMap: Map<Long, String> = emptyMap(),
+    val vehicleMap: Map<Long, Vehicle> = emptyMap(),
     val customerMap: Map<Long, String> = emptyMap(),
-    val turnosPendientes: Int = 0,
-    val turnosConfirmados: Int = 0,
+    val userNameMap: Map<Long, String> = emptyMap(),
     val showSampleDataDialog: Boolean = false,
     val loadingSampleData: Boolean = false
 )
 
-class DashboardViewModel(application: Application) : AndroidViewModel(application) {
+class TallerViewModel(application: Application) : AndroidViewModel(application) {
 
     private val app get() = getApplication<ServiauxApp>()
     private val workOrderRepo get() = app.container.workOrderRepository
     private val vehicleRepo get() = app.container.vehicleRepository
     private val customerRepo get() = app.container.customerRepository
-    private val appointmentRepo get() = app.container.appointmentRepository
+    private val authRepo get() = app.container.authRepository
     private val session get() = app.container.sessionManager
 
-    private val _uiState = MutableStateFlow(DashboardUiState())
-    val uiState: StateFlow<DashboardUiState> = _uiState.asStateFlow()
+    private val _uiState = MutableStateFlow(TallerUiState())
+    val uiState: StateFlow<TallerUiState> = _uiState.asStateFlow()
 
     val currentUser: StateFlow<User?> = session.currentUser
-
-    private val activeStatuses = setOf(
-        OrderStatus.RECIBIDO, OrderStatus.EN_DIAGNOSTICO,
-        OrderStatus.EN_PROCESO, OrderStatus.EN_ESPERA_REPUESTO, OrderStatus.LISTO
-    )
 
     init {
         if (ServiauxDatabase.needsSamplePrompt(application)) {
@@ -72,33 +75,13 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
             }
         }
 
-        collectStatusCount(OrderStatus.RECIBIDO) { count ->
-            _uiState.update { it.copy(recibido = count) }
-        }
-        collectStatusCount(OrderStatus.EN_DIAGNOSTICO) { count ->
-            _uiState.update { it.copy(enDiagnostico = count) }
-        }
-        collectStatusCount(OrderStatus.EN_PROCESO) { count ->
-            _uiState.update { it.copy(enProceso = count) }
-        }
-        collectStatusCount(OrderStatus.EN_ESPERA_REPUESTO) { count ->
-            _uiState.update { it.copy(enEsperaRepuesto = count) }
-        }
-        collectStatusCount(OrderStatus.LISTO) { count ->
-            _uiState.update { it.copy(listo = count) }
-        }
-        collectStatusCount(OrderStatus.ENTREGADO) { count ->
-            _uiState.update { it.copy(entregado = count) }
-        }
-
         viewModelScope.launch {
-            workOrderRepo.getAll().map { orders ->
-                orders.filter { it.status in activeStatuses }.take(5)
-            }.collect { recent ->
+            workOrderRepo.getAll().collect { orders ->
+                val active = orders.filter { it.status in TALLER_SECTION_ORDER }
                 _uiState.update {
                     it.copy(
-                        recentOrders = recent,
-                        totalActiveOrders = recent.size
+                        ordersByStatus = active.groupBy { o -> o.status },
+                        totalActivos = active.size
                     )
                 }
             }
@@ -106,7 +89,7 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
 
         viewModelScope.launch {
             vehicleRepo.getAll().collect { vehicles ->
-                _uiState.update { it.copy(vehicleMap = vehicles.associate { v -> v.id to "${v.plate} - ${v.brand} ${v.model}" }) }
+                _uiState.update { it.copy(vehicleMap = vehicles.associateBy { v -> v.id }) }
             }
         }
         viewModelScope.launch {
@@ -114,15 +97,9 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
                 _uiState.update { it.copy(customerMap = customers.associate { c -> c.id to c.fullName }) }
             }
         }
-
         viewModelScope.launch {
-            appointmentRepo.countByStatus(AppointmentStatus.PENDIENTE).collect { count ->
-                _uiState.update { it.copy(turnosPendientes = count) }
-            }
-        }
-        viewModelScope.launch {
-            appointmentRepo.countByStatus(AppointmentStatus.CONFIRMADO).collect { count ->
-                _uiState.update { it.copy(turnosConfirmados = count) }
+            authRepo.getAllUsers().collect { users ->
+                _uiState.update { it.copy(userNameMap = users.associate { u -> u.id to u.name }) }
             }
         }
     }
@@ -142,17 +119,5 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
         val context = getApplication<ServiauxApp>()
         ServiauxDatabase.clearSamplePrompt(context)
         _uiState.update { it.copy(showSampleDataDialog = false) }
-    }
-
-    fun logout() {
-        app.container.authRepository.logout()
-    }
-
-    private fun collectStatusCount(status: OrderStatus, onUpdate: (Int) -> Unit) {
-        viewModelScope.launch {
-            workOrderRepo.countByStatus(status).collect { count ->
-                onUpdate(count)
-            }
-        }
     }
 }

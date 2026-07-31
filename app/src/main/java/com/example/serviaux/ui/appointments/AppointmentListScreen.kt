@@ -64,6 +64,10 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.compose.ui.platform.LocalContext
 import com.example.serviaux.data.entity.AppointmentStatus
+import com.example.serviaux.ui.theme.Aqua600
+import com.example.serviaux.ui.theme.Indigo700
+import com.example.serviaux.ui.theme.Neutral400
+import com.example.serviaux.ui.theme.Neutral600
 import com.example.serviaux.util.ShareUtils
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -183,11 +187,13 @@ fun AppointmentListScreen(
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     items(uiState.appointments, key = { it.id }) { appointment ->
+                        // Semántica del rediseño: verde-agua = confirmado, índigo =
+                        // convertido (ya es orden), neutro = pendiente o inerte.
                         val statusColor = when (appointment.status) {
-                            AppointmentStatus.PENDIENTE -> Color(0xFFFF9800)
-                            AppointmentStatus.CONFIRMADO -> Color(0xFF4CAF50)
-                            AppointmentStatus.CANCELADO -> Color.Gray
-                            AppointmentStatus.CONVERTIDO -> Color(0xFF2196F3)
+                            AppointmentStatus.PENDIENTE -> Neutral600
+                            AppointmentStatus.CONFIRMADO -> Aqua600
+                            AppointmentStatus.CANCELADO -> Neutral400
+                            AppointmentStatus.CONVERTIDO -> Indigo700
                         }
 
                         Card(
@@ -274,7 +280,7 @@ fun AppointmentListScreen(
                                         if (appointment.status != AppointmentStatus.CONVERTIDO) {
                                             if (appointment.status == AppointmentStatus.PENDIENTE) {
                                                 IconButton(onClick = { viewModel.confirm(appointment.id) }, modifier = Modifier.size(36.dp)) {
-                                                    Icon(Icons.Default.CheckCircle, "Confirmar", tint = Color(0xFF4CAF50), modifier = Modifier.size(20.dp))
+                                                    Icon(Icons.Default.CheckCircle, "Confirmar", tint = MaterialTheme.colorScheme.secondary, modifier = Modifier.size(20.dp))
                                                 }
                                             }
                                             if (appointment.status in listOf(AppointmentStatus.PENDIENTE, AppointmentStatus.CONFIRMADO)) {
@@ -282,7 +288,7 @@ fun AppointmentListScreen(
                                                     onClick = { onNavigateToConvert(appointment.customerId, appointment.vehicleId, appointment.id) },
                                                     modifier = Modifier.size(36.dp)
                                                 ) {
-                                                    Icon(Icons.Default.SwapHoriz, "Convertir a orden", tint = Color(0xFF2196F3), modifier = Modifier.size(20.dp))
+                                                    Icon(Icons.Default.SwapHoriz, "Convertir a orden", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
                                                 }
                                             }
                                             if (appointment.status != AppointmentStatus.CANCELADO) {
@@ -290,7 +296,7 @@ fun AppointmentListScreen(
                                                     Icon(Icons.Default.Edit, "Editar", modifier = Modifier.size(20.dp))
                                                 }
                                                 IconButton(onClick = { viewModel.cancel(appointment.id) }, modifier = Modifier.size(36.dp)) {
-                                                    Icon(Icons.Default.Cancel, "Cancelar", tint = Color(0xFFFF5722), modifier = Modifier.size(20.dp))
+                                                    Icon(Icons.Default.Cancel, "Cancelar", tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(20.dp))
                                                 }
                                             }
                                             IconButton(onClick = { deleteConfirmId = appointment.id }, modifier = Modifier.size(36.dp)) {

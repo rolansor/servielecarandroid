@@ -33,6 +33,7 @@ import kotlinx.coroutines.launch
 data class CatalogUiState(
     val brands: List<CatalogBrand> = emptyList(),
     val models: List<CatalogModel> = emptyList(),
+    val allModels: List<CatalogModel> = emptyList(),
     val colors: List<CatalogColor> = emptyList(),
     val partBrands: List<CatalogPartBrand> = emptyList(),
     val services: List<CatalogService> = emptyList(),
@@ -56,7 +57,7 @@ sealed class CatalogDialogState {
     data object None : CatalogDialogState()
     data class AddBrand(val name: String = "") : CatalogDialogState()
     data class EditBrand(val brand: CatalogBrand, val name: String) : CatalogDialogState()
-    data class AddModel(val brandId: Long, val name: String = "") : CatalogDialogState()
+    data class AddModel(val brandId: Long?, val name: String = "") : CatalogDialogState()
     data class EditModel(val model: CatalogModel, val name: String) : CatalogDialogState()
     data class AddColor(val name: String = "") : CatalogDialogState()
     data class EditColor(val color: CatalogColor, val name: String) : CatalogDialogState()
@@ -70,7 +71,7 @@ sealed class CatalogDialogState {
     data class EditAccessory(val acc: CatalogAccessory, val name: String) : CatalogDialogState()
     data class AddComplaint(val name: String = "") : CatalogDialogState()
     data class EditComplaint(val complaint: CatalogComplaint, val name: String) : CatalogDialogState()
-    data class AddDiagnosis(val complaintId: Long, val name: String = "") : CatalogDialogState()
+    data class AddDiagnosis(val complaintId: Long?, val name: String = "") : CatalogDialogState()
     data class EditDiagnosis(val diagnosis: CatalogDiagnosis, val name: String) : CatalogDialogState()
     data class AddOilType(val name: String = "") : CatalogDialogState()
     data class EditOilType(val oilType: CatalogOilType, val name: String) : CatalogDialogState()
@@ -90,6 +91,7 @@ class CatalogViewModel(application: Application) : AndroidViewModel(application)
 
     init {
         loadBrands()
+        loadAllModels()
         loadColors()
         loadPartBrands()
         loadServices()
@@ -104,6 +106,14 @@ class CatalogViewModel(application: Application) : AndroidViewModel(application)
         viewModelScope.launch {
             catalogRepo.getAllBrands().collect { brands ->
                 _uiState.update { it.copy(brands = brands) }
+            }
+        }
+    }
+
+    private fun loadAllModels() {
+        viewModelScope.launch {
+            catalogRepo.getAllModels().collect { models ->
+                _uiState.update { it.copy(allModels = models) }
             }
         }
     }
@@ -209,7 +219,7 @@ class CatalogViewModel(application: Application) : AndroidViewModel(application)
         _uiState.update { it.copy(dialogState = CatalogDialogState.EditBrand(brand, brand.name)) }
     }
 
-    fun showAddModelDialog(brandId: Long) {
+    fun showAddModelDialog(brandId: Long? = null) {
         _uiState.update { it.copy(dialogState = CatalogDialogState.AddModel(brandId)) }
     }
 
@@ -269,7 +279,7 @@ class CatalogViewModel(application: Application) : AndroidViewModel(application)
         _uiState.update { it.copy(dialogState = CatalogDialogState.EditComplaint(complaint, complaint.name)) }
     }
 
-    fun showAddDiagnosisDialog(complaintId: Long) {
+    fun showAddDiagnosisDialog(complaintId: Long? = null) {
         _uiState.update { it.copy(dialogState = CatalogDialogState.AddDiagnosis(complaintId)) }
     }
 
@@ -612,7 +622,8 @@ class CatalogViewModel(application: Application) : AndroidViewModel(application)
                         }
                     }
                     "model" -> {
-                        val model = _uiState.value.models.find { it.id == dialog.id }
+                        val model = _uiState.value.allModels.find { it.id == dialog.id }
+                            ?: _uiState.value.models.find { it.id == dialog.id }
                         if (model != null) catalogRepo.deleteModel(model)
                     }
                     "color" -> {

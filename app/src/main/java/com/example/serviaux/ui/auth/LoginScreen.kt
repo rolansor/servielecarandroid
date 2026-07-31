@@ -5,7 +5,7 @@
  * 1. Biométrico: si hay sesión guardada, solicita huella/rostro para restaurarla.
  * 2. Formulario: campos de usuario y contraseña con validación.
  *
- * Muestra el logo de Servielecar y mensajes de error en español.
+ * Muestra el logo de Serviaux y mensajes de error en español.
  * Tras un login exitoso, invoca [onLoginSuccess] para navegar al dashboard.
  */
 package com.example.serviaux.ui.auth
@@ -91,8 +91,8 @@ fun LoginScreen(
             verticalArrangement = Arrangement.Center
         ) {
             Image(
-                painter = painterResource(id = R.drawable.servielecar_logo),
-                contentDescription = "Servielecar Logo",
+                painter = painterResource(id = R.drawable.serviaux_logo),
+                contentDescription = "Serviaux",
                 modifier = Modifier
                     .size(150.dp)
                     .clip(RoundedCornerShape(20.dp))
@@ -113,8 +113,8 @@ fun LoginScreen(
         verticalArrangement = Arrangement.Center
     ) {
         Image(
-            painter = painterResource(id = R.drawable.servielecar_logo),
-            contentDescription = "Servielecar Logo",
+            painter = painterResource(id = R.drawable.serviaux_logo),
+            contentDescription = "Serviaux",
             modifier = Modifier
                 .size(180.dp)
                 .clip(RoundedCornerShape(24.dp))

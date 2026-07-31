@@ -74,6 +74,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil3.compose.AsyncImage
 import coil3.request.ImageRequest
+import com.example.serviaux.ui.components.CollapsibleSection
 import com.example.serviaux.ui.components.SearchableDropdown
 import com.example.serviaux.ui.components.SearchableItem
 import java.io.File
@@ -225,6 +226,12 @@ fun VehicleFormScreen(
                 .verticalScroll(rememberScrollState())
                 .padding(16.dp)
         ) {
+            // ── Datos del vehículo: lo necesario para guardar ──
+            CollapsibleSection(
+                title = "Datos del vehículo",
+                summary = uiState.formPlate.ifBlank { null },
+                initiallyExpanded = true
+            ) {
             // 1. Customer selector (autocomplete)
             SearchableDropdown(
                 value = uiState.formCustomerSearch,
@@ -296,19 +303,6 @@ fun VehicleFormScreen(
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // 5. Version (free text)
-            OutlinedTextField(
-                value = uiState.formVersion,
-                onValueChange = { viewModel.onFormVersionChange(it) },
-                label = { Text("Versi\u00f3n") },
-                placeholder = { Text("ej: 1.6 GL, 2.0 GLS Premium, SR Turbo") },
-                singleLine = true,
-                keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Characters),
-                modifier = Modifier.fillMaxWidth()
-            )
-
-            Spacer(modifier = Modifier.height(12.dp))
-
             // 6. Año (picker)
             ExposedDropdownMenuBox(
                 expanded = yearExpanded,
@@ -342,6 +336,29 @@ fun VehicleFormScreen(
                     }
                 }
             }
+
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // ── Detalles técnicos: todo opcional ──
+            CollapsibleSection(
+                title = "Detalles técnicos",
+                summary = listOf(uiState.formVersion, uiState.formColorSearch, uiState.formFuelType)
+                    .filter { it.isNotBlank() }
+                    .joinToString(" · ")
+                    .ifBlank { null }
+            ) {
+            // Versión (texto libre)
+            OutlinedTextField(
+                value = uiState.formVersion,
+                onValueChange = { viewModel.onFormVersionChange(it) },
+                label = { Text("Versión") },
+                placeholder = { Text("ej: 1.6 GL, 2.0 GLS Premium, SR Turbo") },
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Characters),
+                modifier = Modifier.fillMaxWidth()
+            )
 
             Spacer(modifier = Modifier.height(12.dp))
 
@@ -537,8 +554,17 @@ fun VehicleFormScreen(
                 }
             }
 
+            }
+
             Spacer(modifier = Modifier.height(12.dp))
 
+            // ── Fotos: opcionales ──
+            val totalFotos = uiState.formRegistrationPhotoPaths.size + uiState.formPhotoPaths.size
+            CollapsibleSection(
+                title = "Fotos",
+                summary = if (totalFotos == 0) "Sin fotos"
+                else "$totalFotos foto${if (totalFotos == 1) "" else "s"}"
+            ) {
             // Fotos de Matrícula (max 2)
             Text(
                 text = "Fotos de Matr\u00edcula (${uiState.formRegistrationPhotoPaths.size}/2)",
@@ -635,8 +661,15 @@ fun VehicleFormScreen(
                 }
             }
 
+            }
+
             Spacer(modifier = Modifier.height(12.dp))
 
+            // ── Notas: opcionales ──
+            CollapsibleSection(
+                title = "Notas",
+                summary = if (uiState.formNotes.isBlank()) null else "✓"
+            ) {
             // 14. Notas
             OutlinedTextField(
                 value = uiState.formNotes,
@@ -646,6 +679,7 @@ fun VehicleFormScreen(
                 keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Characters),
                 modifier = Modifier.fillMaxWidth()
             )
+            }
 
             Spacer(modifier = Modifier.height(24.dp))
 

@@ -75,5 +75,7 @@ class RoutesTest {
     fun `el dashboard y el login no son rutas restringidas`() {
         assertTrue(Routes.DASHBOARD !in Routes.ADMIN_ROUTES)
         assertTrue(Routes.LOGIN !in Routes.ADMIN_ROUTES)
+        // "Más" es visible para todos; dentro solo se ocultan los accesos de admin.
+        assertTrue(Routes.MORE !in Routes.ADMIN_ROUTES)
     }
 }

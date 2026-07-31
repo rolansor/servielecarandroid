@@ -7,6 +7,8 @@
  */
 package com.example.serviaux.ui.vehicles
 
+import com.example.serviaux.util.formatMoney
+
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -255,7 +257,7 @@ fun VehicleDetailScreen(
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                                 Text(
-                                    text = String.format("$%.2f", order.total),
+                                    text = formatMoney(order.total),
                                     style = MaterialTheme.typography.bodyMedium,
                                     fontWeight = FontWeight.SemiBold,
                                     color = MaterialTheme.colorScheme.primary

@@ -9,6 +9,8 @@
  */
 package com.example.serviaux.ui.workorders
 
+import com.example.serviaux.util.formatMoney
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -251,11 +253,12 @@ fun WorkOrderListScreen(
                         }
                         val (paid, discount) = uiState.paymentSummaryMap[order.id] ?: (0.0 to 0.0)
                         val balance = (order.total - paid - discount).coerceAtLeast(0.0)
+                        // Semántica de saldo del rediseño: verde-agua = saldado,
+                        // índigo = abonado o sin pagos. Único número coloreado.
                         val balanceColor = when {
                             order.total <= 0.0 -> MaterialTheme.colorScheme.onSurfaceVariant
-                            balance <= 0.01 -> StatusListo
-                            paid > 0.0 || discount > 0.0 -> Amber40
-                            else -> BrakeRed40
+                            balance <= 0.01 -> SaldoSaldado
+                            else -> SaldoPendiente
                         }
                         Card(
                             modifier = Modifier
@@ -340,7 +343,7 @@ fun WorkOrderListScreen(
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
                                     Text(
-                                        text = String.format(Locale.US, "Total: $%.2f", order.total),
+                                        text = "Total: " + formatMoney(order.total),
                                         style = MaterialTheme.typography.bodyMedium,
                                         fontWeight = FontWeight.SemiBold,
                                         color = MaterialTheme.colorScheme.primary,
@@ -352,13 +355,13 @@ fun WorkOrderListScreen(
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
                                     Text(
-                                        text = String.format(Locale.US, "Abono: $%.2f", paid),
+                                        text = "Abono: " + formatMoney(paid),
                                         style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                                         modifier = Modifier.weight(1f)
                                     )
                                     Text(
-                                        text = String.format(Locale.US, "Saldo: $%.2f", balance),
+                                        text = "Saldo: " + formatMoney(balance),
                                         style = MaterialTheme.typography.bodySmall,
                                         fontWeight = FontWeight.SemiBold,
                                         color = balanceColor
